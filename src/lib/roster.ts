@@ -1,0 +1,169 @@
+import { prisma } from './db';
+import type { GameConfig } from './games';
+import type { EvSpread } from './import/evs';
+import { legalMoves } from './legality';
+import type { TaskStatus } from './roster-status';
+
+type Named = { id: number; nameEn: string; nameEs: string };
+
+export type RosterMoveView = {
+  slot: number;
+  move: (Named & { type: string; damageClass: string }) | null;
+  rawName: string | null;
+  status: TaskStatus;
+  legal: boolean | null;
+};
+
+/** Everything the roster UI needs for one Pokémon, already flattened for the client. */
+export type RosterView = {
+  id: string;
+  species: Named;
+  baseSpecies: Named | null;
+  formId: number | null;
+  spriteUrl: string | null;
+  types: string[];
+  /** Abilities this species can actually have, for the editor and the legality flag. */
+  abilityOptions: (Named & { isHidden: boolean })[];
+  nickname: string | null;
+  gender: 'MALE' | 'FEMALE' | 'GENDERLESS' | 'UNKNOWN';
+  origin: 'CAUGHT' | 'BRED' | 'UNKNOWN';
+  owned: boolean;
+  targetNature: Named | null;
+  currentNature: Named | null;
+  natureStatus: TaskStatus;
+  ability: Named | null;
+  abilityLegal: boolean | null;
+  abilityStatus: TaskStatus;
+  item: (Named & { spriteUrl: string | null }) | null;
+  itemNote: string | null;
+  itemStatus: TaskStatus;
+  evs: EvSpread | null;
+  evStatus: TaskStatus;
+  teraType: string | null;
+  notes: string | null;
+  moves: RosterMoveView[];
+  audit: { provider: string; model: string; createdAt: string; result: unknown } | null;
+};
+
+const named = { id: true, nameEn: true, nameEs: true } as const;
+
+export async function loadRoster(profileId: string, ids?: string[]): Promise<RosterView[]> {
+  const rows = await prisma.rosterPokemon.findMany({
+    where: { profileId, ...(ids ? { id: { in: ids } } : {}) },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    include: {
+      species: {
+        select: {
+          ...named,
+          forms: {
+            orderBy: { id: 'asc' },
+            select: {
+              id: true,
+              isDefault: true,
+              spriteUrl: true,
+              types: true,
+              abilities: { select: { isHidden: true, ability: { select: named } } },
+            },
+          },
+        },
+      },
+      baseSpecies: { select: named },
+      targetNature: { select: named },
+      currentNature: { select: named },
+      ability: { select: named },
+      item: { select: { ...named, spriteUrl: true } },
+      moves: {
+        orderBy: { slot: 'asc' },
+        include: { move: { select: { ...named, type: true, damageClass: true } } },
+      },
+      audits: { where: { kind: 'build' }, orderBy: { createdAt: 'desc' }, take: 1 },
+    },
+  });
+
+  return rows.map((r) => {
+    const form = r.species.forms.find((f) => f.id === r.formId) ?? r.species.forms.find((f) => f.isDefault);
+    const abilityOptions = (form?.abilities ?? []).map((a) => ({ ...a.ability, isHidden: a.isHidden }));
+    const audit = r.audits[0];
+    return {
+      id: r.id,
+      species: { id: r.species.id, nameEn: r.species.nameEn, nameEs: r.species.nameEs },
+      baseSpecies: r.baseSpecies,
+      formId: form?.id ?? null,
+      spriteUrl: form?.spriteUrl ?? null,
+      types: form?.types ?? [],
+      abilityOptions,
+      nickname: r.nickname,
+      gender: r.gender,
+      origin: r.origin,
+      owned: r.owned,
+      targetNature: r.targetNature,
+      currentNature: r.currentNature,
+      natureStatus: r.natureStatus,
+      ability: r.ability,
+      abilityLegal: r.ability ? abilityOptions.some((a) => a.id === r.ability!.id) : null,
+      abilityStatus: r.abilityStatus,
+      item: r.item,
+      itemNote: r.itemNote,
+      itemStatus: r.itemStatus,
+      evs: r.evs as EvSpread | null,
+      evStatus: r.evStatus,
+      teraType: r.teraType,
+      notes: r.notes,
+      moves: r.moves.map((m) => ({
+        slot: m.slot,
+        move: m.move,
+        rawName: m.rawName,
+        status: m.status,
+        legal: m.legal,
+      })),
+      audit: audit
+        ? { provider: audit.provider, model: audit.model, createdAt: audit.createdAt.toISOString(), result: audit.result }
+        : null,
+    };
+  });
+}
+
+/** Re-runs the deterministic legality check for one Pokémon's moves and stores the result. */
+export async function refreshLegality(rosterPokemonId: string, game: GameConfig): Promise<void> {
+  const p = await prisma.rosterPokemon.findUnique({
+    where: { id: rosterPokemonId },
+    select: { speciesId: true, moves: { select: { id: true, moveId: true } } },
+  });
+  if (!p) return;
+  const moveIds = p.moves.map((m) => m.moveId).filter((id): id is number => id != null);
+  const legal = (await legalMoves([p.speciesId], moveIds, game.learnsetVersionGroups)).get(p.speciesId)!;
+  await prisma.$transaction(
+    p.moves.map((m) =>
+      prisma.rosterMove.update({
+        where: { id: m.id },
+        data: { legal: m.moveId == null ? null : legal.has(m.moveId) },
+      })
+    )
+  );
+}
+
+/** Name lists for the inline editors. */
+export async function loadEditorOptions() {
+  const [species, moves, items, natures] = await Promise.all([
+    prisma.species.findMany({ select: named, orderBy: { id: 'asc' } }),
+    prisma.move.findMany({ select: named, orderBy: { nameEn: 'asc' } }),
+    prisma.item.findMany({
+      // Things a Pokémon can meaningfully hold; skips key items, TMs, balls, etc.
+      where: {
+        category: {
+          in: [
+            'held-items', 'choice', 'bad-held-items', 'type-enhancement', 'species-specific', 'plates',
+            'in-a-pinch', 'picky-healing', 'type-protection', 'medicine', 'other', 'effort-training',
+            'training', 'scarves', 'jewels', 'mega-stones', 'z-crystals', 'memories', 'held-items-other',
+          ],
+        },
+      },
+      select: named,
+      orderBy: { nameEn: 'asc' },
+    }),
+    prisma.nature.findMany({ select: { ...named, increased: true, decreased: true }, orderBy: { nameEn: 'asc' } }),
+  ]);
+  return { species, moves, items, natures };
+}
+
+export type EditorOptions = Awaited<ReturnType<typeof loadEditorOptions>>;
