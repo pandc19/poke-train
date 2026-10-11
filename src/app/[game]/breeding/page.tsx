@@ -13,7 +13,7 @@ export default async function BreedingPage({ params }: PageProps<'/[game]/breedi
   if (!game.features.breeding) notFound();
 
   const named = { id: true, nameEn: true, nameEs: true } as const;
-  const [goals, roster, species, moves, lang] = await Promise.all([
+  const [goals, roster, species, lang] = await Promise.all([
     loadGoals(game, profileId),
     loadRoster(profileId),
     // Only Pokémon obtainable in this game can be bred in it.
@@ -22,7 +22,6 @@ export default async function BreedingPage({ params }: PageProps<'/[game]/breedi
       select: named,
       orderBy: { id: 'asc' },
     }),
-    prisma.move.findMany({ select: named, orderBy: { nameEn: 'asc' } }),
     getLang(),
   ]);
 
@@ -38,7 +37,6 @@ export default async function BreedingPage({ params }: PageProps<'/[game]/breedi
         gameId={game.id}
         initial={goals}
         species={species}
-        moves={moves}
         lang={lang}
         aiEnabled={getAiProvider() != null}
         rosterBuilds={roster

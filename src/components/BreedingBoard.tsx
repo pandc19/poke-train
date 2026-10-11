@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ConfirmDialog } from './Dialog';
 import type { LocationResult } from '@/lib/ai/schema';
@@ -31,7 +31,6 @@ export function BreedingBoard({
   gameId,
   initial,
   species,
-  moves,
   lang,
   aiEnabled,
   rosterBuilds,
@@ -39,15 +38,17 @@ export function BreedingBoard({
   gameId: string;
   initial: BreedingGoalView[];
   species: Named[];
-  moves: Named[];
   lang: Lang;
   aiEnabled: boolean;
   rosterBuilds: RosterBuild[];
 }) {
   const [goals, setGoals] = useState(initial);
   const [target, setTarget] = useState('');
-  const [wanted, setWanted] = useState(['', '', '', '']);
+  /** One move id (or none) per slot, chosen from the moves the Pokémon can have. */
+  const [wanted, setWanted] = useState<(number | null)[]>([null, null, null, null]);
+  const [options, setOptions] = useState<{ egg: Named[]; other: Named[] } | null>(null);
   const [filledFromRoster, setFilledFromRoster] = useState(false);
+  const [skipped, setSkipped] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locations, setLocations] = useState<Record<number, LocationState>>({});
@@ -70,17 +71,40 @@ export function BreedingBoard({
     return data as T;
   }
 
-  /** Typing a Pokémon that is in your roster fills in the moves you are training it with. */
+  const targetId = find(species, target)?.id ?? null;
+
+  /** Choosing a different Pokémon starts the move slots over. */
   function onTargetChange(text: string) {
     setTarget(text);
-    const match = find(species, text);
-    const build = match && rosterBuilds.find((b) => b.speciesId === match.id);
-    const untouched = wanted.every((w) => !w.trim()) || filledFromRoster;
-    if (build && untouched) {
-      setWanted([0, 1, 2, 3].map((i) => (build.moves[i] ? name(build.moves[i]) : '')));
-      setFilledFromRoster(true);
+    if ((find(species, text)?.id ?? null) !== targetId) {
+      setWanted([null, null, null, null]);
+      setOptions(null);
+      setFilledFromRoster(false);
+      setSkipped(0);
     }
   }
+
+  // Load what this Pokémon can have, then fill in the build from your roster when you have one.
+  useEffect(() => {
+    if (targetId == null) return;
+    const controller = new AbortController();
+    fetch(`/api/breeding/moves?gameId=${encodeURIComponent(gameId)}&speciesId=${targetId}`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((data: { egg: Named[]; other: Named[] }) => {
+        setOptions(data);
+        const build = rosterBuilds.find((b) => b.speciesId === targetId);
+        if (!build) return;
+        const legal = new Set([...data.egg, ...data.other].map((m) => m.id));
+        const usable = build.moves.map((m) => m.id).filter((id) => legal.has(id)).slice(0, 4);
+        setWanted([0, 1, 2, 3].map((i) => usable[i] ?? null));
+        setSkipped(build.moves.length - usable.length);
+        setFilledFromRoster(true);
+      })
+      .catch((err) => {
+        if (err?.name !== 'AbortError') setError('Could not load the moves for that Pokémon. Try again.');
+      });
+    return () => controller.abort();
+  }, [targetId, gameId, rosterBuilds]);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -89,23 +113,17 @@ export function BreedingBoard({
       setError(`"${target}" is not a Pokémon available in this game. Pick one from the suggestions.`);
       return;
     }
-    const moveIds: number[] = [];
-    for (const text of wanted.filter((w) => w.trim())) {
-      const move = find(moves, text);
-      if (!move) {
-        setError(`"${text}" is not a known move. Pick one from the suggestions.`);
-        return;
-      }
-      moveIds.push(move.id);
-    }
+    const moveIds = wanted.filter((m): m is number => m != null);
     setBusy(true);
     setError(null);
     try {
       const data = await api<{ goal: BreedingGoalView }>('/api/breeding', 'POST', { gameId, speciesId: s.id, moveIds });
       setGoals((prev) => [data.goal, ...prev]);
       setTarget('');
-      setWanted(['', '', '', '']);
+      setWanted([null, null, null, null]);
+      setOptions(null);
       setFilledFromRoster(false);
+      setSkipped(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create the plan.');
     } finally {
@@ -297,26 +315,55 @@ export function BreedingBoard({
               className={inputClass}
             />
           </label>
-          {wanted.map((value, i) => (
-            <label key={i} className="block">
-              <span className="mb-1 block text-xs font-medium text-muted">Move {i + 1}</span>
-              <input
-                list="breed-moves"
-                value={value}
-                onChange={(e) => {
-                  setFilledFromRoster(false);
-                  setWanted((prev) => prev.map((w, k) => (k === i ? e.target.value : w)));
-                }}
-                placeholder="optional"
-                className={inputClass}
-              />
-            </label>
-          ))}
+          {wanted.map((value, i) => {
+            const taken = new Set(wanted.filter((m, k) => m != null && k !== i));
+            const list = (moves: Named[]) => moves.filter((m) => !taken.has(m.id));
+            return (
+              <label key={i} className="block">
+                <span className="mb-1 block text-xs font-medium text-muted">Move {i + 1}</span>
+                <select
+                  value={value ?? ''}
+                  disabled={!options}
+                  onChange={(e) => {
+                    setFilledFromRoster(false);
+                    setWanted((prev) => prev.map((w, k) => (k === i ? (e.target.value ? Number(e.target.value) : null) : w)));
+                  }}
+                  className={inputClass}
+                >
+                  <option value="">{options ? 'None' : 'Pick a Pokémon first'}</option>
+                  {options && list(options.egg).length > 0 && (
+                    <optgroup label="Egg moves (need breeding)">
+                      {list(options.egg).map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {name(m)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {options && list(options.other).length > 0 && (
+                    <optgroup label="Learned normally">
+                      {list(options.other).map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {name(m)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </label>
+            );
+          })}
         </div>
         <p className="mt-2 text-xs text-muted">
-          {filledFromRoster
-            ? 'Moves filled in from the build you are training in your roster. Change them if you like.'
-            : 'Moves are optional. Add the moves you want it to hatch with; the plan tells you which of them need breeding.'}
+          {!targetId
+            ? 'Choose a Pokémon to see the moves it can have in this game.'
+            : !options
+              ? 'Loading its moves…'
+              : filledFromRoster
+                ? `Moves filled in from the build you are training in your roster.${
+                    skipped > 0 ? ` ${skipped} of them cannot be learned by this Pokémon in this game, so they were left out.` : ''
+                  }`
+                : `${options.egg.length} egg moves (these need breeding) and ${options.other.length} it learns normally. Moves are optional.`}
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button disabled={busy} className="rounded-md bg-done px-4 py-2 text-sm font-semibold text-bg disabled:opacity-40">
@@ -331,11 +378,6 @@ export function BreedingBoard({
         <datalist id="breed-species">
           {species.map((s) => (
             <option key={s.id} value={name(s)} />
-          ))}
-        </datalist>
-        <datalist id="breed-moves">
-          {moves.map((m) => (
-            <option key={m.id} value={name(m)} />
           ))}
         </datalist>
       </form>
