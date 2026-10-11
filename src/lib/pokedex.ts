@@ -1,6 +1,6 @@
 import { prisma } from './db';
 import { LOCAL_USER_ID } from './constants';
-import { getGame } from './games';
+import { NATIONAL_DEX_SLUG, getGame } from './games';
 import { rosterProgress } from './roster-status';
 
 export type DexCell = {
@@ -10,8 +10,10 @@ export type DexCell = {
   nameEs: string;
   spriteUrl: string | null;
   types: string[];
-  /** Caught in the profile being viewed (always false on the National Dex). */
+  /** Caught in the profile being viewed. */
   caught: boolean;
+  /** Obtainable in the game being viewed. Always true outside a game's National Dex. */
+  inGame: boolean;
   /** Genders recorded for this species in the profile being viewed. */
   hasMale: boolean;
   hasFemale: boolean;
@@ -25,13 +27,18 @@ export type DexCell = {
 
 /**
  * Builds one Pokédex page. Caught state lives in a single place
- * (PokedexEntry, per profile); this reads it across all of the user's
- * profiles, which is what links the regional dexes to the National Dex.
+ * (PokedexEntry, per save profile), so a game's regional dexes and its
+ * National Dex are two views of the same rows. Other games' saves only
+ * contribute the "caught in ..." badges; they never count as caught here.
  *
- * @param profileId the profile being viewed, or null for the National Dex.
+ * @param profileId the save profile being viewed.
  */
-export async function loadDex(pokedexSlug: string, profileId: string | null): Promise<DexCell[]> {
-  const [slots, entries, roster] = await Promise.all([
+export async function loadDex(
+  pokedexSlug: string,
+  profileId: string | null,
+  opts: { gameId?: string } = {}
+): Promise<DexCell[]> {
+  const [slots, entries, roster, gameSlots] = await Promise.all([
     prisma.pokedexSlot.findMany({
       where: { pokedex: { slug: pokedexSlug } },
       orderBy: { entryNumber: 'asc' },
@@ -62,7 +69,12 @@ export async function loadDex(pokedexSlug: string, profileId: string | null): Pr
       where: profileId ? { profileId } : { profile: { userId: LOCAL_USER_ID } },
       include: { moves: true },
     }),
+    // A game's National Dex lists every species; this marks which ones the game has.
+    opts.gameId && pokedexSlug === NATIONAL_DEX_SLUG
+      ? prisma.pokedexSlot.findMany({ where: { pokedex: { gameId: opts.gameId } }, select: { speciesId: true } })
+      : null,
   ]);
+  const inGame = gameSlots ? new Set(gameSlots.map((s) => s.speciesId)) : null;
 
   const caughtHere = new Set<number>();
   const gendersHere = new Map<number, { hasMale: boolean; hasFemale: boolean }>();
@@ -92,6 +104,7 @@ export async function loadDex(pokedexSlug: string, profileId: string | null): Pr
     spriteUrl: s.species.forms[0]?.spriteUrl ?? null,
     types: s.species.forms[0]?.types ?? [],
     caught: caughtHere.has(s.species.id),
+    inGame: inGame ? inGame.has(s.species.id) : true,
     hasMale: gendersHere.get(s.species.id)?.hasMale ?? false,
     hasFemale: gendersHere.get(s.species.id)?.hasFemale ?? false,
     genderRate: s.species.genderRate,

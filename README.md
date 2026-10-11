@@ -2,7 +2,7 @@
 
 Track Pokédex progress and a trained competitive roster across Pokémon games. The first game module is **Pokémon Violet**.
 
-- **Pokédex grid** per regional dex with click, shift-click range and drag-to-paint toggling. The National Dex fills in automatically from every game.
+- **Pokédex grid** per regional dex with click, shift-click range and drag-to-paint toggling. Each game also has its own **National Dex** tab: the same caught list as its regional dexes, with a badge on Pokémon you caught in your other games.
 - **Spreadsheet importer** (.csv / .xlsx) with a column-mapping step. Reads Spanish or English names and tolerates typos.
 - **Trained roster** as cards or a dense table. Every nature, ability, item, EV spread and move is a checklist item: orange while pending, green when done.
 - **Genders.** Record ♂/♀ on caught Pokémon in the Pokédex and on roster cards; the breeding planner uses them to know which parents you actually have.
@@ -109,4 +109,4 @@ How rows are read:
 
 **Data sources.** PokéAPI supplies everything deterministic: species, types, stats, egg groups, abilities, items, moves and learnsets, in English and Spanish. AI is used only for judgement and for facts PokéAPI does not have. PokéAPI has no wild-encounter data for Generation 9, so "where do I catch this" is an AI web lookup; treat those answers as a lead to check in game.
 
-**Multi-dex linking.** Caught state is stored once, per save profile and species. The National Dex and the "caught in another game" badges are computed from those rows, so they cannot drift out of sync.
+**Multi-dex linking.** Caught state is stored once, per save profile and species. A game's regional dexes and its National Dex are two views of those same rows, so marking a Pokémon in one marks it in the other. Other games' saves only add the "caught in ..." badges; they never count as caught.

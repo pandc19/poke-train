@@ -17,6 +17,15 @@ import { rosterProgress, type TaskKey, type TaskStatus } from '@/lib/roster-stat
 type View = 'cards' | 'table';
 type Filter = 'all' | 'pending' | 'done';
 type Gender = RosterView['gender'];
+type Sort = 'import' | 'dex' | 'national' | 'name' | 'progress';
+
+const SORT_LABELS: Record<Sort, string> = {
+  import: 'Spreadsheet order',
+  dex: 'Pokédex order (this game)',
+  national: 'National Dex number',
+  name: 'Name',
+  progress: 'Least finished first',
+};
 
 const progressOf = (p: RosterView) =>
   rosterProgress({
@@ -191,6 +200,7 @@ export function RosterBoard({
   const [roster, setRoster] = useState(initial);
   const [view, setView] = useState<View>('cards');
   const [filter, setFilter] = useState<Filter>('all');
+  const [sort, setSort] = useState<Sort>('import');
   const [editing, setEditing] = useState<string | null>(null);
   const [removing, setRemoving] = useState<RosterView | null>(null);
   const [auditing, setAuditing] = useState<string | null>(null);
@@ -310,10 +320,40 @@ export function RosterBoard({
     return { complete, total: roster.length };
   }, [roster]);
 
-  const visible = roster.filter((p) => {
-    if (filter === 'all') return true;
-    return progressOf(p).complete === (filter === 'done');
-  });
+  const visible = useMemo(() => {
+    const filtered = roster.filter((p) => {
+      if (filter === 'all') return true;
+      return progressOf(p).complete === (filter === 'done');
+    });
+    if (sort === 'import') return filtered;
+    const byName = (a: RosterView, b: RosterView) =>
+      name(a.species).localeCompare(name(b.species), lang) || a.nationalNumber - b.nationalNumber;
+    const ratio = (p: RosterView) => {
+      const { done, total } = progressOf(p);
+      return total ? done / total : 1;
+    };
+    return [...filtered].sort((a, b) => {
+      switch (sort) {
+        case 'dex':
+          // Pokémon the game does not list go last, in National order.
+          return (
+            (a.dexOrder ?? Infinity) - (b.dexOrder ?? Infinity) ||
+            a.nationalNumber - b.nationalNumber ||
+            byName(a, b)
+          );
+        case 'national':
+          return a.nationalNumber - b.nationalNumber || byName(a, b);
+        case 'name':
+          return byName(a, b);
+        default:
+          return ratio(a) - ratio(b) || a.nationalNumber - b.nationalNumber;
+      }
+    });
+  }, [roster, filter, sort, lang, name]);
+
+  /** The number shown on a card follows the active sort: game entry number, or National. */
+  const numberLabel = (p: RosterView) =>
+    `#${String(sort === 'dex' && p.entryNumber != null ? p.entryNumber : p.nationalNumber).padStart(3, '0')}`;
 
   /** The chips for one Pokémon, shared by both views. */
   const chips = (p: RosterView, dense: boolean) => {
@@ -464,6 +504,20 @@ export function RosterBoard({
             </button>
           ))}
         </div>
+        <label className="flex items-center gap-2 text-xs text-muted">
+          Sort
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as Sort)}
+            className="rounded-md border border-line bg-surface px-2 py-1.5 text-ink"
+          >
+            {(Object.keys(SORT_LABELS) as Sort[]).map((key) => (
+              <option key={key} value={key}>
+                {SORT_LABELS[key]}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <AddBox value={adding} onChange={setAdding} onAdd={add} />
           <button
@@ -539,6 +593,7 @@ export function RosterBoard({
                         <div className="min-w-0">
                           <h3 className="truncate font-semibold">{p.nickname ?? name(p.species)}</h3>
                           <p className="truncate text-xs text-muted">
+                            <span className="mr-1 font-mono">{numberLabel(p)}</span>
                             {p.nickname ? `${name(p.species)} · ` : ''}
                             {p.baseSpecies ? `from ${name(p.baseSpecies)}` : ''}
                             {p.origin !== 'UNKNOWN' ? ` · ${p.origin === 'BRED' ? 'bred' : 'caught'}` : ''}
@@ -648,6 +703,7 @@ export function RosterBoard({
                   >
                     <td className="py-1 pl-3 pr-1">{c.owned}</td>
                     <td className="whitespace-nowrap px-2 py-1 font-medium">
+                      <span className="mr-1.5 font-mono text-[10px] font-normal text-muted">{numberLabel(p)}</span>
                       <button onClick={() => setEditing(p.id)} className="hover:underline">
                         {p.nickname ?? name(p.species)}
                       </button>

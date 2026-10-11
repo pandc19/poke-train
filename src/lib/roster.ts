@@ -18,6 +18,12 @@ export type RosterMoveView = {
 export type RosterView = {
   id: string;
   species: Named;
+  /** National Dex number. */
+  nationalNumber: number;
+  /** Entry number in the game's own Pokédex (first dex that lists it), or null if the game lacks it. */
+  entryNumber: number | null;
+  /** Sort key that follows the game's Pokédex order: base game first, then expansions. */
+  dexOrder: number | null;
   baseSpecies: Named | null;
   formId: number | null;
   spriteUrl: string | null;
@@ -83,6 +89,21 @@ export async function loadRoster(profileId: string, ids?: string[]): Promise<Ros
     },
   });
 
+  // Where each species sits in this game's own Pokédex, for Pokédex-order sorting.
+  const profile = await prisma.gameProfile.findUnique({ where: { id: profileId }, select: { gameId: true } });
+  const slots = profile
+    ? await prisma.pokedexSlot.findMany({
+        where: { pokedex: { gameId: profile.gameId }, speciesId: { in: [...new Set(rows.map((r) => r.speciesId))] } },
+        select: { speciesId: true, entryNumber: true, pokedex: { select: { sortOrder: true } } },
+      })
+    : [];
+  const position = new Map<number, { dexOrder: number; entryNumber: number }>();
+  for (const slot of slots) {
+    const dexOrder = slot.pokedex.sortOrder * 10000 + slot.entryNumber;
+    const known = position.get(slot.speciesId);
+    if (!known || dexOrder < known.dexOrder) position.set(slot.speciesId, { dexOrder, entryNumber: slot.entryNumber });
+  }
+
   return rows.map((r) => {
     const form = r.species.forms.find((f) => f.id === r.formId) ?? r.species.forms.find((f) => f.isDefault);
     const abilityOptions = (form?.abilities ?? []).map((a) => ({ ...a.ability, isHidden: a.isHidden }));
@@ -90,6 +111,9 @@ export async function loadRoster(profileId: string, ids?: string[]): Promise<Ros
     return {
       id: r.id,
       species: { id: r.species.id, nameEn: r.species.nameEn, nameEs: r.species.nameEs },
+      nationalNumber: r.species.id,
+      entryNumber: position.get(r.speciesId)?.entryNumber ?? null,
+      dexOrder: position.get(r.speciesId)?.dexOrder ?? null,
       baseSpecies: r.baseSpecies,
       genderRate: r.species.genderRate,
       formId: form?.id ?? null,

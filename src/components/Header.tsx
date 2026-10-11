@@ -21,11 +21,11 @@ export function Header({ games, lang }: { games: GameLink[]; lang: Lang }) {
   const pathname = usePathname();
   const params = useParams<{ game?: string }>();
   const [pending, startTransition] = useTransition();
-  const onNational = pathname.startsWith('/national');
   const current = games.find((g) => g.id === params.game) ?? games[0];
 
   const tabs = [
     { href: `/${current.id}/pokedex`, label: 'Pokédex' },
+    { href: `/${current.id}/national`, label: 'National Dex' },
     { href: `/${current.id}/roster`, label: 'Roster' },
     { href: `/${current.id}/import`, label: 'Import' },
     ...(current.breeding ? [{ href: `/${current.id}/breeding`, label: 'Breeding' }] : []),
@@ -41,7 +41,7 @@ export function Header({ games, lang }: { games: GameLink[]; lang: Lang }) {
 
         <div className="flex items-center gap-2" aria-label="Game">
           {games.map((g) => {
-            const active = !onNational && g.id === current.id;
+            const active = g.id === current.id;
             return (
               <Link key={g.id} href={`/${g.id}/pokedex`} aria-current={active ? 'page' : undefined}>
                 <motion.span
@@ -71,15 +71,6 @@ export function Header({ games, lang }: { games: GameLink[]; lang: Lang }) {
               {name}
             </span>
           ))}
-          <Link
-            href="/national"
-            aria-current={onNational ? 'page' : undefined}
-            className={`rounded-md border px-3 py-1.5 text-xs font-semibold ${
-              onNational ? 'border-star text-star' : 'border-line text-muted hover:text-ink'
-            }`}
-          >
-            National Dex
-          </Link>
         </div>
 
         <div className="ml-auto flex items-center rounded-md border border-line text-xs" aria-label="Name language">
@@ -96,7 +87,7 @@ export function Header({ games, lang }: { games: GameLink[]; lang: Lang }) {
         </div>
       </div>
 
-      {!onNational && (
+      {(
         <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4">
           {tabs.map((t) => {
             const active = pathname.startsWith(t.href);

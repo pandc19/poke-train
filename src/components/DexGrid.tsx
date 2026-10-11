@@ -17,21 +17,26 @@ type Genders = { male: boolean; female: boolean };
  * On a caught Pokémon that has both genders, the ♂/♀ buttons record which
  * ones you own, which is what the breeding planner uses.
  *
- * With `gameId` null the grid is read-only (National Dex: state is derived
- * from the game profiles).
+ * A game's National Dex lists every species. Those the game does not have
+ * (`inGame` false) are dimmed and hidden by default, so progress counts only
+ * what can be caught in that game.
  */
 export function DexGrid({
   cells,
   lang,
   gameId,
+  gameName,
   accent = '#facc15',
 }: {
   cells: DexCell[];
   lang: Lang;
   gameId: string | null;
+  gameName?: string;
   accent?: string;
 }) {
   const readOnly = gameId === null;
+  const hasUnavailable = cells.some((c) => !c.inGame);
+  const [onlyInGame, setOnlyInGame] = useState(true);
   const [caught, setCaught] = useState(
     () => new Set(cells.filter((c) => c.caught || (readOnly && c.caughtIn.length > 0)).map((c) => c.speciesId))
   );
@@ -52,6 +57,7 @@ export function DexGrid({
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return cells.filter((c) => {
+      if (hasUnavailable && onlyInGame && !c.inGame) return false;
       if (filter === 'missing' && caught.has(c.speciesId)) return false;
       if (filter === 'caught' && !caught.has(c.speciesId)) return false;
       if (!q) return true;
@@ -65,7 +71,7 @@ export function DexGrid({
     // `caught` is deliberately left out: a cell should not vanish from a
     // filtered view the instant it is toggled, only on the next filter change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cells, query, filter]);
+  }, [cells, query, filter, onlyInGame, hasUnavailable]);
 
   const apply = useCallback((ids: number[], mode: boolean) => {
     setCaught((prev) => {
@@ -195,8 +201,9 @@ export function DexGrid({
     setBulk(null);
   };
 
-  const total = cells.length;
-  const count = cells.filter((c) => caught.has(c.speciesId)).length;
+  const scoped = hasUnavailable && onlyInGame ? cells.filter((c) => c.inGame) : cells;
+  const total = scoped.length;
+  const count = scoped.filter((c) => caught.has(c.speciesId)).length;
   const pct = total ? Math.round((count / total) * 100) : 0;
 
   return (
@@ -238,6 +245,13 @@ export function DexGrid({
             </button>
           ))}
         </div>
+
+        {hasUnavailable && (
+          <label className="flex items-center gap-2 text-xs text-muted">
+            <input type="checkbox" checked={onlyInGame} onChange={(e) => setOnlyInGame(e.target.checked)} />
+            Only Pokémon in {gameName ?? 'this game'}
+          </label>
+        )}
 
         {!readOnly && (
           <div className="relative ml-auto">
@@ -285,12 +299,12 @@ export function DexGrid({
             const mixed = c.genderRate > 0 && c.genderRate < 8;
             const g = genders[c.speciesId] ?? { male: false, female: false };
             return (
-              <li key={c.speciesId} className="relative">
+              <li key={c.speciesId} className={`relative ${c.inGame ? '' : 'opacity-50'}`}>
                 <motion.button
                   type="button"
                   disabled={readOnly}
                   aria-pressed={isCaught}
-                  title={c.caughtIn.length ? `${name} · caught in ${c.caughtIn.join(', ')}` : name}
+                  title={[name, !c.inGame && `not in ${gameName ?? 'this game'}`, c.caughtIn.length > 0 && `caught in ${c.caughtIn.join(', ')}`].filter(Boolean).join(' · ')}
                   onPointerDown={(e) => onPointerDown(e, i)}
                   onPointerEnter={() => onPointerEnter(i)}
                   onClick={() => onClick(i)}
