@@ -1,6 +1,7 @@
 /**
  * Deletes every row in the app's tables but keeps the tables themselves, so
- * no migration runs. `npm run db:reset` then re-seeds and re-syncs.
+ * no migration runs. It does nothing else: re-seed with `npm run db:seed`
+ * and re-download the Pokémon data with `npm run sync:pokeapi` afterwards.
  *
  * It only touches the database named by DATABASE_URL and refuses to run
  * when NODE_ENV is "production".
@@ -29,6 +30,7 @@ async function main() {
     const tables = rows.map((r) => `"public"."${r.tablename}"`).join(', ');
     await pool.query(`truncate table ${tables} restart identity cascade`);
     console.log(`Deleted all data from ${rows.length} tables in database "${db[0].name}".`);
+    console.log('The app will not work until you run: npm run db:seed && npm run sync:pokeapi');
   } finally {
     await pool.end();
   }
