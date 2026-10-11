@@ -5,7 +5,7 @@
 import { prisma } from '../src/lib/db';
 import { GAMES } from '../src/lib/games';
 
-export const LOCAL_USER_ID = '00000000-0000-7000-8000-000000000001';
+import { LOCAL_USER_ID } from '../src/lib/constants';
 
 async function main() {
   await prisma.user.upsert({

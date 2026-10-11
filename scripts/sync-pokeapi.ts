@@ -199,10 +199,16 @@ async function main() {
   console.log(`  learnsets: ${learnsets.size} rows`);
 
   console.log('items');
-  const attrs = await Promise.all(['holdable', 'holdable-active'].map((a) => get(`item-attribute/${a}`)));
-  const itemIds = [...new Set(attrs.flatMap((a) => a.items.map((i: Json) => idFromUrl(i.url))))];
+  // Every item, not just PokéAPI's "holdable" attribute: that list misses
+  // newer held items such as the Assault Vest and Mirror Herb.
+  const itemList = await get('item?limit=5000');
+  const itemIds: number[] = itemList.results.map((r: Json) => idFromUrl(r.url));
   const items = await mapPool('items', itemIds, (id) => get(`item/${id}`));
+  // PokéAPI lists a few items under more than one id; the first one wins.
+  const seenItems = new Set<string>();
   for (const it of items) {
+    if (seenItems.has(it.name)) continue;
+    seenItems.add(it.name);
     const data = {
       slug: it.name,
       ...names(it),
@@ -222,7 +228,7 @@ async function main() {
     await prisma.pokedex.upsert({ where: { id: d.id }, update: dex, create: { id: d.id, ...dex } });
     await prisma.pokedexSlot.deleteMany({ where: { pokedexId: d.id } });
     await chunked(
-      d.pokemon_entries.map((e: Json) => ({
+      (d.pokemon_entries as Json[]).map((e) => ({
         pokedexId: d.id,
         speciesId: idFromUrl(e.pokemon_species.url),
         entryNumber: e.entry_number,
