@@ -384,9 +384,30 @@ export function DexGrid({
                   <span className={`w-full truncate text-center text-[11px] ${isCaught ? 'text-ink' : 'text-muted'}`}>
                     {name}
                   </span>
+                  {/* Notes sit on their own line under the name, never on top of it. */}
                   {registeredOnly && (
                     <span className="w-full truncate text-center text-[10px] text-pending">
                       {evo ? `evolved → ${evo}` : 'not in my box'}
+                    </span>
+                  )}
+                  {have && evo && (
+                    <span
+                      className="w-full truncate text-center text-[10px] font-semibold text-pending"
+                      title={`You also have ${evo}. If you evolved this one, un-tick the check mark.`}
+                    >
+                      ↗ {evo}
+                    </span>
+                  )}
+                  {elsewhere.length > 0 && (
+                    <span className="flex w-full flex-wrap justify-center gap-0.5">
+                      {elsewhere.map((game) => (
+                        <span
+                          key={game}
+                          className="rounded bg-done/20 px-1 text-[9px] font-semibold leading-4 text-done"
+                        >
+                          {game}
+                        </span>
+                      ))}
                     </span>
                   )}
                   {/* keeps the row height equal whether or not the buttons below show */}
@@ -400,28 +421,6 @@ export function DexGrid({
                       title={c.roster === 'done' ? 'Trained roster: complete' : 'Trained roster: in progress'}
                     >
                       {c.roster === 'done' ? '★' : '☆'}
-                    </span>
-                  )}
-
-                  {have && evo && (
-                    <span
-                      className="absolute bottom-8 left-1 max-w-[calc(100%-0.5rem)] truncate rounded bg-pending/20 px-1 text-[9px] font-semibold leading-4 text-pending"
-                      title={`You also have ${evo}. If you evolved this one, un-tick the check mark.`}
-                    >
-                      ↗ {evo}
-                    </span>
-                  )}
-
-                  {elsewhere.length > 0 && (
-                    <span className="absolute bottom-8 left-1 flex gap-0.5">
-                      {elsewhere.map((game) => (
-                        <span
-                          key={game}
-                          className="rounded bg-done/20 px-1 text-[9px] font-semibold leading-4 text-done"
-                        >
-                          {game}
-                        </span>
-                      ))}
                     </span>
                   )}
                 </motion.button>
