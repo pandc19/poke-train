@@ -1,0 +1,399 @@
+// Prisma schema for poke-train.
+// Two halves:
+//  - Reference data: synced from PokéAPI by scripts/sync-pokeapi.ts, never
+//    edited by the app. Integer ids are PokéAPI's own ids.
+//  - User data: profiles, dex progress, roster, breeding goals. UUID ids.
+// Names are stored in English and Spanish because imported spreadsheets
+// may use either.
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================================================
+// Reference data (PokéAPI)
+// ============================================================================
+
+model Game {
+  id           String  @id // slug, e.g. "violet"
+  name         String
+  versionGroup String  @map("version_group") // PokéAPI version group, e.g. "scarlet-violet"
+  generation   Int
+  sortOrder    Int     @default(0) @map("sort_order")
+
+  pokedexes Pokedex[]
+  profiles  GameProfile[]
+
+  @@map("games")
+}
+
+/// A species as listed in the National Pokédex. `id` is the national number.
+model Species {
+  id            Int      @id
+  slug          String   @unique
+  nameEn        String   @map("name_en")
+  nameEs        String   @map("name_es")
+  eggGroups     String[] @map("egg_groups")
+  /// Eighths that are female; -1 means genderless.
+  genderRate    Int      @map("gender_rate")
+  isBaby        Boolean  @default(false) @map("is_baby")
+  evolvesFromId Int?     @map("evolves_from_id")
+
+  evolvesFrom Species?  @relation("Evolution", fields: [evolvesFromId], references: [id])
+  evolvesTo   Species[] @relation("Evolution")
+
+  forms          Form[]
+  pokedexSlots   PokedexSlot[]
+  pokedexEntries PokedexEntry[]
+  roster         RosterPokemon[] @relation("RosterSpecies")
+  rosterBase     RosterPokemon[] @relation("RosterBaseSpecies")
+  breedingGoals  BreedingGoal[]
+
+  @@map("species")
+}
+
+/// A battle-distinct variety of a species (PokéAPI "pokemon"): the default
+/// form plus regional forms such as Paldean Wooper. Learnsets hang off this.
+model Form {
+  id        Int      @id
+  speciesId Int      @map("species_id")
+  slug      String   @unique
+  isDefault Boolean  @map("is_default")
+  types     String[]
+  /// { hp, attack, defense, specialAttack, specialDefense, speed }
+  baseStats Json     @map("base_stats")
+  spriteUrl String?  @map("sprite_url")
+
+  species   Species         @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  learnsets Learnset[]
+  abilities FormAbility[]
+  roster    RosterPokemon[]
+
+  @@index([speciesId])
+  @@map("forms")
+}
+
+model Move {
+  id          Int     @id
+  slug        String  @unique
+  nameEn      String  @map("name_en")
+  nameEs      String  @map("name_es")
+  type        String
+  damageClass String  @map("damage_class") // physical | special | status
+  power       Int?
+  accuracy    Int?
+  pp          Int?
+
+  learnsets   Learnset[]
+  rosterMoves RosterMove[]
+
+  @@map("moves")
+}
+
+model Learnset {
+  id           Int    @id @default(autoincrement())
+  formId       Int    @map("form_id")
+  moveId       Int    @map("move_id")
+  versionGroup String @map("version_group")
+  method       String // level-up | machine | egg | tutor | ...
+  level        Int    @default(0)
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+  move Move @relation(fields: [moveId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, moveId, versionGroup, method, level])
+  @@index([versionGroup, moveId, method])
+  @@map("learnsets")
+}
+
+model Ability {
+  id     Int    @id
+  slug   String @unique
+  nameEn String @map("name_en")
+  nameEs String @map("name_es")
+
+  forms  FormAbility[]
+  roster RosterPokemon[]
+
+  @@map("abilities")
+}
+
+model FormAbility {
+  formId    Int     @map("form_id")
+  abilityId Int     @map("ability_id")
+  isHidden  Boolean @map("is_hidden")
+
+  form    Form    @relation(fields: [formId], references: [id], onDelete: Cascade)
+  ability Ability @relation(fields: [abilityId], references: [id], onDelete: Cascade)
+
+  @@id([formId, abilityId])
+  @@map("form_abilities")
+}
+
+model Item {
+  id        Int     @id
+  slug      String  @unique
+  nameEn    String  @map("name_en")
+  nameEs    String  @map("name_es")
+  category  String
+  spriteUrl String? @map("sprite_url")
+
+  roster RosterPokemon[]
+
+  @@map("items")
+}
+
+model Nature {
+  id        Int     @id
+  slug      String  @unique
+  nameEn    String  @map("name_en")
+  nameEs    String  @map("name_es")
+  /// Stat slugs; both null for neutral natures.
+  increased String?
+  decreased String?
+
+  rosterTarget  RosterPokemon[] @relation("TargetNature")
+  rosterCurrent RosterPokemon[] @relation("CurrentNature")
+
+  @@map("natures")
+}
+
+model Pokedex {
+  id         Int     @id
+  slug       String  @unique
+  name       String
+  /// Null for the National Pokédex.
+  gameId     String? @map("game_id")
+  sortOrder  Int     @default(0) @map("sort_order")
+
+  game  Game?         @relation(fields: [gameId], references: [id])
+  slots PokedexSlot[]
+
+  @@map("pokedexes")
+}
+
+model PokedexSlot {
+  pokedexId   Int @map("pokedex_id")
+  speciesId   Int @map("species_id")
+  entryNumber Int @map("entry_number")
+
+  pokedex Pokedex @relation(fields: [pokedexId], references: [id], onDelete: Cascade)
+  species Species @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+
+  @@id([pokedexId, speciesId])
+  @@index([pokedexId, entryNumber])
+  @@map("pokedex_slots")
+}
+
+/// Progress markers for the resumable PokéAPI sync.
+model SyncState {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("sync_state")
+}
+
+// ============================================================================
+// User data
+// ============================================================================
+
+model User {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  profiles GameProfile[]
+
+  @@map("users")
+}
+
+model GameProfile {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  gameId    String   @map("game_id")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game Game @relation(fields: [gameId], references: [id])
+
+  pokedexEntries PokedexEntry[]
+  roster         RosterPokemon[]
+  breedingGoals  BreedingGoal[]
+  importBatches  ImportBatch[]
+  audits         AiAudit[]
+
+  @@unique([userId, gameId, name])
+  @@map("game_profiles")
+}
+
+/// Caught state, stored once per profile and species. The National Pokédex
+/// and "caught in another game" badges are derived by reading these rows
+/// across all of a user's profiles -- nothing is duplicated.
+model PokedexEntry {
+  profileId String   @map("profile_id") @db.Uuid
+  speciesId Int      @map("species_id")
+  caughtAt  DateTime @default(now()) @map("caught_at")
+
+  profile GameProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  species Species     @relation(fields: [speciesId], references: [id])
+
+  @@id([profileId, speciesId])
+  @@map("pokedex_entries")
+}
+
+enum TaskStatus {
+  PENDING
+  DONE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  GENDERLESS
+  UNKNOWN
+}
+
+enum Origin {
+  CAUGHT
+  BRED
+  UNKNOWN
+}
+
+/// One trained (or to-be-trained) Pokémon. Each trainable aspect carries its
+/// own PENDING/DONE status; the card is complete when all of them are DONE.
+model RosterPokemon {
+  id            String  @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  profileId     String  @map("profile_id") @db.Uuid
+  /// The final (trained) species, e.g. Golem.
+  speciesId     Int     @map("species_id")
+  formId        Int?    @map("form_id")
+  /// The species bred or caught to get there, e.g. Geodude.
+  baseSpeciesId Int?    @map("base_species_id")
+  nickname      String?
+  gender        Gender  @default(UNKNOWN)
+  origin        Origin  @default(UNKNOWN)
+  /// False until the Pokémon is actually in the player's possession.
+  owned         Boolean @default(false)
+
+  targetNatureId  Int?       @map("target_nature_id")
+  currentNatureId Int?       @map("current_nature_id")
+  natureStatus    TaskStatus @default(PENDING) @map("nature_status")
+
+  abilityId     Int?       @map("ability_id")
+  abilityStatus TaskStatus @default(PENDING) @map("ability_status")
+
+  itemId     Int?       @map("item_id")
+  /// Free text when the sheet lists alternatives ("Life Orb or Choice Band").
+  itemNote   String?    @map("item_note")
+  itemStatus TaskStatus @default(PENDING) @map("item_status")
+
+  /// { hp, attack, defense, specialAttack, specialDefense, speed }, or null if not planned.
+  evs      Json?
+  evStatus TaskStatus @default(PENDING) @map("ev_status")
+
+  teraType String? @map("tera_type")
+  notes    String?
+  sortOrder Int    @default(0) @map("sort_order")
+
+  importBatchId String?  @map("import_batch_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  profile       GameProfile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  species       Species      @relation("RosterSpecies", fields: [speciesId], references: [id])
+  baseSpecies   Species?     @relation("RosterBaseSpecies", fields: [baseSpeciesId], references: [id])
+  form          Form?        @relation(fields: [formId], references: [id])
+  targetNature  Nature?      @relation("TargetNature", fields: [targetNatureId], references: [id])
+  currentNature Nature?      @relation("CurrentNature", fields: [currentNatureId], references: [id])
+  ability       Ability?     @relation(fields: [abilityId], references: [id])
+  item          Item?        @relation(fields: [itemId], references: [id])
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+
+  moves  RosterMove[]
+  audits AiAudit[]
+
+  @@index([profileId, sortOrder])
+  @@map("roster_pokemon")
+}
+
+model RosterMove {
+  id              String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  rosterPokemonId String     @map("roster_pokemon_id") @db.Uuid
+  slot            Int // 1..4
+  moveId          Int?       @map("move_id")
+  /// What the sheet said, kept when the move could not be matched.
+  rawName         String?    @map("raw_name")
+  status          TaskStatus @default(PENDING)
+  /// Result of the deterministic learnset check; null = not checked yet.
+  legal           Boolean?
+
+  rosterPokemon RosterPokemon @relation(fields: [rosterPokemonId], references: [id], onDelete: Cascade)
+  move          Move?         @relation(fields: [moveId], references: [id])
+
+  @@unique([rosterPokemonId, slot])
+  @@map("roster_moves")
+}
+
+enum BreedingStatus {
+  PLANNED
+  IN_PROGRESS
+  DONE
+}
+
+model BreedingGoal {
+  id        String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  profileId String         @map("profile_id") @db.Uuid
+  speciesId Int            @map("species_id")
+  /// Move ids the offspring should know.
+  moveIds   Int[]          @map("move_ids")
+  natureId  Int?           @map("nature_id")
+  status    BreedingStatus @default(PLANNED)
+  /// Last computed plan (see src/lib/breeding).
+  plan      Json?
+  notes     String?
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  profile GameProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  species Species     @relation(fields: [speciesId], references: [id])
+
+  @@map("breeding_goals")
+}
+
+model ImportBatch {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  profileId String   @map("profile_id") @db.Uuid
+  fileName  String   @map("file_name")
+  mapping   Json
+  rowCount  Int      @map("row_count")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  profile GameProfile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  roster  RosterPokemon[]
+
+  @@map("import_batches")
+}
+
+/// An AI result, and its cache: the same kind + inputHash is never paid for twice.
+model AiAudit {
+  id              String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  profileId       String   @map("profile_id") @db.Uuid
+  rosterPokemonId String?  @map("roster_pokemon_id") @db.Uuid
+  kind            String // build | team | location | breeding-path | starter-team
+  provider        String
+  model           String
+  inputHash       String   @map("input_hash")
+  result          Json
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  profile       GameProfile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  rosterPokemon RosterPokemon? @relation(fields: [rosterPokemonId], references: [id], onDelete: Cascade)
+
+  @@unique([kind, provider, inputHash])
+  @@map("ai_audits")
+}

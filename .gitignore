@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# keep the example env file
+!.env.local.example
+
+# PokéAPI response cache (scripts/sync-pokeapi.ts)
+/.cache/
