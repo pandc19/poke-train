@@ -11,11 +11,14 @@ export function AuditPanel({
   audit,
   meta,
   onRefresh,
+  onDeep,
   busy,
 }: {
   audit: BuildAudit;
   meta: string;
   onRefresh?: () => void;
+  /** Re-run on the stronger escalation model. */
+  onDeep?: () => void;
   busy: boolean;
 }) {
   const rating = RATING[audit.rating] ?? RATING.ok;
@@ -76,11 +79,18 @@ export function AuditPanel({
       )}
       <p className="flex items-center justify-between text-[10px] text-muted">
         <span>AI-generated ({meta}). Check locations in game before relying on them.</span>
-        {onRefresh && (
-          <button onClick={onRefresh} disabled={busy} className="underline disabled:opacity-40">
-            {busy ? 'Refreshing…' : 'Re-run'}
-          </button>
-        )}
+        <span className="flex gap-3">
+          {onRefresh && (
+            <button onClick={onRefresh} disabled={busy} className="underline disabled:opacity-40">
+              {busy ? 'Refreshing…' : 'Re-run'}
+            </button>
+          )}
+          {onDeep && (
+            <button onClick={onDeep} disabled={busy} className="underline disabled:opacity-40">
+              Re-run with the stronger model
+            </button>
+          )}
+        </span>
       </p>
     </div>
   );

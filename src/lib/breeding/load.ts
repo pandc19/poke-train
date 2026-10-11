@@ -36,7 +36,8 @@ export async function loadBreedingData(game: GameConfig, moveIds: number[]): Pro
 
 /**
  * What the player has to breed with in this game: the owned roster Pokémon
- * of this profile, plus the genders registered in its Pokédex. A species
+ * of this profile, plus the genders registered in its Pokédex. A Pokémon
+ * that is only registered (it evolved or was released) is not a parent. A species
  * caught with no gender recorded is kept as "unknown", which the planner
  * reports as "caught, check its gender" rather than as a usable parent.
  */
@@ -53,22 +54,24 @@ export async function loadOwned(profileId: string): Promise<Owned> {
     }),
     prisma.pokedexEntry.findMany({
       where: { profileId },
-      select: { speciesId: true, hasMale: true, hasFemale: true },
+      select: { speciesId: true, hasMale: true, hasFemale: true, owned: true },
     }),
   ]);
 
+  // Registered-only entries (evolved or released) are not in the player's hands.
+  const held = entries.filter((e) => e.owned);
   const owned: OwnedPokemon[] = roster.map((p) => ({
     speciesId: p.speciesId,
     gender: p.gender,
     moveIds: p.moves.map((m) => m.moveId!),
   }));
   const inRoster = new Set(roster.map((p) => p.speciesId));
-  for (const e of entries) {
+  for (const e of held) {
     if (e.hasMale) owned.push({ speciesId: e.speciesId, gender: 'MALE', moveIds: [] });
     if (e.hasFemale) owned.push({ speciesId: e.speciesId, gender: 'FEMALE', moveIds: [] });
     if (!e.hasMale && !e.hasFemale && !inRoster.has(e.speciesId)) {
       owned.push({ speciesId: e.speciesId, gender: 'UNKNOWN', moveIds: [] });
     }
   }
-  return { roster: owned, caughtSpeciesIds: new Set(entries.map((e) => e.speciesId)) };
+  return { roster: owned, caughtSpeciesIds: new Set(held.map((e) => e.speciesId)) };
 }

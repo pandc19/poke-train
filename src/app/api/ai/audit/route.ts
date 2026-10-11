@@ -7,7 +7,12 @@ import { getGame } from '@/lib/games';
 import { getLang } from '@/lib/i18n';
 import { loadRoster } from '@/lib/roster';
 
-const Body = z.object({ rosterPokemonId: z.uuid(), refresh: z.boolean().default(false) });
+const Body = z.object({
+  rosterPokemonId: z.uuid(),
+  refresh: z.boolean().default(false),
+  /** Use the stronger escalation model instead of the everyday one. */
+  deep: z.boolean().default(false),
+});
 
 /** Runs (or returns the cached) AI audit of one roster build. */
 export async function POST(request: Request) {
@@ -26,7 +31,7 @@ export async function POST(request: Request) {
 
   const [pokemon] = await loadRoster(row.profileId, [parsed.data.rosterPokemonId]);
   try {
-    await auditBuild(provider, game, await getLang(), row.profileId, pokemon, parsed.data.refresh);
+    await auditBuild(provider, game, await getLang(), row.profileId, pokemon, parsed.data.refresh, parsed.data.deep);
   } catch (error) {
     if (error instanceof AiError) return Response.json({ error: error.message }, { status: 502 });
     throw error;

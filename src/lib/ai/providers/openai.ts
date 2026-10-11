@@ -1,22 +1,22 @@
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
-import { AiError, type AiProvider, type GenerateRequest } from '../types';
-
-/**
- * OpenAI model ids churn independently of this project, so the model is
- * overridable via env instead of requiring a code change.
- */
-const MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+import { openAiModels } from '../models';
+import { AiError, type AiProvider, type GenerateRequest, type ModelTier } from '../types';
 
 export class OpenAiProvider implements AiProvider {
   readonly name = 'openai' as const;
-  readonly model = MODEL;
+  // OpenAI model ids churn independently of this project, so both are env-configurable.
+  private readonly models = openAiModels();
   private client = new OpenAI(); // reads OPENAI_API_KEY
 
-  async generate<T>({ system, prompt, schema, schemaName, webSearch }: GenerateRequest<T>): Promise<T> {
+  modelFor(tier: ModelTier) {
+    return this.models[tier];
+  }
+
+  async generate<T>({ system, prompt, schema, schemaName, webSearch, tier }: GenerateRequest<T>): Promise<T> {
     try {
       const response = await this.client.responses.parse({
-        model: this.model,
+        model: this.models[tier],
         instructions: system,
         input: prompt,
         tools: webSearch ? [{ type: 'web_search' }] : [],

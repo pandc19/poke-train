@@ -6,7 +6,7 @@ import { formatEvs } from '../import/evs';
 import type { Lang } from '../i18n';
 import type { RosterView } from '../roster';
 import { BuildAuditSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
-import type { AiProvider } from './types';
+import type { AiProvider, ModelTier } from './types';
 
 const PROMPT_VERSION = 2;
 
@@ -26,10 +26,18 @@ async function cached<T>(
   provider: AiProvider,
   key: { kind: string; profileId: string; rosterPokemonId?: string; refresh?: boolean },
   input: unknown,
-  request: { system: string; prompt: string; schema: z.ZodType<T>; schemaName: string; webSearch: boolean }
+  request: {
+    system: string;
+    prompt: string;
+    schema: z.ZodType<T>;
+    schemaName: string;
+    webSearch: boolean;
+    tier: ModelTier;
+  }
 ): Promise<T> {
+  const model = provider.modelFor(request.tier);
   const inputHash = createHash('sha256')
-    .update(JSON.stringify({ v: PROMPT_VERSION, model: provider.model, input }))
+    .update(JSON.stringify({ v: PROMPT_VERSION, model, input }))
     .digest('hex');
   const where = { kind_provider_inputHash: { kind: key.kind, provider: provider.name, inputHash } };
 
@@ -41,7 +49,7 @@ async function cached<T>(
   const data = {
     profileId: key.profileId,
     rosterPokemonId: key.rosterPokemonId,
-    model: provider.model,
+    model,
     result: result as object,
     createdAt: new Date(),
   };
@@ -73,7 +81,8 @@ export function auditBuild(
   lang: Lang,
   profileId: string,
   p: RosterView,
-  refresh: boolean
+  refresh: boolean,
+  deep = false
 ) {
   const build = describeBuild(p);
   const pending = [
@@ -91,6 +100,8 @@ export function auditBuild(
       schema: BuildAuditSchema,
       schemaName: 'build_audit',
       webSearch: pending.length > 0,
+      // One Pokémon at a time is the everyday request; "deeper" is the user's choice.
+      tier: deep ? 'deep' : 'bulk',
       prompt: [
         'Audit this planned build.',
         JSON.stringify(build, null, 2),
@@ -117,6 +128,7 @@ export function auditTeam(provider: AiProvider, game: GameConfig, lang: Lang, pr
     schema: TeamAuditSchema,
     schemaName: 'team_audit',
     webSearch: false,
+    tier: 'deep',
     prompt:
       'This is the player\'s whole trained roster. Audit it as a pool to build teams from: shared weaknesses, ' +
       'missing roles (speed control, hazards, pivots, walls), redundant picks, and the most valuable additions.\n\n' +
@@ -131,6 +143,7 @@ export function researchLocation(provider: AiProvider, game: GameConfig, lang: L
     schema: LocationSchema,
     schemaName: 'location',
     webSearch: true,
+    tier: 'bulk',
     prompt:
       `Where can ${pokemon} be caught in the wild in ${game.name}? List up to four of the best places with the area ` +
       'name and useful details (level range, time of day, raid-only, DLC area). If it cannot be caught in the wild, ' +
@@ -151,6 +164,7 @@ export function adviseStarterTeam(
     schema: StarterAdviceSchema,
     schemaName: 'starter_advice',
     webSearch: true,
+    tier: 'deep',
     prompt:
       `Recommend an early-game utility core for ${game.name}: story progression, EV training, catching ` +
       '(False Swipe plus a sleep or paralysis move) and egg hatching (Flame Body or similar). ' +

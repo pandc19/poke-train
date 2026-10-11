@@ -1,4 +1,7 @@
 import type { z } from 'zod';
+import type { ModelTier } from './models';
+
+export type { ModelTier } from './models';
 
 export type GenerateRequest<T> = {
   system: string;
@@ -8,6 +11,8 @@ export type GenerateRequest<T> = {
   schemaName: string;
   /** Let the model search the web. Only for questions game data cannot answer. */
   webSearch: boolean;
+  /** bulk: the cheaper everyday model. deep: the stronger escalation model. */
+  tier: ModelTier;
 };
 
 /**
@@ -17,7 +22,8 @@ export type GenerateRequest<T> = {
  */
 export interface AiProvider {
   readonly name: 'openai' | 'claude';
-  readonly model: string;
+  /** The model that answers requests of this tier. */
+  modelFor(tier: ModelTier): string;
   generate<T>(request: GenerateRequest<T>): Promise<T>;
 }
 

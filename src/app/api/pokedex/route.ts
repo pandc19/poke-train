@@ -33,18 +33,20 @@ const GenderBody = z.object({
   speciesId: z.number().int().positive(),
   hasMale: z.boolean().optional(),
   hasFemale: z.boolean().optional(),
+  /** You have one right now (false = it evolved or was released). */
+  owned: z.boolean().optional(),
 });
 
-/** Records which genders of a species the player has (also marks it caught). */
+/** Records whether you have a species now and which genders (also marks it caught). */
 export async function PATCH(request: Request) {
   const parsed = GenderBody.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: 'Invalid body' }, { status: 400 });
-  const { gameId, speciesId, hasMale, hasFemale } = parsed.data;
+  const { gameId, speciesId, hasMale, hasFemale, owned } = parsed.data;
 
   const profileId = await findProfileId(gameId);
   if (!profileId) return Response.json({ error: 'Unknown game' }, { status: 404 });
 
-  const data = { hasMale, hasFemale };
+  const data = { hasMale, hasFemale, owned };
   await prisma.pokedexEntry.upsert({
     where: { profileId_speciesId: { profileId, speciesId } },
     update: data,

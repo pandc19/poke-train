@@ -239,6 +239,10 @@ model PokedexEntry {
   profileId String   @map("profile_id") @db.Uuid
   speciesId Int      @map("species_id")
   caughtAt  DateTime @default(now()) @map("caught_at")
+  /// The player has one of these right now. Caught-but-not-owned means it evolved or was
+  /// released: the Pokédex still lists it, but there is none in the box. Existing and new
+  /// entries start as owned.
+  owned     Boolean  @default(true)
   /// Which genders the player has, for the breeding planner. Both false = not recorded.
   hasMale   Boolean  @default(false) @map("has_male")
   hasFemale Boolean  @default(false) @map("has_female")

@@ -19,7 +19,11 @@ export default async function RosterPage({ params }: PageProps<'/[game]/roster'>
         options={options}
         lang={lang}
         aiEnabled={provider != null}
-        aiProvider={provider ? `${provider.name} (${provider.model})` : configuredProviderName()}
+        aiProvider={
+          provider
+            ? `${provider.name}: ${provider.modelFor('bulk')} for single Pokémon, ${provider.modelFor('deep')} for the whole roster`
+            : configuredProviderName()
+        }
       />
     </div>
   );

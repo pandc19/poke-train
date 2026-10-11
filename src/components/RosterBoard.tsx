@@ -289,12 +289,12 @@ export function RosterBoard({
     }
   }
 
-  async function audit(p: RosterView, refresh = false) {
+  async function audit(p: RosterView, refresh = false, deep = false) {
     setAuditing(p.id);
     setOpenAudit(p.id);
     setError(null);
     try {
-      const data = await api<{ pokemon: RosterView }>('/api/ai/audit', 'POST', { rosterPokemonId: p.id, refresh });
+      const data = await api<{ pokemon: RosterView }>('/api/ai/audit', 'POST', { rosterPokemonId: p.id, refresh, deep });
       replace(data.pokemon);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The audit failed.');
@@ -525,7 +525,7 @@ export function RosterBoard({
             disabled={!aiEnabled || team.busy}
             title={
               aiEnabled
-                ? `One ${aiProvider} request that reviews your whole roster together`
+                ? `One request that reviews your whole roster together (${aiProvider})`
                 : 'Add an API key to .env.local to enable AI audits'
             }
             className="rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
@@ -669,6 +669,7 @@ export function RosterBoard({
                       audit={p.audit.result as BuildAudit}
                       meta={`${p.audit.provider} · ${p.audit.model}`}
                       onRefresh={aiEnabled ? () => audit(p, true) : undefined}
+                      onDeep={aiEnabled ? () => audit(p, false, true) : undefined}
                       busy={auditing === p.id}
                     />
                   )}

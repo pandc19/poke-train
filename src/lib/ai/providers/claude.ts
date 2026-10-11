@@ -1,16 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
-import { AiError, type AiProvider, type GenerateRequest } from '../types';
-
-/** Overridable via env so a model swap does not need a code change. */
-const MODEL = process.env.CLAUDE_MODEL || 'claude-opus-5-5';
+import { claudeModels, claudeWebSearchTool } from '../models';
+import { AiError, type AiProvider, type GenerateRequest, type ModelTier } from '../types';
 
 // Web search runs in a server-side loop that can pause; bound how often we resume it.
 const MAX_RESUMES = 4;
 
 export class ClaudeProvider implements AiProvider {
   readonly name = 'claude' as const;
-  readonly model = MODEL;
+  private readonly models = claudeModels();
   private client: Anthropic;
 
   constructor() {
@@ -22,16 +20,21 @@ export class ClaudeProvider implements AiProvider {
     );
   }
 
-  async generate<T>({ system, prompt, schema, webSearch }: GenerateRequest<T>): Promise<T> {
+  modelFor(tier: ModelTier) {
+    return this.models[tier];
+  }
+
+  async generate<T>({ system, prompt, schema, webSearch, tier }: GenerateRequest<T>): Promise<T> {
+    const model = this.models[tier];
     const messages: Anthropic.MessageParam[] = [{ role: 'user', content: prompt }];
     try {
       for (let attempt = 0; ; attempt++) {
         const response = await this.client.messages.parse({
-          model: this.model,
+          model,
           max_tokens: 16000,
           system,
           messages,
-          tools: webSearch ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: 5 }] : [],
+          tools: webSearch ? [claudeWebSearchTool(model)] : [],
           output_config: { format: zodOutputFormat(schema) },
         });
 
