@@ -71,7 +71,7 @@ With no API key the app runs in **no-AI mode**: everything works except the AI b
 | `npm run lint` | Lints the code |
 | `npm run build` | Production build |
 | `npm run db:studio` | Opens Prisma Studio to browse the data |
-| `npm run db:reset` | **Deletes all your data** (roster, Pokédex progress, breeding plans), recreates the tables, re-seeds and re-syncs the Pokémon reference data (fast, it uses the local cache) |
+| `npm run db:reset` | **Deletes all your data** (roster, Pokédex progress and genders, breeding plans, AI audit cache) but keeps the tables, then re-seeds and re-syncs the Pokémon reference data (about a minute, from the local cache). It does not run migrations: after a schema change, run `npm run db:migrate` first |
 | `docker exec -it postgres18 psql -U poketrain -d poketrain_dev` | Opens a SQL shell on the database |
 
 ### Common problems
