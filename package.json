@@ -10,7 +10,7 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "DOTENV_CONFIG_PATH=.env.local tsx --import dotenv/config prisma/seed.ts",
-    "db:reset": "prisma migrate reset --force --skip-seed && npm run db:seed && npm run sync:pokeapi",
+    "db:reset": "prisma migrate reset --force && npm run db:seed && npm run sync:pokeapi",
     "sync:pokeapi": "DOTENV_CONFIG_PATH=.env.local tsx --import dotenv/config scripts/sync-pokeapi.ts",
     "test": "vitest run",
     "postinstall": "prisma generate"
