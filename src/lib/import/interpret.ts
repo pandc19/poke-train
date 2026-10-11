@@ -93,8 +93,8 @@ function parseMissing(status: string): string[] | null {
  *  - Nature is DONE when the current nature equals the recommended one.
  *  - Ability, item and EVs are DONE only when the row is marked done.
  *
- * When "current" moves exist they are the build that gets tracked; the
- * recommended list is kept in the notes so nothing from the sheet is lost.
+ * When "current" moves exist they are the build that gets tracked and the
+ * recommended list is dropped: the AI audit proposes a recommended set on demand.
  */
 export function interpretRow(row: MappedRow, index: number, dict: Dictionaries): ResolvedRow {
   const issues: string[] = [];
@@ -178,9 +178,6 @@ export function interpretRow(row: MappedRow, index: number, dict: Dictionaries):
     [
       row.notes,
       statusNote && `Status: ${statusNote}`,
-      usingCurrent && targetList.length && normalizeKey(targetList.join()) !== normalizeKey(currentList.join())
-        ? `Recommended moves: ${targetList.join(', ')}`
-        : null,
       natureOptions.length > 1 ? `Nature options: ${natureOptions.join(' / ')}` : null,
       abilityRaw && !ability ? `Ability: ${abilityRaw}` : null,
     ]

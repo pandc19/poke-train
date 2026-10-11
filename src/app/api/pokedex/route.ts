@@ -27,3 +27,28 @@ export async function POST(request: Request) {
   }
   return Response.json({ ok: true });
 }
+
+const GenderBody = z.object({
+  gameId: z.string(),
+  speciesId: z.number().int().positive(),
+  hasMale: z.boolean().optional(),
+  hasFemale: z.boolean().optional(),
+});
+
+/** Records which genders of a species the player has (also marks it caught). */
+export async function PATCH(request: Request) {
+  const parsed = GenderBody.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return Response.json({ error: 'Invalid body' }, { status: 400 });
+  const { gameId, speciesId, hasMale, hasFemale } = parsed.data;
+
+  const profileId = await findProfileId(gameId);
+  if (!profileId) return Response.json({ error: 'Unknown game' }, { status: 404 });
+
+  const data = { hasMale, hasFemale };
+  await prisma.pokedexEntry.upsert({
+    where: { profileId_speciesId: { profileId, speciesId } },
+    update: data,
+    create: { profileId, speciesId, ...data },
+  });
+  return Response.json({ ok: true });
+}

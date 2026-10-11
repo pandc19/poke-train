@@ -35,6 +35,19 @@ export function AuditPanel({
           </ul>
         </div>
       )}
+      {(audit.recommendedMoves ?? []).length > 0 && (
+        <div>
+          <h4 className="mb-1 font-semibold uppercase text-muted">Recommended moves</h4>
+          <ul className="space-y-1">
+            {audit.recommendedMoves.map((m, i) => (
+              <li key={i}>
+                <span className="font-medium">{m.move}</span>
+                <span className="text-muted"> · {m.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {audit.upgrades.length > 0 && (
         <div>
           <h4 className="mb-1 font-semibold uppercase text-muted">Suggested upgrades</h4>

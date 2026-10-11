@@ -1,7 +1,7 @@
 import { prisma } from '../db';
 import { LOCAL_USER_ID } from '../constants';
 import type { GameConfig } from '../games';
-import type { BreedingData, LearnWay, Owned } from './engine';
+import type { BreedingData, LearnWay, Owned, OwnedPokemon } from './engine';
 
 /** Loads what the engine needs for a set of moves in one game. */
 export async function loadBreedingData(game: GameConfig, moveIds: number[]): Promise<BreedingData> {
@@ -36,7 +36,9 @@ export async function loadBreedingData(game: GameConfig, moveIds: number[]): Pro
 
 /**
  * What the player has to breed with in this game: the owned roster Pokémon
- * of this profile, plus every species caught in this profile's Pokédex.
+ * of this profile, plus the genders registered in its Pokédex. A species
+ * caught with no gender recorded is kept as "unknown", which the planner
+ * reports as "caught, check its gender" rather than as a usable parent.
  */
 export async function loadOwned(profileId: string): Promise<Owned> {
   const [roster, entries] = await Promise.all([
@@ -44,16 +46,29 @@ export async function loadOwned(profileId: string): Promise<Owned> {
       where: { profileId, owned: true, profile: { userId: LOCAL_USER_ID } },
       select: {
         speciesId: true,
-        baseSpeciesId: true,
         gender: true,
         // Only moves already checked off: a pending move is not known yet.
         moves: { where: { status: 'DONE', moveId: { not: null } }, select: { moveId: true } },
       },
     }),
-    prisma.pokedexEntry.findMany({ where: { profileId }, select: { speciesId: true } }),
+    prisma.pokedexEntry.findMany({
+      where: { profileId },
+      select: { speciesId: true, hasMale: true, hasFemale: true },
+    }),
   ]);
-  return {
-    roster: roster.map((p) => ({ speciesId: p.speciesId, gender: p.gender, moveIds: p.moves.map((m) => m.moveId!) })),
-    caughtSpeciesIds: new Set(entries.map((e) => e.speciesId)),
-  };
+
+  const owned: OwnedPokemon[] = roster.map((p) => ({
+    speciesId: p.speciesId,
+    gender: p.gender,
+    moveIds: p.moves.map((m) => m.moveId!),
+  }));
+  const inRoster = new Set(roster.map((p) => p.speciesId));
+  for (const e of entries) {
+    if (e.hasMale) owned.push({ speciesId: e.speciesId, gender: 'MALE', moveIds: [] });
+    if (e.hasFemale) owned.push({ speciesId: e.speciesId, gender: 'FEMALE', moveIds: [] });
+    if (!e.hasMale && !e.hasFemale && !inRoster.has(e.speciesId)) {
+      owned.push({ speciesId: e.speciesId, gender: 'UNKNOWN', moveIds: [] });
+    }
+  }
+  return { roster: owned, caughtSpeciesIds: new Set(entries.map((e) => e.speciesId)) };
 }

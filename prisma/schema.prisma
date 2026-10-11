@@ -239,6 +239,9 @@ model PokedexEntry {
   profileId String   @map("profile_id") @db.Uuid
   speciesId Int      @map("species_id")
   caughtAt  DateTime @default(now()) @map("caught_at")
+  /// Which genders the player has, for the breeding planner. Both false = not recorded.
+  hasMale   Boolean  @default(false) @map("has_male")
+  hasFemale Boolean  @default(false) @map("has_female")
 
   profile GameProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   species Species     @relation(fields: [speciesId], references: [id])
@@ -255,6 +258,8 @@ enum TaskStatus {
 enum Gender {
   MALE
   FEMALE
+  /// The player has both a male and a female of this Pokémon.
+  BOTH
   GENDERLESS
   UNKNOWN
 }

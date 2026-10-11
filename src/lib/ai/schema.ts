@@ -9,6 +9,9 @@ export const BuildAuditSchema = z.object({
   upgrades: z
     .array(z.object({ change: z.string(), reason: z.string() }))
     .describe('Specific swaps that would improve the build, most valuable first'),
+  recommendedMoves: z
+    .array(z.object({ move: z.string(), reason: z.string() }))
+    .describe('The best set of up to four moves for this Pokémon in this game, whether or not it has them yet'),
   howToGet: z
     .array(z.object({ what: z.string(), where: z.string() }))
     .describe('Where to obtain pending items, TMs (and their materials) or moves in this game'),

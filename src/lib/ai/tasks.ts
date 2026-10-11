@@ -8,7 +8,7 @@ import type { RosterView } from '../roster';
 import { BuildAuditSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
 import type { AiProvider } from './types';
 
-const PROMPT_VERSION = 1;
+const PROMPT_VERSION = 2;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -102,6 +102,7 @@ export function auditBuild(
             '(shop, location, TM number and the materials needed to craft it, or how the move is learned) and put it in howToGet.'
           : 'Nothing is pending, so leave howToGet empty.',
         'Judge synergy between nature, EVs, ability, item and moves. Suggest at most three upgrades.',
+        'Always fill recommendedMoves with the best moveset you would run on this Pokémon in this game, even if the current moves are already good.',
       ]
         .filter(Boolean)
         .join('\n\n'),

@@ -11,6 +11,10 @@
  *  - The egg knows an egg move if either parent knows it.
  *  - Scarlet/Violet only: a Pokémon holding a Mirror Herb with a free move
  *    slot copies its egg moves from any party member at a picnic, no egg needed.
+ *
+ * Genders: a Pokémon the player owns counts as a male or female parent only
+ * when its gender is recorded (on the roster or in the Pokédex). A species
+ * that can only be one gender is known without recording it.
  */
 
 export type SpeciesInfo = {
@@ -34,16 +38,21 @@ export type BreedingData = {
   mirrorHerb: boolean;
 };
 
+export type Gender = 'MALE' | 'FEMALE' | 'BOTH' | 'GENDERLESS' | 'UNKNOWN';
+
 export type OwnedPokemon = {
   speciesId: number;
-  gender: 'MALE' | 'FEMALE' | 'GENDERLESS' | 'UNKNOWN';
+  gender: Gender;
   moveIds: number[];
 };
 
 export type Owned = {
-  /** Trained roster Pokémon the player has (gender and moves known). */
+  /**
+   * Everything the player has: trained roster Pokémon (gender and moves
+   * known) plus one entry per gender registered in the Pokédex.
+   */
   roster: OwnedPokemon[];
-  /** Species marked caught in any Pokédex (gender and moves unknown). */
+  /** Species marked caught in the Pokédex. */
   caughtSpeciesIds: Set<number>;
 };
 
@@ -52,8 +61,18 @@ export type SpeciesRef = { id: number; nameEn: string; nameEs: string };
 /** How the player stands with respect to a species a step needs. */
 export type Have = 'ready' | 'caught' | 'missing';
 
+export type ParentRole = 'mother' | 'ditto' | 'father' | 'donor';
+
 export type Step =
-  | { action: 'obtain'; species: SpeciesRef; have: Have; gender?: 'male' | 'female' }
+  | {
+      action: 'obtain';
+      species: SpeciesRef;
+      have: Have;
+      gender?: 'male' | 'female';
+      role: ParentRole;
+      /** The player has this species, but only of the other gender. */
+      wrongGender?: boolean;
+    }
   | { action: 'teach'; species: SpeciesRef; method: string; level: number }
   | { action: 'breed'; father: SpeciesRef; mother: SpeciesRef; offspring: SpeciesRef }
   | { action: 'picnic'; from: SpeciesRef; to: SpeciesRef };
@@ -90,7 +109,24 @@ export type ParentPlan = {
   steps: Step[];
 };
 
-export type BreedingPlan = { target: SpeciesRef; parents: ParentPlan; moves: MovePlan[] };
+/** One Pokémon the plan needs, and whether the player has it. */
+export type ShoppingItem = {
+  species: SpeciesRef;
+  gender?: 'male' | 'female';
+  role: ParentRole;
+  have: Have;
+  wrongGender?: boolean;
+  /** The wanted move this Pokémon passes down, for fathers and picnic partners. */
+  forMoveId?: number;
+};
+
+export type BreedingPlan = {
+  target: SpeciesRef;
+  parents: ParentPlan;
+  moves: MovePlan[];
+  /** Everything needed to get the target with the wanted moves, de-duplicated. */
+  shopping: ShoppingItem[];
+};
 
 export const DITTO_ID = 132;
 const NO_EGGS = 'no-eggs';
@@ -136,15 +172,6 @@ function waysFor(data: BreedingData, speciesId: number, moveId: number) {
   return { natural, egg };
 }
 
-function haveOf(owned: Owned, data: BreedingData, speciesId: number, knowsMove?: number): Have {
-  // Any stage of the same family counts: a Golem can father what a Geodude can.
-  const family = new Set(familyIds(data, speciesId));
-  const inRoster = owned.roster.filter((p) => family.has(p.speciesId));
-  if (knowsMove != null ? inRoster.some((p) => p.moveIds.includes(knowsMove)) : inRoster.length > 0) return 'ready';
-  if (inRoster.length > 0 || [...family].some((id) => owned.caughtSpeciesIds.has(id))) return 'caught';
-  return 'missing';
-}
-
 const childrenIndex = new WeakMap<BreedingData, Map<number, number[]>>();
 
 function familyIds(data: BreedingData, speciesId: number): number[] {
@@ -172,14 +199,49 @@ function familyIds(data: BreedingData, speciesId: number): number[] {
 
 /** The stage of a family that can actually breed (baby Pokémon cannot; their evolutions can). */
 function breederOf(data: BreedingData, speciesId: number): SpeciesInfo | null {
-  const family = familyIds(data, speciesId).map((id) => data.species.get(id)!);
   const self = data.species.get(speciesId);
   if (self && canBreedAtAll(self)) return self;
-  return family.find(canBreedAtAll) ?? null;
+  return familyIds(data, speciesId).map((id) => data.species.get(id)!).find(canBreedAtAll) ?? null;
+}
+
+/** A recorded gender, or the one a single-gender species must have. */
+function effectiveGender(data: BreedingData, p: OwnedPokemon): Gender {
+  if (p.gender !== 'UNKNOWN') return p.gender;
+  const rate = data.species.get(p.speciesId)?.genderRate;
+  return rate === 0 ? 'MALE' : rate === 8 ? 'FEMALE' : 'UNKNOWN';
+}
+
+const isGender = (g: Gender, want: 'male' | 'female') =>
+  g === 'BOTH' || g === (want === 'male' ? 'MALE' : 'FEMALE');
+
+/**
+ * Where the player stands for one needed Pokémon.
+ *  ready: has one (of the right gender, knowing the move if one is wanted).
+ *  caught: has the species, but its gender is not recorded or it lacks the move.
+ *  missing: has none; `wrongGender` when only the other gender is owned.
+ */
+function standing(
+  owned: Owned,
+  data: BreedingData,
+  speciesId: number,
+  want: { move?: number; gender?: 'male' | 'female' } = {}
+): { have: Have; wrongGender: boolean } {
+  const family = new Set(familyIds(data, speciesId));
+  const inFamily = owned.roster.filter((p) => family.has(p.speciesId));
+  const hasMove = (p: OwnedPokemon) => want.move == null || p.moveIds.includes(want.move);
+  const known = (p: OwnedPokemon) => !want.gender || isGender(effectiveGender(data, p), want.gender);
+  const unknown = (p: OwnedPokemon) => effectiveGender(data, p) === 'UNKNOWN';
+
+  if (inFamily.some((p) => known(p) && hasMove(p))) return { have: 'ready', wrongGender: false };
+  if (inFamily.some((p) => known(p) || unknown(p))) return { have: 'caught', wrongGender: false };
+  if (inFamily.length === 0 && [...family].some((id) => owned.caughtSpeciesIds.has(id))) {
+    return { have: 'caught', wrongGender: false };
+  }
+  return { have: 'missing', wrongGender: inFamily.length > 0 };
 }
 
 /** A species that can teach the move to an egg of `mother`'s line by being the father. */
-type Donor = { species: SpeciesInfo; way: LearnWay; have: Have };
+type Donor = { species: SpeciesInfo; way: LearnWay; have: Have; wrongGender: boolean };
 
 /**
  * Fathers for `child`: available, able to be male, sharing an egg group, and
@@ -193,7 +255,7 @@ function directDonors(data: BreedingData, owned: Owned, child: SpeciesInfo, move
     const way = pickNatural(data.learns.get(s.id)?.get(moveId));
     if (!way) continue;
     const family = baseOf(data, s.id)?.id ?? s.id;
-    const donor: Donor = { species: s, way, have: haveOf(owned, data, s.id, moveId) };
+    const donor: Donor = { species: s, way, ...standing(owned, data, s.id, { move: moveId, gender: 'male' }) };
     const existing = byFamily.get(family);
     if (!existing || rank(donor) < rank(existing)) byFamily.set(family, donor);
   }
@@ -208,10 +270,10 @@ function pickNatural(ways: LearnWay[] | undefined): LearnWay | null {
 
 const methodCost = (w: LearnWay) => (w.method === 'level-up' ? w.level : w.method === 'machine' ? 200 : 300);
 const HAVE_RANK: Record<Have, number> = { ready: 0, caught: 1, missing: 2 };
-const rank = (d: Donor) => HAVE_RANK[d.have] * 1000 + methodCost(d.way);
+const rank = (d: { have: Have; way: LearnWay }) => HAVE_RANK[d.have] * 1000 + methodCost(d.way);
 
 const donorSteps = (d: Donor): Step[] => [
-  { action: 'obtain', species: ref(d.species), have: d.have, gender: 'male' },
+  { action: 'obtain', species: ref(d.species), have: d.have, gender: 'male', role: 'father', wrongGender: d.wrongGender },
   ...(d.have === 'ready' ? [] : [{ action: 'teach' as const, species: ref(d.species), method: d.way.method, level: d.way.level }]),
 ];
 
@@ -271,7 +333,7 @@ function planMove(data: BreedingData, owned: Owned, target: SpeciesInfo, moveId:
   const hatches = baseOf(data, target.id) ?? target;
 
   if (data.mirrorHerb) {
-    // Any owned Pokémon that knows the move works, whatever its species.
+    // Any owned Pokémon that knows the move works, whatever its species or gender.
     const knower = owned.roster.find((p) => p.moveIds.includes(moveId) && data.species.has(p.speciesId));
     if (knower) {
       options.push({
@@ -302,14 +364,14 @@ function planMove(data: BreedingData, owned: Owned, target: SpeciesInfo, moveId:
       .filter((s) => s.available)
       .map((s) => ({ species: s, way: pickNatural(data.learns.get(s.id)?.get(moveId)) }))
       .filter((d): d is { species: SpeciesInfo; way: LearnWay } => d.way != null)
-      .map((d) => ({ ...d, have: haveOf(owned, data, d.species.id, moveId) }))
+      .map((d) => ({ ...d, ...standing(owned, data, d.species.id, { move: moveId }) }))
       .sort((a, b) => rank(a) - rank(b) || a.species.id - b.species.id)[0];
     if (anyDonor) {
       options.push({
         kind: 'mirror-herb',
         ready: false,
         steps: [
-          { action: 'obtain', species: ref(anyDonor.species), have: anyDonor.have },
+          { action: 'obtain', species: ref(anyDonor.species), have: anyDonor.have, role: 'donor' },
           { action: 'teach', species: ref(anyDonor.species), method: anyDonor.way.method, level: anyDonor.way.level },
           { action: 'picnic', from: ref(anyDonor.species), to: ref(target) },
         ],
@@ -324,34 +386,61 @@ function planMove(data: BreedingData, owned: Owned, target: SpeciesInfo, moveId:
 
 function planParents(data: BreedingData, owned: Owned, target: SpeciesInfo): ParentPlan {
   const hatches = baseOf(data, target.id) ?? target;
-  const family = new Set(familyIds(data, target.id));
   const haveDitto = owned.caughtSpeciesIds.has(DITTO_ID) || owned.roster.some((p) => p.speciesId === DITTO_ID);
   const ditto = data.species.get(DITTO_ID);
 
+  // Baby Pokémon are in "no-eggs" themselves; what matters is whether an evolved stage can breed.
   const breeder = breederOf(data, target.id);
   if (!breeder) {
     return { hatchesAs: ref(hatches), canBreed: false, reason: 'no-eggs', needsDitto: false, haveMother: false, haveDitto, steps: [] };
   }
   const needsDitto = !canBeFemale(breeder);
-  const inRoster = owned.roster.filter((p) => family.has(p.speciesId));
-  const haveFamily = inRoster.length > 0 || [...family].some((id) => owned.caughtSpeciesIds.has(id));
-  const haveFemale = inRoster.some((p) => p.gender === 'FEMALE');
-  const haveMother = needsDitto ? haveFamily : haveFemale;
 
   const steps: Step[] = [];
+  let haveMother: boolean;
   if (needsDitto) {
-    steps.push({ action: 'obtain', species: ref(breeder), have: haveFamily ? 'ready' : 'missing' });
-    if (ditto) steps.push({ action: 'obtain', species: ref(ditto), have: haveDitto ? 'ready' : 'missing' });
+    // Any one of this line will do; Ditto supplies the other half.
+    const mine = standing(owned, data, breeder.id);
+    haveMother = mine.have !== 'missing';
+    steps.push({ action: 'obtain', species: ref(breeder), have: haveMother ? 'ready' : 'missing', role: 'mother' });
+    if (ditto) steps.push({ action: 'obtain', species: ref(ditto), have: haveDitto ? 'ready' : 'missing', role: 'ditto' });
   } else {
-    // A caught family member of unknown gender might already be female.
+    const mother = standing(owned, data, breeder.id, { gender: 'female' });
+    haveMother = mother.have === 'ready';
     steps.push({
       action: 'obtain',
       species: ref(breeder),
-      have: haveFemale ? 'ready' : haveFamily ? 'caught' : 'missing',
+      have: mother.have,
       gender: 'female',
+      role: 'mother',
+      wrongGender: mother.wrongGender,
     });
   }
   return { hatchesAs: ref(hatches), canBreed: true, needsDitto, haveMother, haveDitto, steps };
+}
+
+/** Collapses the steps of the best option for each move into one de-duplicated list. */
+function shoppingList(parents: ParentPlan, moves: MovePlan[]): ShoppingItem[] {
+  const items = new Map<string, ShoppingItem>();
+  const add = (step: Step, forMoveId?: number) => {
+    if (step.action !== 'obtain') return;
+    const key = `${step.species.id}:${step.gender ?? ''}:${step.role}`;
+    if (items.has(key)) return;
+    items.set(key, {
+      species: step.species,
+      gender: step.gender,
+      role: step.role,
+      have: step.have,
+      wrongGender: step.wrongGender,
+      forMoveId,
+    });
+  };
+  parents.steps.forEach((s) => add(s));
+  for (const move of moves) {
+    // Options are sorted ready-first, so the first one is the best available.
+    move.options[0]?.steps.forEach((s) => add(s, move.moveId));
+  }
+  return [...items.values()];
 }
 
 /** Builds the full plan for breeding `targetId` with the wanted moves. */
@@ -359,9 +448,7 @@ export function planBreeding(data: BreedingData, owned: Owned, targetId: number,
   const target = data.species.get(targetId);
   if (!target) return null;
   const parents = planParents(data, owned, target);
-  return {
-    target: ref(target),
-    parents,
-    moves: moveIds.map((moveId) => planMove(data, owned, target, moveId, breederOf(data, target.id))),
-  };
+  const mother = breederOf(data, target.id);
+  const moves = moveIds.map((moveId) => planMove(data, owned, target, moveId, parents.canBreed ? mother : null));
+  return { target: ref(target), parents, moves, shopping: shoppingList(parents, moves) };
 }

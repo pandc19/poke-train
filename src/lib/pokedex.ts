@@ -12,6 +12,11 @@ export type DexCell = {
   types: string[];
   /** Caught in the profile being viewed (always false on the National Dex). */
   caught: boolean;
+  /** Genders recorded for this species in the profile being viewed. */
+  hasMale: boolean;
+  hasFemale: boolean;
+  /** Eighths female; -1 = genderless. Gender buttons only matter for mixed species. */
+  genderRate: number;
   /** Short names of the *other* games where this species is already caught. */
   caughtIn: string[];
   /** Trained-roster badge: in the roster and still pending, or fully trained. */
@@ -37,6 +42,7 @@ export async function loadDex(pokedexSlug: string, profileId: string | null): Pr
             id: true,
             nameEn: true,
             nameEs: true,
+            genderRate: true,
             forms: { where: { isDefault: true }, select: { spriteUrl: true, types: true }, take: 1 },
           },
         },
@@ -44,7 +50,13 @@ export async function loadDex(pokedexSlug: string, profileId: string | null): Pr
     }),
     prisma.pokedexEntry.findMany({
       where: { profile: { userId: LOCAL_USER_ID } },
-      select: { speciesId: true, profileId: true, profile: { select: { gameId: true } } },
+      select: {
+        speciesId: true,
+        profileId: true,
+        hasMale: true,
+        hasFemale: true,
+        profile: { select: { gameId: true } },
+      },
     }),
     prisma.rosterPokemon.findMany({
       where: profileId ? { profileId } : { profile: { userId: LOCAL_USER_ID } },
@@ -53,10 +65,12 @@ export async function loadDex(pokedexSlug: string, profileId: string | null): Pr
   ]);
 
   const caughtHere = new Set<number>();
+  const gendersHere = new Map<number, { hasMale: boolean; hasFemale: boolean }>();
   const caughtIn = new Map<number, Set<string>>();
   for (const e of entries) {
     if (e.profileId === profileId) {
       caughtHere.add(e.speciesId);
+      gendersHere.set(e.speciesId, { hasMale: e.hasMale, hasFemale: e.hasFemale });
       continue;
     }
     const name = getGame(e.profile.gameId)?.shortName ?? e.profile.gameId;
@@ -78,6 +92,9 @@ export async function loadDex(pokedexSlug: string, profileId: string | null): Pr
     spriteUrl: s.species.forms[0]?.spriteUrl ?? null,
     types: s.species.forms[0]?.types ?? [],
     caught: caughtHere.has(s.species.id),
+    hasMale: gendersHere.get(s.species.id)?.hasMale ?? false,
+    hasFemale: gendersHere.get(s.species.id)?.hasFemale ?? false,
+    genderRate: s.species.genderRate,
     caughtIn: [...(caughtIn.get(s.species.id) ?? [])],
     roster: rosterState.get(s.species.id) ?? 'none',
   }));

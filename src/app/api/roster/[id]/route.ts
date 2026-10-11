@@ -22,7 +22,7 @@ const Body = z.object({
   set: z
     .object({
       nickname: z.string().max(60).nullable(),
-      gender: z.enum(['MALE', 'FEMALE', 'GENDERLESS', 'UNKNOWN']),
+      gender: z.enum(['MALE', 'FEMALE', 'BOTH', 'GENDERLESS', 'UNKNOWN']),
       targetNatureId: id,
       abilityId: id,
       itemId: id,

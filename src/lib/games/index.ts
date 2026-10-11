@@ -1,4 +1,4 @@
-import { VIOLET_STARTER_ROLES } from './starter-roles';
+import { VIOLET_UTILITY_ROLES } from './utility-roles';
 
 /**
  * Per-game configuration: the single extension point for adding a game.
@@ -13,8 +13,8 @@ export type GameConfig = {
   versionGroup: string;
   /** Every version group whose learnsets count as legal (base game + DLC). */
   learnsetVersionGroups: string[];
-  /** PokéAPI pokedex slugs, in display order. */
-  pokedexes: { slug: string; name: string }[];
+  /** PokéAPI pokedex slugs, in display order. `note` says where the dex comes from. */
+  pokedexes: { slug: string; name: string; note: string }[];
   features: {
     breeding: boolean;
     evs: boolean;
@@ -26,15 +26,27 @@ export type GameConfig = {
   };
   /** Cartridge colours for the game selector. */
   theme: { from: string; to: string; accent: string };
-  starterRoles: StarterRole[];
+  utilityRoles: UtilityRole[];
 };
 
-/** A curated utility role for the starter-team page. Species are PokéAPI slugs. */
-export type StarterRole = {
+/**
+ * A job every team wants covered early. The Starter team page checks which
+ * Pokémon in the game can do it from real learnset and ability data, so
+ * nothing here is a hand-written claim about locations.
+ * All values are PokéAPI slugs.
+ */
+export type UtilityRole = {
   id: string;
   title: string;
   why: string;
-  picks: { slug: string; note: string; where?: string }[];
+  needs: {
+    /** The Pokémon must learn every one of these. */
+    allMoves?: string[];
+    /** ...and at least one of these. */
+    anyMoves?: string[];
+    /** Or, instead, have one of these abilities. */
+    anyAbilities?: string[];
+  };
   tips: string[];
 };
 
@@ -47,9 +59,9 @@ export const GAMES: GameConfig[] = [
     versionGroup: 'scarlet-violet',
     learnsetVersionGroups: ['scarlet-violet', 'the-teal-mask', 'the-indigo-disk'],
     pokedexes: [
-      { slug: 'paldea', name: 'Paldea' },
-      { slug: 'kitakami', name: 'Kitakami' },
-      { slug: 'blueberry', name: 'Blueberry' },
+      { slug: 'paldea', name: 'Paldea', note: 'Base game' },
+      { slug: 'kitakami', name: 'Kitakami', note: 'DLC: The Teal Mask' },
+      { slug: 'blueberry', name: 'Blueberry', note: 'DLC: The Indigo Disk' },
     ],
     features: {
       breeding: true,
@@ -60,7 +72,7 @@ export const GAMES: GameConfig[] = [
       mirrorHerb: true,
     },
     theme: { from: '#7c3aed', to: '#4c1d95', accent: '#c4b5fd' },
-    starterRoles: VIOLET_STARTER_ROLES,
+    utilityRoles: VIOLET_UTILITY_ROLES,
   },
 ];
 

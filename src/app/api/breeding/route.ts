@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { computePlan, loadGoals } from '@/lib/breeding/goals';
+import { loadGoals } from '@/lib/breeding/goals';
 import { prisma } from '@/lib/db';
 import { getGame } from '@/lib/games';
 import { findProfileId } from '@/lib/profile';
@@ -22,10 +22,10 @@ export async function POST(request: Request) {
   if (!game || !profileId) return Response.json({ error: 'Unknown game' }, { status: 404 });
   if (!game.features.breeding) return Response.json({ error: `${game.name} has no breeding.` }, { status: 422 });
 
-  const plan = await computePlan(game, profileId, speciesId, moveIds);
-  if (!plan) return Response.json({ error: 'Unknown Pokémon' }, { status: 404 });
+  const species = await prisma.species.findUnique({ where: { id: speciesId }, select: { id: true } });
+  if (!species) return Response.json({ error: 'Unknown Pokémon' }, { status: 404 });
 
-  const goal = await prisma.breedingGoal.create({ data: { profileId, speciesId, moveIds, plan } });
-  const [view] = await loadGoals(profileId, [goal.id]);
+  const goal = await prisma.breedingGoal.create({ data: { profileId, speciesId, moveIds } });
+  const [view] = await loadGoals(game, profileId, [goal.id]);
   return Response.json({ goal: view });
 }

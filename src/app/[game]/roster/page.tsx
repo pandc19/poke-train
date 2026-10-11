@@ -7,7 +7,7 @@ import { loadEditorOptions, loadRoster } from '@/lib/roster';
 export default async function RosterPage({ params }: PageProps<'/[game]/roster'>) {
   const { game: gameId } = await params;
   const { game, profileId } = await requireGameProfile(gameId);
-  const [roster, options, lang] = await Promise.all([loadRoster(profileId), loadEditorOptions(), getLang()]);
+  const [roster, options, lang] = await Promise.all([loadRoster(profileId), loadEditorOptions(game), getLang()]);
   const provider = getAiProvider();
 
   return (

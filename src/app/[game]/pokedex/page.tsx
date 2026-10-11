@@ -30,6 +30,10 @@ export default async function PokedexPage({ params, searchParams }: PageProps<'/
           ))}
         </div>
       </div>
+      <p className="-mt-3 mb-5 text-sm text-muted">
+        <span className="font-medium text-ink">{current.name}</span>: {current.note}.{' '}
+        {current.slug !== 'paldea' && 'You only need this dex if you own the expansion.'}
+      </p>
       {/* keyed so switching dex resets search, filter and optimistic state */}
       <DexGrid key={current.slug} cells={cells} lang={lang} gameId={game.id} accent={game.theme.accent} />
     </div>

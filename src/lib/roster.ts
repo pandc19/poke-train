@@ -25,7 +25,9 @@ export type RosterView = {
   /** Abilities this species can actually have, for the editor and the legality flag. */
   abilityOptions: (Named & { isHidden: boolean })[];
   nickname: string | null;
-  gender: 'MALE' | 'FEMALE' | 'GENDERLESS' | 'UNKNOWN';
+  gender: 'MALE' | 'FEMALE' | 'BOTH' | 'GENDERLESS' | 'UNKNOWN';
+  /** Eighths female; -1 = genderless. Decides which gender buttons make sense. */
+  genderRate: number;
   origin: 'CAUGHT' | 'BRED' | 'UNKNOWN';
   owned: boolean;
   targetNature: Named | null;
@@ -55,6 +57,7 @@ export async function loadRoster(profileId: string, ids?: string[]): Promise<Ros
       species: {
         select: {
           ...named,
+          genderRate: true,
           forms: {
             orderBy: { id: 'asc' },
             select: {
@@ -88,6 +91,7 @@ export async function loadRoster(profileId: string, ids?: string[]): Promise<Ros
       id: r.id,
       species: { id: r.species.id, nameEn: r.species.nameEn, nameEs: r.species.nameEs },
       baseSpecies: r.baseSpecies,
+      genderRate: r.species.genderRate,
       formId: form?.id ?? null,
       spriteUrl: form?.spriteUrl ?? null,
       types: form?.types ?? [],
@@ -142,10 +146,14 @@ export async function refreshLegality(rosterPokemonId: string, game: GameConfig)
   );
 }
 
-/** Name lists for the inline editors. */
-export async function loadEditorOptions() {
+/** Name lists for the editors. Pokémon are limited to those obtainable in the game. */
+export async function loadEditorOptions(game: GameConfig) {
   const [species, moves, items, natures] = await Promise.all([
-    prisma.species.findMany({ select: named, orderBy: { id: 'asc' } }),
+    prisma.species.findMany({
+      where: { pokedexSlots: { some: { pokedex: { gameId: game.id } } } },
+      select: named,
+      orderBy: { id: 'asc' },
+    }),
     prisma.move.findMany({ select: named, orderBy: { nameEn: 'asc' } }),
     prisma.item.findMany({
       // Things a Pokémon can meaningfully hold; skips key items, TMs, balls, etc.

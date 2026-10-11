@@ -1,14 +1,10 @@
 import { z } from 'zod';
-import { computePlan, loadGoals } from '@/lib/breeding/goals';
+import { loadGoals } from '@/lib/breeding/goals';
 import { LOCAL_USER_ID } from '@/lib/constants';
 import { prisma } from '@/lib/db';
 import { getGame } from '@/lib/games';
 
-const Body = z.object({
-  status: z.enum(['PLANNED', 'IN_PROGRESS', 'DONE']).optional(),
-  /** Rebuild the plan against the current roster and Pokédex. */
-  recompute: z.boolean().optional(),
-});
+const Body = z.object({ status: z.enum(['PLANNED', 'IN_PROGRESS', 'DONE']) });
 
 async function findGoal(id: string) {
   if (!z.uuid().safeParse(id).success) return null;
@@ -26,12 +22,8 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/breeding/[
   const game = goal && getGame(goal.profile.gameId);
   if (!goal || !game) return Response.json({ error: 'Not found' }, { status: 404 });
 
-  const plan = parsed.data.recompute ? await computePlan(game, goal.profileId, goal.speciesId, goal.moveIds) : null;
-  await prisma.breedingGoal.update({
-    where: { id },
-    data: { status: parsed.data.status, ...(plan ? { plan } : {}) },
-  });
-  const [view] = await loadGoals(goal.profileId, [id]);
+  await prisma.breedingGoal.update({ where: { id }, data: { status: parsed.data.status } });
+  const [view] = await loadGoals(game, goal.profileId, [id]);
   return Response.json({ goal: view });
 }
 

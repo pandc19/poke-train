@@ -14,7 +14,7 @@ export default async function BreedingPage({ params }: PageProps<'/[game]/breedi
 
   const named = { id: true, nameEn: true, nameEs: true } as const;
   const [goals, roster, species, moves, lang] = await Promise.all([
-    loadGoals(profileId),
+    loadGoals(game, profileId),
     loadRoster(profileId),
     // Only Pokémon obtainable in this game can be bred in it.
     prisma.species.findMany({
@@ -30,8 +30,8 @@ export default async function BreedingPage({ params }: PageProps<'/[game]/breedi
     <div>
       <h1 className="text-xl font-bold">Breeding assistant</h1>
       <p className="mb-5 mt-1 max-w-3xl text-sm text-muted">
-        Pick a Pokémon and the moves you want it to hatch with. The plan checks your roster and Pokédex for
-        parents first, then tells you what to catch.
+        Say which Pokémon you want. The plan checks the Pokémon and genders you recorded in your Pokédex and roster,
+        then lists what you already have and what you still need to catch or breed.
         {game.features.mirrorHerb && ' In this game a Mirror Herb picnic can copy egg moves without hatching anything.'}
       </p>
       <BreedingBoard
@@ -41,12 +41,12 @@ export default async function BreedingPage({ params }: PageProps<'/[game]/breedi
         moves={moves}
         lang={lang}
         aiEnabled={getAiProvider() != null}
-        rosterSuggestions={roster
-          .filter((p) => p.moves.some((m) => m.status === 'PENDING' && m.move))
+        rosterBuilds={roster
+          .filter((p) => p.moves.some((m) => m.move))
           .map((p) => ({
-            id: p.id,
+            speciesId: p.species.id,
             species: p.species,
-            pendingMoves: p.moves.filter((m) => m.status === 'PENDING' && m.move).map((m) => m.move!),
+            moves: p.moves.flatMap((m) => (m.move ? [m.move] : [])),
           }))}
       />
     </div>

@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { ConfirmDialog } from './Dialog';
 import type { LocationResult } from '@/lib/ai/schema';
-import type { MoveOption, MovePlan, SpeciesRef, Step } from '@/lib/breeding/engine';
+import type { MoveOption, MovePlan, ShoppingItem, SpeciesRef, Step } from '@/lib/breeding/engine';
 import type { BreedingGoalView } from '@/lib/breeding/goals';
 import type { Lang } from '@/lib/i18n';
 
 type Named = { id: number; nameEn: string; nameEs: string };
-type Suggestion = { id: string; species: Named; pendingMoves: Named[] };
+type RosterBuild = { speciesId: number; species: Named; moves: Named[] };
 type LocationState = { busy: boolean; result?: LocationResult; error?: string };
 
 const OPTION_TITLES: Record<MoveOption['kind'], string> = {
@@ -24,6 +25,7 @@ const STATUS_LABELS: Record<BreedingGoalView['status'], string> = {
 };
 
 const inputClass = 'w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm placeholder:text-muted';
+const symbol = (g?: 'male' | 'female') => (g === 'male' ? '♂ ' : g === 'female' ? '♀ ' : '');
 
 export function BreedingBoard({
   gameId,
@@ -32,7 +34,7 @@ export function BreedingBoard({
   moves,
   lang,
   aiEnabled,
-  rosterSuggestions,
+  rosterBuilds,
 }: {
   gameId: string;
   initial: BreedingGoalView[];
@@ -40,14 +42,16 @@ export function BreedingBoard({
   moves: Named[];
   lang: Lang;
   aiEnabled: boolean;
-  rosterSuggestions: Suggestion[];
+  rosterBuilds: RosterBuild[];
 }) {
   const [goals, setGoals] = useState(initial);
   const [target, setTarget] = useState('');
   const [wanted, setWanted] = useState(['', '', '', '']);
+  const [filledFromRoster, setFilledFromRoster] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locations, setLocations] = useState<Record<number, LocationState>>({});
+  const [deleting, setDeleting] = useState<BreedingGoalView | null>(null);
 
   const name = (x: Named | SpeciesRef) => (lang === 'en' ? x.nameEn : x.nameEs);
   const find = (list: Named[], text: string) => {
@@ -64,6 +68,18 @@ export function BreedingBoard({
     const data = await res.json().catch(() => null);
     if (!res.ok) throw new Error(data?.error ?? `Request failed (${res.status})`);
     return data as T;
+  }
+
+  /** Typing a Pokémon that is in your roster fills in the moves you are training it with. */
+  function onTargetChange(text: string) {
+    setTarget(text);
+    const match = find(species, text);
+    const build = match && rosterBuilds.find((b) => b.speciesId === match.id);
+    const untouched = wanted.every((w) => !w.trim()) || filledFromRoster;
+    if (build && untouched) {
+      setWanted([0, 1, 2, 3].map((i) => (build.moves[i] ? name(build.moves[i]) : '')));
+      setFilledFromRoster(true);
+    }
   }
 
   async function create(e: React.FormEvent) {
@@ -89,6 +105,7 @@ export function BreedingBoard({
       setGoals((prev) => [data.goal, ...prev]);
       setTarget('');
       setWanted(['', '', '', '']);
+      setFilledFromRoster(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create the plan.');
     } finally {
@@ -96,10 +113,10 @@ export function BreedingBoard({
     }
   }
 
-  async function update(id: string, body: { status?: BreedingGoalView['status']; recompute?: boolean }) {
+  async function setStatus(id: string, status: BreedingGoalView['status']) {
     setError(null);
     try {
-      const data = await api<{ goal: BreedingGoalView }>(`/api/breeding/${id}`, 'PATCH', body);
+      const data = await api<{ goal: BreedingGoalView }>(`/api/breeding/${id}`, 'PATCH', { status });
       setGoals((prev) => prev.map((g) => (g.id === id ? data.goal : g)));
     } catch {
       setError('Could not update that plan. Try again.');
@@ -107,7 +124,7 @@ export function BreedingBoard({
   }
 
   async function remove(goal: BreedingGoalView) {
-    if (!window.confirm(`Delete the breeding plan for ${name(goal.species)}?`)) return;
+    setDeleting(null);
     try {
       await api(`/api/breeding/${goal.id}`, 'DELETE');
       setGoals((prev) => prev.filter((g) => g.id !== goal.id));
@@ -127,56 +144,89 @@ export function BreedingBoard({
     }
   }
 
-  function prefill(id: string) {
-    const suggestion = rosterSuggestions.find((r) => r.id === id);
-    if (!suggestion) return;
-    setTarget(name(suggestion.species));
-    setWanted([0, 1, 2, 3].map((i) => (suggestion.pendingMoves[i] ? name(suggestion.pendingMoves[i]) : '')));
-  }
+  const moveName = (goal: BreedingGoalView, id?: number) => {
+    const m = goal.moves.find((x) => x.id === id);
+    return m ? name(m) : 'the move';
+  };
+
+  const describe = (goal: BreedingGoalView, item: ShoppingItem): string => {
+    const forMove = moveName(goal, item.forMoveId);
+    if (item.have === 'ready') {
+      if (item.role === 'mother') return 'You have a female. She will be the mother.';
+      if (item.role === 'father') return `You have a male that knows ${forMove}.`;
+      return 'You have it.';
+    }
+    if (item.have === 'caught') {
+      if (item.role === 'father') {
+        return `You have it, but either its gender is not recorded or it does not know ${forMove}. Record the gender in your Pokédex, or teach it ${forMove}.`;
+      }
+      if (item.role === 'mother') return 'You have caught this line, but not a recorded female. Record her gender in your Pokédex or roster.';
+      return 'You have caught it, but it does not know the move yet.';
+    }
+    if (item.wrongGender) {
+      return `You only have the other gender registered. You need a ${item.gender ?? 'matching'} one.`;
+    }
+    return 'You do not have this yet.';
+  };
+
+  const roleLabel = (goal: BreedingGoalView, item: ShoppingItem) => {
+    if (item.role === 'mother') return 'mother (the egg hatches as her species)';
+    if (item.role === 'ditto') return 'Ditto (the other parent)';
+    if (item.role === 'father') return `father, passes down ${moveName(goal, item.forMoveId)}`;
+    return `knows ${moveName(goal, item.forMoveId)}, shares it at a picnic`;
+  };
+
+  const renderItem = (goal: BreedingGoalView, item: ShoppingItem, key: number) => {
+    const location = locations[item.species.id];
+    const canLookUp = item.have === 'missing';
+    return (
+      <li key={key} className="rounded-lg border border-line p-2 text-xs">
+        <p className="text-sm font-semibold">
+          {symbol(item.gender)}
+          {name(item.species)} <span className="text-xs font-normal text-muted">· {roleLabel(goal, item)}</span>
+        </p>
+        <p className={item.have === 'ready' ? 'text-done' : item.have === 'caught' ? 'text-star' : 'text-pending'}>
+          {describe(goal, item)}
+        </p>
+        {canLookUp && (
+          <button
+            onClick={() => locate(item.species)}
+            disabled={!aiEnabled || location?.busy}
+            title={aiEnabled ? 'Researched on the web with AI' : 'Add an API key to .env.local to enable location lookups'}
+            className="mt-1 rounded border border-line px-1.5 py-0.5 text-[11px] text-muted hover:text-ink disabled:opacity-40"
+          >
+            {location?.busy ? 'Searching…' : 'Where do I catch it?'}
+          </button>
+        )}
+        {location?.error && <p className="mt-1 text-pending">{location.error}</p>}
+        {location?.result && (
+          <div className="mt-1 rounded bg-surface-2 p-2 text-muted">
+            {location.result.locations.map((l, i) => (
+              <p key={i}>
+                <span className="font-medium text-ink">{l.place}</span> · {l.details}
+              </p>
+            ))}
+            {location.result.notes && <p className="mt-1">{location.result.notes}</p>}
+            <p className="mt-1 text-[10px]">AI-researched. Check in game before relying on it.</p>
+          </div>
+        )}
+      </li>
+    );
+  };
 
   const renderStep = (step: Step, key: number) => {
     switch (step.action) {
-      case 'obtain': {
-        const who = `${step.gender ? `${step.gender} ` : ''}${name(step.species)}`;
-        const location = locations[step.species.id];
-        if (step.have === 'ready') {
-          return (
-            <li key={key} className="text-done">
-              ✓ You have a {name(step.species)} for this
-              {step.gender === 'male' ? ' (it must be male)' : ''}.
-            </li>
-          );
-        }
+      case 'obtain':
         return (
           <li key={key}>
-            <span className={step.have === 'caught' ? 'text-star' : 'text-pending'}>
-              {step.have === 'caught'
-                ? `You have caught ${name(step.species)} before: use a ${who}, or catch one.`
-                : `Catch a ${who}.`}
-            </span>{' '}
-            <button
-              onClick={() => locate(step.species)}
-              disabled={!aiEnabled || location?.busy}
-              title={aiEnabled ? 'Researched on the web with AI' : 'Add an API key to .env.local to enable location lookups'}
-              className="rounded border border-line px-1.5 py-0.5 text-[11px] text-muted hover:text-ink disabled:opacity-40"
-            >
-              {location?.busy ? 'Searching…' : 'Where?'}
-            </button>
-            {location?.error && <p className="mt-1 text-pending">{location.error}</p>}
-            {location?.result && (
-              <div className="mt-1 rounded bg-surface-2 p-2 text-muted">
-                {location.result.locations.map((l, i) => (
-                  <p key={i}>
-                    <span className="font-medium text-ink">{l.place}</span> · {l.details}
-                  </p>
-                ))}
-                {location.result.notes && <p className="mt-1">{location.result.notes}</p>}
-                <p className="mt-1 text-[10px]">AI-researched. Check in game before relying on it.</p>
-              </div>
-            )}
+            {step.have === 'ready' ? 'Use your ' : 'Get a '}
+            <span className="font-medium">
+              {symbol(step.gender)}
+              {name(step.species)}
+            </span>
+            .
           </li>
         );
-      }
       case 'teach':
         return (
           <li key={key}>
@@ -209,21 +259,9 @@ export function BreedingBoard({
     }
   };
 
-  const renderMove = (plan: MovePlan, move: Named | undefined) => (
+  const renderMove = (goal: BreedingGoalView, plan: MovePlan) => (
     <div key={plan.moveId} className="rounded-lg border border-line p-3">
-      <h4 className="text-sm font-semibold">{move ? name(move) : `Move #${plan.moveId}`}</h4>
-      {plan.kind === 'natural' && plan.natural && (
-        <p className="mt-1 text-xs text-done">
-          No breeding needed:{' '}
-          {plan.natural.method === 'level-up'
-            ? plan.natural.level === 0
-              ? `${name(plan.natural.species)} learns it when it evolves.`
-              : `${name(plan.natural.species)} learns it at level ${plan.natural.level}.`
-            : plan.natural.method === 'machine'
-              ? `${name(plan.natural.species)} learns it from a TM.`
-              : `${name(plan.natural.species)} learns it by ${plan.natural.method}.`}
-        </p>
-      )}
+      <h4 className="text-sm font-semibold">{moveName(goal, plan.moveId)}</h4>
       {plan.kind === 'illegal' && (
         <p className="mt-1 text-xs text-red-400">This Pokémon cannot have this move in this game.</p>
       )}
@@ -248,46 +286,42 @@ export function BreedingBoard({
     <div>
       <form onSubmit={create} className="mb-6 rounded-xl border border-line bg-surface p-4">
         <div className="grid gap-3 md:grid-cols-[1.2fr_repeat(4,1fr)]">
-          <input
-            list="breed-species"
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            placeholder="Pokémon to breed"
-            aria-label="Pokémon to breed"
-            required
-            className={inputClass}
-          />
-          {wanted.map((value, i) => (
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Pokémon you want</span>
             <input
-              key={i}
-              list="breed-moves"
-              value={value}
-              onChange={(e) => setWanted((prev) => prev.map((w, k) => (k === i ? e.target.value : w)))}
-              placeholder={`Wanted move ${i + 1}`}
-              aria-label={`Wanted move ${i + 1}`}
+              list="breed-species"
+              value={target}
+              onChange={(e) => onTargetChange(e.target.value)}
+              placeholder="e.g. Garchomp"
+              required
               className={inputClass}
             />
+          </label>
+          {wanted.map((value, i) => (
+            <label key={i} className="block">
+              <span className="mb-1 block text-xs font-medium text-muted">Move {i + 1}</span>
+              <input
+                list="breed-moves"
+                value={value}
+                onChange={(e) => {
+                  setFilledFromRoster(false);
+                  setWanted((prev) => prev.map((w, k) => (k === i ? e.target.value : w)));
+                }}
+                placeholder="optional"
+                className={inputClass}
+              />
+            </label>
           ))}
         </div>
+        <p className="mt-2 text-xs text-muted">
+          {filledFromRoster
+            ? 'Moves filled in from the build you are training in your roster. Change them if you like.'
+            : 'Moves are optional. Add the moves you want it to hatch with; the plan tells you which of them need breeding.'}
+        </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button disabled={busy} className="rounded-md bg-done px-4 py-2 text-sm font-semibold text-bg disabled:opacity-40">
-            {busy ? 'Planning…' : 'Plan breeding'}
+            {busy ? 'Planning…' : 'Make a plan'}
           </button>
-          {rosterSuggestions.length > 0 && (
-            <select
-              value=""
-              onChange={(e) => prefill(e.target.value)}
-              aria-label="Fill in from a roster Pokémon with pending moves"
-              className="rounded-md border border-line bg-surface px-2 py-2 text-sm text-muted"
-            >
-              <option value="">Fill in from roster (pending moves)…</option>
-              {rosterSuggestions.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {name(r.species)}: {r.pendingMoves.map(name).join(', ')}
-                </option>
-              ))}
-            </select>
-          )}
           {error && (
             <span role="alert" className="text-sm text-pending">
               {error}
@@ -311,75 +345,116 @@ export function BreedingBoard({
       ) : (
         <ul className="space-y-4">
           <AnimatePresence initial={false}>
-            {goals.map((goal) => (
-              <motion.li
-                key={goal.id}
-                layout
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className={`rounded-xl border bg-surface p-4 ${goal.status === 'DONE' ? 'border-done/60' : 'border-line'}`}
-              >
-                <div className="flex flex-wrap items-center gap-3">
-                  <h3 className="text-base font-semibold">{name(goal.species)}</h3>
-                  <span className="text-xs text-muted">{goal.moves.map(name).join(' · ')}</span>
-                  <div className="ml-auto flex items-center gap-2 text-xs">
-                    <select
-                      value={goal.status}
-                      onChange={(e) => update(goal.id, { status: e.target.value as BreedingGoalView['status'] })}
-                      aria-label="Plan status"
-                      className="rounded-md border border-line bg-surface px-2 py-1"
-                    >
-                      {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => update(goal.id, { recompute: true })}
-                      title="Rebuild against your current roster and Pokédex"
-                      className="rounded-md border border-line px-2 py-1"
-                    >
-                      Recheck
-                    </button>
-                    <button onClick={() => remove(goal)} className="text-muted hover:text-red-400">
-                      Delete
-                    </button>
+            {goals.map((goal) => {
+              const plan = goal.plan;
+              const have = plan?.shopping.filter((s) => s.have === 'ready') ?? [];
+              const need = plan?.shopping.filter((s) => s.have !== 'ready') ?? [];
+              const natural = plan?.moves.filter((m) => m.kind === 'natural') ?? [];
+              return (
+                <motion.li
+                  key={goal.id}
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className={`rounded-xl border bg-surface p-4 ${goal.status === 'DONE' ? 'border-done/60' : 'border-line'}`}
+                >
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h3 className="text-base font-semibold">{name(goal.species)}</h3>
+                    {goal.moves.length > 0 && <span className="text-xs text-muted">{goal.moves.map(name).join(' · ')}</span>}
+                    <div className="ml-auto flex items-center gap-2 text-xs">
+                      <select
+                        value={goal.status}
+                        onChange={(e) => setStatus(goal.id, e.target.value as BreedingGoalView['status'])}
+                        aria-label="Plan status"
+                        className="rounded-md border border-line bg-surface px-2 py-1"
+                      >
+                        {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                      <button onClick={() => setDeleting(goal)} className="text-muted hover:text-red-400">
+                        Delete
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {goal.plan && (
-                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                    <div className="rounded-lg border border-line p-3">
-                      <h4 className="text-sm font-semibold">Parents</h4>
-                      {goal.plan.parents.canBreed ? (
-                        <>
-                          <p className="mt-1 text-xs text-muted">
-                            The egg hatches as {name(goal.plan.parents.hatchesAs)}.
-                            {goal.plan.parents.needsDitto
-                              ? ' This Pokémon can only breed with Ditto.'
-                              : ' The mother decides the species; any compatible male or a Ditto can be the other parent.'}
-                          </p>
-                          <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs">
-                            {goal.plan.parents.steps.map(renderStep)}
-                          </ol>
-                        </>
-                      ) : (
-                        <p className="mt-1 text-xs text-red-400">
-                          {name(goal.species)} cannot breed (it is in the &quot;no eggs&quot; group). It has to be
-                          caught.
+                  {plan && !plan.parents.canBreed && (
+                    <p className="mt-3 text-sm text-red-400">
+                      {name(goal.species)} cannot breed (it is in the &quot;no eggs&quot; group), so it has to be
+                      caught.
+                    </p>
+                  )}
+
+                  {plan && plan.parents.canBreed && (
+                    <>
+                      <p className="mt-2 text-xs text-muted">
+                        The egg hatches as <span className="text-ink">{name(plan.parents.hatchesAs)}</span>
+                        {plan.parents.needsDitto ? '. This Pokémon can only breed with Ditto.' : '.'} This list updates
+                        itself from the genders you record in your Pokédex and roster.
+                      </p>
+                      <div className="mt-3 grid gap-4 lg:grid-cols-2">
+                        <div>
+                          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-done">
+                            You have ({have.length})
+                          </h4>
+                          {have.length ? (
+                            <ul className="space-y-2">{have.map((s, i) => renderItem(goal, s, i))}</ul>
+                          ) : (
+                            <p className="text-xs text-muted">Nothing usable yet.</p>
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-pending">
+                            You still need ({need.length})
+                          </h4>
+                          {need.length ? (
+                            <ul className="space-y-2">{need.map((s, i) => renderItem(goal, s, i))}</ul>
+                          ) : (
+                            <p className="text-xs text-done">You have everything. Go breed!</p>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {plan && (natural.length > 0 || plan.moves.some((m) => m.kind !== 'natural')) && (
+                    <div className="mt-4">
+                      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Moves</h4>
+                      {natural.length > 0 && (
+                        <p className="mb-2 text-xs text-muted">
+                          No breeding needed for{' '}
+                          <span className="text-ink">{natural.map((m) => moveName(goal, m.moveId)).join(', ')}</span>:{' '}
+                          {name(goal.species)} learns {natural.length > 1 ? 'them' : 'it'} normally.
                         </p>
                       )}
+                      <div className="grid gap-3 lg:grid-cols-2">
+                        {plan.moves.filter((m) => m.kind !== 'natural').map((m) => renderMove(goal, m))}
+                      </div>
                     </div>
-                    {goal.plan.moves.map((m) => renderMove(m, goal.moves.find((x) => x.id === m.moveId)))}
-                  </div>
-                )}
-              </motion.li>
-            ))}
+                  )}
+                </motion.li>
+              );
+            })}
           </AnimatePresence>
         </ul>
       )}
+
+      <ConfirmDialog
+        open={deleting != null}
+        title="Delete this breeding plan?"
+        confirmLabel="Delete"
+        danger
+        onConfirm={() => deleting && remove(deleting)}
+        onCancel={() => setDeleting(null)}
+      >
+        <p>
+          The plan for <strong className="text-ink">{deleting ? name(deleting.species) : ''}</strong> will be deleted.
+          Your roster and Pokédex are not changed.
+        </p>
+      </ConfirmDialog>
     </div>
   );
 }

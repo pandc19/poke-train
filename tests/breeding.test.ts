@@ -150,3 +150,65 @@ describe('Mirror Herb (Scarlet/Violet)', () => {
     expect(options.some((o) => o.kind === 'mirror-herb')).toBe(false);
   });
 });
+
+describe('genders', () => {
+  const dad = (gender: 'MALE' | 'FEMALE' | 'BOTH' | 'UNKNOWN', moveIds: number[] = []): Owned => ({
+    roster: [{ speciesId: 3, gender, moveIds }],
+    caughtSpeciesIds: new Set([3]),
+  });
+  const father = (owned: Owned) =>
+    planBreeding(world(false), owned, 1, [1])!.moves[0].options[0].steps.find((s) => s.action === 'obtain')!;
+
+  it('uses a male or a "both" Pokémon that knows the move', () => {
+    expect(father(dad('MALE', [1]))).toMatchObject({ have: 'ready' });
+    expect(father(dad('BOTH', [1]))).toMatchObject({ have: 'ready' });
+  });
+
+  it('does not use a female as the father, and says it is the wrong gender', () => {
+    expect(father(dad('FEMALE', [1]))).toMatchObject({ have: 'missing', wrongGender: true });
+  });
+
+  it('treats an unrecorded gender as caught, not ready', () => {
+    expect(father(dad('UNKNOWN', [1]))).toMatchObject({ have: 'caught' });
+  });
+
+  it('treats a species caught with no gender recorded as caught', () => {
+    const owned: Owned = { roster: [], caughtSpeciesIds: new Set([3]) };
+    expect(father(owned)).toMatchObject({ have: 'caught' });
+  });
+
+  it('knows single-gender species without recording them', () => {
+    const owned: Owned = { roster: [{ speciesId: 11, gender: 'UNKNOWN', moveIds: [] }], caughtSpeciesIds: new Set([11]) };
+    // AllMale (id 11) only breeds with Ditto and needs no female to be recorded.
+    expect(planBreeding(world(false), owned, 11, [])!.parents).toMatchObject({ needsDitto: true, haveMother: true });
+  });
+
+  it('asks for a female when only a male of the line is registered', () => {
+    const owned: Owned = { roster: [{ speciesId: 1, gender: 'MALE', moveIds: [] }], caughtSpeciesIds: new Set([1]) };
+    const parents = planBreeding(world(false), owned, 1, [])!.parents;
+    expect(parents.haveMother).toBe(false);
+    expect(parents.steps[0]).toMatchObject({ have: 'missing', gender: 'female', wrongGender: true });
+  });
+});
+
+describe('shopping list', () => {
+  it('lists the mother and the best father once, with what is still missing', () => {
+    const plan = planBreeding(world(false), nothing, 1, [1])!;
+    expect(plan.shopping).toMatchObject([
+      { species: { nameEn: 'Target' }, gender: 'female', role: 'mother', have: 'missing' },
+      { species: { nameEn: 'FieldDadEvo' }, gender: 'male', role: 'father', forMoveId: 1, have: 'missing' },
+    ]);
+  });
+
+  it('marks parents the player has as ready', () => {
+    const owned: Owned = {
+      roster: [
+        { speciesId: 1, gender: 'FEMALE', moveIds: [] },
+        { speciesId: 3, gender: 'MALE', moveIds: [1] },
+      ],
+      caughtSpeciesIds: new Set([1, 3]),
+    };
+    const plan = planBreeding(world(false), owned, 1, [1])!;
+    expect(plan.shopping.every((s) => s.have === 'ready')).toBe(true);
+  });
+});

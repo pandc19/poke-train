@@ -3,87 +3,191 @@ import { StarterAdvice } from '@/components/StarterAdvice';
 import { TypeBadge } from '@/components/TypeBadge';
 import { getAiProvider } from '@/lib/ai';
 import { prisma } from '@/lib/db';
+import type { UtilityRole } from '@/lib/games';
 import { getLang, pickName } from '@/lib/i18n';
 import { requireGameProfile } from '@/lib/profile';
+
+const SHOWN = 18;
 
 export default async function StarterTeamPage({ params }: PageProps<'/[game]/starter-team'>) {
   const { game: gameId } = await params;
   const { game, profileId } = await requireGameProfile(gameId);
-  const slugs = game.starterRoles.flatMap((r) => r.picks.map((p) => p.slug));
+  const lang = await getLang();
 
-  const [species, all, caught, roster, lang] = await Promise.all([
+  const moveSlugs = [...new Set(game.utilityRoles.flatMap((r) => [...(r.needs.allMoves ?? []), ...(r.needs.anyMoves ?? [])]))];
+  const abilitySlugs = [...new Set(game.utilityRoles.flatMap((r) => r.needs.anyAbilities ?? []))];
+
+  const [species, slots, learnRows, abilityRows, caught, roster] = await Promise.all([
     prisma.species.findMany({
-      where: { slug: { in: slugs } },
       select: {
         id: true,
-        slug: true,
         nameEn: true,
         nameEs: true,
+        evolvesFromId: true,
         forms: { where: { isDefault: true }, select: { spriteUrl: true, types: true }, take: 1 },
       },
     }),
-    prisma.species.findMany({ select: { id: true, evolvesFromId: true } }),
+    prisma.pokedexSlot.findMany({
+      where: { pokedex: { gameId: game.id } },
+      select: { speciesId: true, entryNumber: true, pokedex: { select: { sortOrder: true } } },
+    }),
+    moveSlugs.length
+      ? prisma.learnset.findMany({
+          where: { versionGroup: { in: game.learnsetVersionGroups }, move: { slug: { in: moveSlugs } } },
+          select: { move: { select: { slug: true } }, form: { select: { speciesId: true } } },
+          distinct: ['formId', 'moveId'],
+        })
+      : [],
+    abilitySlugs.length
+      ? prisma.formAbility.findMany({
+          where: { ability: { slug: { in: abilitySlugs } } },
+          select: { ability: { select: { slug: true } }, form: { select: { speciesId: true } } },
+        })
+      : [],
     prisma.pokedexEntry.findMany({ where: { profileId }, select: { speciesId: true } }),
-    prisma.rosterPokemon.findMany({ where: { profileId, owned: true }, select: { speciesId: true, baseSpeciesId: true } }),
-    getLang(),
+    prisma.rosterPokemon.findMany({ where: { profileId, owned: true }, select: { speciesId: true } }),
   ]);
 
-  // A pick counts as owned when any stage of its evolution family is caught or in the roster.
-  const parent = new Map(all.map((s) => [s.id, s.evolvesFromId]));
+  const byId = new Map(species.map((s) => [s.id, s]));
   const rootOf = (id: number) => {
     let cur = id;
-    for (let next = parent.get(cur); next != null; next = parent.get(cur)) cur = next;
+    for (let next = byId.get(cur)?.evolvesFromId; next != null; next = byId.get(cur)?.evolvesFromId) cur = next;
     return cur;
   };
-  const ownedRoots = new Set(
-    [...caught.map((c) => c.speciesId), ...roster.flatMap((r) => [r.speciesId, r.baseSpeciesId ?? r.speciesId])].map(rootOf)
+
+  const learnedBy = new Map<number, Set<string>>();
+  for (const r of learnRows) {
+    if (!learnedBy.has(r.form.speciesId)) learnedBy.set(r.form.speciesId, new Set());
+    learnedBy.get(r.form.speciesId)!.add(r.move.slug);
+  }
+  const abilitiesOf = new Map<number, Set<string>>();
+  for (const r of abilityRows) {
+    if (!abilitiesOf.has(r.form.speciesId)) abilitiesOf.set(r.form.speciesId, new Set());
+    abilitiesOf.get(r.form.speciesId)!.add(r.ability.slug);
+  }
+  /** Moves a species learns itself or inherits from earlier stages of its line. */
+  const movesOf = (id: number) => {
+    const out = new Set<string>();
+    for (let cur: number | null | undefined = id, guard = 0; cur != null && guard < 5; guard++) {
+      for (const m of learnedBy.get(cur) ?? []) out.add(m);
+      cur = byId.get(cur)?.evolvesFromId;
+    }
+    return out;
+  };
+
+  // Base-game Pokémon sort first: they are the ones available early.
+  const order = new Map<number, number>();
+  for (const s of slots) {
+    const key = s.pokedex.sortOrder * 10000 + s.entryNumber;
+    order.set(s.speciesId, Math.min(order.get(s.speciesId) ?? Infinity, key));
+  }
+  const ownedRoots = new Set([...caught, ...roster].map((r) => rootOf(r.speciesId)));
+
+  const canDo = (id: number, role: UtilityRole) => {
+    const { allMoves = [], anyMoves = [], anyAbilities = [] } = role.needs;
+    if (anyAbilities.length && [...(abilitiesOf.get(id) ?? [])].some((a) => anyAbilities.includes(a))) return true;
+    if (!allMoves.length && !anyMoves.length) return false;
+    const moves = movesOf(id);
+    return allMoves.every((m) => moves.has(m)) && (!anyMoves.length || anyMoves.some((m) => moves.has(m)));
+  };
+
+  const roles = game.utilityRoles.map((role) => {
+    const eligible = [...order.keys()]
+      .filter((id) => canDo(id, role))
+      .sort((a, b) => order.get(a)! - order.get(b)!)
+      .map((id) => ({ ...byId.get(id)!, owned: ownedRoots.has(rootOf(id)) }));
+    return { role, eligible, have: eligible.filter((s) => s.owned) };
+  });
+
+  const PokemonTile = ({ s }: { s: (typeof roles)[number]['eligible'][number] }) => (
+    <li
+      className={`flex items-center gap-2 rounded-lg border p-1.5 pr-3 ${s.owned ? 'border-done/50 bg-done/5' : 'border-line'}`}
+    >
+      <Sprite src={s.forms[0]?.spriteUrl ?? null} alt="" size={44} />
+      <span className="min-w-0 text-xs">
+        <span className="block truncate font-semibold">{pickName(s, lang)}</span>
+        <span className="flex gap-1">
+          {s.forms[0]?.types.map((t) => <TypeBadge key={t} type={t} lang={lang} small />)}
+        </span>
+      </span>
+    </li>
   );
-  const bySlug = new Map(species.map((s) => [s.slug, s]));
 
   return (
     <div>
       <h1 className="text-xl font-bold">{game.shortName} starter team</h1>
       <p className="mb-5 mt-1 max-w-3xl text-sm text-muted">
-        A small utility core to pick up early: something to carry the story, something to catch with, and something
-        to hatch eggs. Picks you already own are marked.
+        Some jobs are worth having covered early. For each one below, this page checks the real {game.shortName}{' '}
+        movesets and abilities, and tells you whether you already have a Pokémon that can do it, using your Pokédex
+        and roster.
       </p>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {game.starterRoles.map((role) => (
+      <div className="space-y-5">
+        {roles.map(({ role, eligible, have }) => (
           <section key={role.id} className="rounded-xl border border-line bg-surface p-4">
-            <h2 className="font-semibold">{role.title}</h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-base font-semibold">{role.title}</h2>
+              {have.length > 0 ? (
+                <span className="rounded bg-done/15 px-2 py-0.5 text-xs font-medium text-done">
+                  You already have {have.length === 1 ? 'one' : have.length}
+                </span>
+              ) : (
+                <span className="rounded bg-pending/15 px-2 py-0.5 text-xs font-medium text-pending">
+                  You do not have one yet
+                </span>
+              )}
+            </div>
             <p className="mt-1 text-sm text-muted">{role.why}</p>
-            <ul className="mt-3 space-y-2">
-              {role.picks.map((pick) => {
-                const s = bySlug.get(pick.slug);
-                if (!s) return null;
-                const owned = ownedRoots.has(rootOf(s.id));
-                return (
-                  <li
-                    key={pick.slug}
-                    className={`flex gap-3 rounded-lg border p-2 ${owned ? 'border-done/50 bg-done/5' : 'border-line'}`}
-                  >
-                    <Sprite src={s.forms[0]?.spriteUrl ?? null} alt="" size={56} />
-                    <div className="min-w-0 text-xs">
-                      <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">
-                        {pickName(s, lang)}
-                        {s.forms[0]?.types.map((t) => <TypeBadge key={t} type={t} lang={lang} small />)}
-                        {owned && <span className="rounded bg-done/15 px-1.5 text-[10px] font-medium text-done">you have this line</span>}
-                      </p>
-                      <p className="mt-0.5">{pick.note}</p>
-                      {pick.where && <p className="mt-0.5 text-muted">Found: {pick.where}</p>}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            {role.tips.length > 0 && (
-              <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-muted">
-                {role.tips.map((tip, i) => (
-                  <li key={i}>{tip}</li>
-                ))}
-              </ul>
+
+            {have.length > 0 && (
+              <div className="mt-3">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-done">Yours</h3>
+                <ul className="flex flex-wrap gap-2">
+                  {have.map((s) => (
+                    <PokemonTile key={s.id} s={s} />
+                  ))}
+                </ul>
+              </div>
             )}
+
+            <div className="mt-3">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                {have.length > 0 ? 'Other options' : 'Pokémon that can do this'} ({eligible.length - have.length})
+              </h3>
+              <ul className="flex flex-wrap gap-2">
+                {eligible
+                  .filter((s) => !s.owned)
+                  .slice(0, SHOWN)
+                  .map((s) => (
+                    <PokemonTile key={s.id} s={s} />
+                  ))}
+              </ul>
+              {eligible.length - have.length > SHOWN && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs text-muted hover:text-ink">
+                    Show the other {eligible.length - have.length - SHOWN}
+                  </summary>
+                  <ul className="mt-2 flex flex-wrap gap-2">
+                    {eligible
+                      .filter((s) => !s.owned)
+                      .slice(SHOWN)
+                      .map((s) => (
+                        <PokemonTile key={s.id} s={s} />
+                      ))}
+                  </ul>
+                </details>
+              )}
+              <p className="mt-2 text-[11px] text-muted">
+                Listed with base-game Pokémon first. A Pokémon counts as yours if you have caught it or any
+                stage of its evolution line.
+              </p>
+            </div>
+
+            <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-muted">
+              {role.tips.map((tip, i) => (
+                <li key={i}>{tip}</li>
+              ))}
+            </ul>
           </section>
         ))}
       </div>

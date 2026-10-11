@@ -5,9 +5,10 @@ Track Pokédex progress and a trained competitive roster across Pokémon games. 
 - **Pokédex grid** per regional dex with click, shift-click range and drag-to-paint toggling. The National Dex fills in automatically from every game.
 - **Spreadsheet importer** (.csv / .xlsx) with a column-mapping step. Reads Spanish or English names and tolerates typos.
 - **Trained roster** as cards or a dense table. Every nature, ability, item, EV spread and move is a checklist item: orange while pending, green when done.
+- **Genders.** Record ♂/♀ on caught Pokémon in the Pokédex and on roster cards; the breeding planner uses them to know which parents you actually have.
 - **Move legality check** against the game's real learnsets (no AI involved).
 - **Breeding assistant**: finds parents in your roster and Pokédex, fathers that can pass an egg move, multi-generation chains, and the Mirror Herb picnic shortcut.
-- **Starter team** suggestions per game.
+- **Starter team**: checks which Pokémon in the game can do early utility jobs (catching, egg hatching) from real moveset and ability data, and whether you already have one.
 - **Optional AI** (OpenAI or Claude, switchable): build and team audits, where to find items and TMs, where to catch a Pokémon.
 
 ## Run it locally
@@ -70,7 +71,7 @@ With no API key the app runs in **no-AI mode**: everything works except the AI b
 | `npm run lint` | Lints the code |
 | `npm run build` | Production build |
 | `npm run db:studio` | Opens Prisma Studio to browse the data |
-| `npm run db:reset` | Drops and recreates the tables, then re-seeds. Run `npm run sync:pokeapi` again afterwards (fast, it uses the local cache) |
+| `npm run db:reset` | **Deletes all your data** (roster, Pokédex progress, breeding plans), recreates the tables, re-seeds and re-syncs the Pokémon reference data (fast, it uses the local cache) |
 | `docker exec -it postgres18 psql -U poketrain -d poketrain_dev` | Opens a SQL shell on the database |
 
 ### Common problems

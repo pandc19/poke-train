@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { AuditPanel } from './AuditPanel';
-import { RosterRowEditor } from './RosterRowEditor';
+import { ConfirmDialog } from './Dialog';
+import { RosterEditDialog } from './RosterEditDialog';
 import { TypeBadge } from './TypeBadge';
 import type { BuildAudit, TeamAudit } from '@/lib/ai/schema';
 import { formatEvs } from '@/lib/import/evs';
@@ -15,6 +16,7 @@ import { rosterProgress, type TaskKey, type TaskStatus } from '@/lib/roster-stat
 
 type View = 'cards' | 'table';
 type Filter = 'all' | 'pending' | 'done';
+type Gender = RosterView['gender'];
 
 const progressOf = (p: RosterView) =>
   rosterProgress({
@@ -99,6 +101,47 @@ function TaskChip({
   );
 }
 
+/** ♂ / ♀ toggles; both on means "I have both". Hidden for species with one fixed gender. */
+function GenderControl({ p, onChange }: { p: RosterView; onChange: (g: Gender) => void }) {
+  if (p.genderRate === -1) return <span className="text-xs text-muted">Genderless</span>;
+  if (p.genderRate === 0) return <span className="text-xs text-sky-400">♂ always male</span>;
+  if (p.genderRate === 8) return <span className="text-xs text-pink-400">♀ always female</span>;
+
+  const male = p.gender === 'MALE' || p.gender === 'BOTH';
+  const female = p.gender === 'FEMALE' || p.gender === 'BOTH';
+  const set = (m: boolean, f: boolean) => onChange(m && f ? 'BOTH' : m ? 'MALE' : f ? 'FEMALE' : 'UNKNOWN');
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        aria-pressed={male}
+        onClick={() => set(!male, female)}
+        title={male ? 'You have a male. Click to remove' : 'Click if you have a male'}
+        className={`h-6 w-8 rounded text-sm font-bold ${
+          male ? 'bg-sky-500 text-white' : 'border border-line text-muted hover:text-sky-400'
+        }`}
+      >
+        ♂
+      </button>
+      <button
+        type="button"
+        aria-pressed={female}
+        onClick={() => set(male, !female)}
+        title={female ? 'You have a female. Click to remove' : 'Click if you have a female'}
+        className={`h-6 w-8 rounded text-sm font-bold ${
+          female ? 'bg-pink-500 text-white' : 'border border-line text-muted hover:text-pink-400'
+        }`}
+      >
+        ♀
+      </button>
+      <span className="text-[11px] text-muted">
+        {male && female ? 'have both' : male ? 'male' : female ? 'female' : 'not set'}
+      </span>
+    </div>
+  );
+}
+
 function CardSprite({ p }: { p: RosterView }) {
   // Animated Showdown sprite when one exists, static PokéAPI sprite otherwise.
   const animated = p.formId
@@ -117,6 +160,16 @@ function CardSprite({ p }: { p: RosterView }) {
         className={`max-h-20 max-w-20 ${p.owned ? '' : 'sprite-silhouette'} ${src === p.spriteUrl ? 'sprite' : ''}`}
       />
     </span>
+  );
+}
+
+/** A labelled row on a card, so each chip says what it is. */
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[4.25rem_1fr] items-start gap-2">
+      <span className="pt-1 text-[10px] font-semibold uppercase tracking-wide text-muted">{label}</span>
+      <div className="flex min-w-0 flex-wrap gap-1.5">{children}</div>
+    </div>
   );
 }
 
@@ -139,6 +192,7 @@ export function RosterBoard({
   const [view, setView] = useState<View>('cards');
   const [filter, setFilter] = useState<Filter>('all');
   const [editing, setEditing] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<RosterView | null>(null);
   const [auditing, setAuditing] = useState<string | null>(null);
   const [openAudit, setOpenAudit] = useState<string | null>(null);
   const [team, setTeam] = useState<{ busy: boolean; result: TeamAudit | null }>({ busy: false, result: null });
@@ -175,6 +229,17 @@ export function RosterBoard({
     }
   }
 
+  async function changeGender(p: RosterView, gender: Gender) {
+    setError(null);
+    replace({ ...p, gender });
+    try {
+      await api(`/api/roster/${p.id}`, 'PATCH', { set: { gender } });
+    } catch {
+      replace(p);
+      setError('Could not save the gender. It has been undone; try again.');
+    }
+  }
+
   async function saveEdit(id: string, set: Record<string, unknown>): Promise<string | null> {
     try {
       const data = await api<{ pokemon: RosterView }>(`/api/roster/${id}`, 'PATCH', { set });
@@ -187,7 +252,7 @@ export function RosterBoard({
   }
 
   async function remove(p: RosterView) {
-    if (!window.confirm(`Remove ${name(p.species)} from the roster?`)) return;
+    setRemoving(null);
     try {
       await api(`/api/roster/${p.id}`, 'DELETE');
       setRoster((prev) => prev.filter((x) => x.id !== p.id));
@@ -200,7 +265,7 @@ export function RosterBoard({
     const wanted = adding.trim().toLowerCase();
     const species = options.species.find((s) => s.nameEn.toLowerCase() === wanted || s.nameEs.toLowerCase() === wanted);
     if (!species) {
-      setError(`No Pokémon called "${adding}". Pick one from the suggestions.`);
+      setError(`"${adding}" is not a Pokémon you can get in this game. Pick one from the suggestions.`);
       return;
     }
     setError(null);
@@ -208,7 +273,6 @@ export function RosterBoard({
       const data = await api<{ pokemon: RosterView }>('/api/roster', 'POST', { gameId, speciesId: species.id });
       setRoster((prev) => [...prev, data.pokemon]);
       setAdding('');
-      setView('table');
       setEditing(data.pokemon.id);
     } catch {
       setError('Could not add that Pokémon. Try again.');
@@ -261,10 +325,10 @@ export function RosterBoard({
       owned: (
         <TaskChip
           dense={dense}
-          label={dense ? '' : p.owned ? 'Obtained' : 'Not obtained'}
+          label={p.owned ? 'Yes' : 'Not yet'}
           status={p.owned ? 'DONE' : 'PENDING'}
           onToggle={() => toggle(p, 'owned', p.owned ? 'DONE' : 'PENDING')}
-          title={p.owned ? 'Obtained. Click to undo' : 'Not obtained yet. Click when you have it'}
+          title={p.owned ? 'You have this Pokémon. Click to undo' : 'Not obtained yet. Click when you have it'}
         />
       ),
       nature: p.targetNature && (
@@ -311,7 +375,7 @@ export function RosterBoard({
             onToggle={() => toggle(p, `move:${slot}`, m.status)}
             warning={
               m.move == null
-                ? 'This move name was not recognised. Edit the row to fix it'
+                ? 'This move name was not recognised. Edit the Pokémon to fix it'
                 : m.legal === false
                   ? `${name(p.species)} cannot learn this move in this game`
                   : undefined
@@ -321,6 +385,38 @@ export function RosterBoard({
       },
     };
   };
+
+  const editingPokemon = roster.find((p) => p.id === editing) ?? null;
+
+  const dialogs = (
+    <>
+      <RosterEditDialog
+        pokemon={editingPokemon}
+        options={options}
+        lang={lang}
+        onSave={saveEdit}
+        onClose={() => setEditing(null)}
+      />
+      <ConfirmDialog
+        open={removing != null}
+        title="Remove from the roster?"
+        confirmLabel="Remove"
+        danger
+        onConfirm={() => removing && remove(removing)}
+        onCancel={() => setRemoving(null)}
+      >
+        <p>
+          <strong className="text-ink">{removing ? (removing.nickname ?? name(removing.species)) : ''}</strong> and its
+          checklist will be deleted. Your Pokédex is not changed.
+        </p>
+      </ConfirmDialog>
+      <datalist id="species-list">
+        {options.species.map((s) => (
+          <option key={s.id} value={name(s)} />
+        ))}
+      </datalist>
+    </>
+  );
 
   if (roster.length === 0) {
     return (
@@ -334,15 +430,14 @@ export function RosterBoard({
           <AddBox value={adding} onChange={setAdding} onAdd={add} />
         </div>
         {error && <p className="mt-4 text-sm text-pending">{error}</p>}
-        <SpeciesList options={options} lang={lang} />
+        {dialogs}
       </div>
     );
   }
 
   return (
     <div>
-      <SpeciesList options={options} lang={lang} />
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
         <p className="text-sm">
           <span className="font-semibold text-done">{stats.complete}</span>
           <span className="text-muted"> of {stats.total} fully trained</span>
@@ -365,7 +460,7 @@ export function RosterBoard({
               onClick={() => setView(v)}
               className={`px-3 py-1.5 capitalize ${view === v ? 'bg-surface-2 font-semibold' : 'text-muted'}`}
             >
-              {v}
+              {v === 'table' ? 'Overview table' : 'Cards'}
             </button>
           ))}
         </div>
@@ -374,13 +469,22 @@ export function RosterBoard({
           <button
             onClick={auditTeam}
             disabled={!aiEnabled || team.busy}
-            title={aiEnabled ? `Uses ${aiProvider}` : 'Add an API key to .env.local to enable AI audits'}
+            title={
+              aiEnabled
+                ? `One ${aiProvider} request that reviews your whole roster together`
+                : 'Add an API key to .env.local to enable AI audits'
+            }
             className="rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
           >
-            {team.busy ? 'Auditing team…' : 'AI team audit'}
+            {team.busy ? 'Auditing roster…' : 'AI roster audit'}
           </button>
         </div>
       </div>
+
+      <p className="mb-4 text-xs text-muted">
+        <span className="text-pending">Orange</span> = still to do, <span className="text-done">green</span> = done.
+        Click any chip to flip it.
+      </p>
 
       {!aiEnabled && (
         <p className="mb-3 text-xs text-muted">
@@ -396,7 +500,7 @@ export function RosterBoard({
       {team.result && (
         <div className="mb-4 rounded-lg border border-line bg-surface p-4 text-sm">
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-semibold">Team audit</h2>
+            <h2 className="font-semibold">Roster audit</h2>
             <button onClick={() => setTeam({ busy: false, result: null })} className="text-xs text-muted">
               Close
             </button>
@@ -416,6 +520,7 @@ export function RosterBoard({
             {visible.map((p) => {
               const prog = progressOf(p);
               const c = chips(p, false);
+              const slots = [1, 2, 3, 4].filter((slot) => p.moves.some((m) => m.slot === slot));
               return (
                 <motion.li
                   key={p.id}
@@ -463,19 +568,26 @@ export function RosterBoard({
                     </div>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {c.owned}
-                    {c.nature}
-                    {c.ability}
-                    {c.item}
-                    {c.evs}
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 gap-1.5">
-                    {[1, 2, 3, 4].map((slot) => (
-                      <div key={slot} className="min-w-0">
-                        {c.move(slot) ?? <span className="block rounded-md border border-dashed border-line px-2 py-1 text-xs text-muted">—</span>}
-                      </div>
-                    ))}
+                  <div className="mt-3 space-y-2">
+                    <Row label="Gender">
+                      <GenderControl p={p} onChange={(g) => changeGender(p, g)} />
+                    </Row>
+                    <Row label="Obtained">{c.owned}</Row>
+                    {c.nature && <Row label="Nature">{c.nature}</Row>}
+                    {c.ability && <Row label="Ability">{c.ability}</Row>}
+                    {c.item && <Row label="Item">{c.item}</Row>}
+                    {c.evs && <Row label="EVs">{c.evs}</Row>}
+                    {slots.length > 0 && (
+                      <Row label="Moves">
+                        <div className="grid w-full grid-cols-2 gap-1.5">
+                          {slots.map((slot) => (
+                            <div key={slot} className="min-w-0">
+                              {c.move(slot)}
+                            </div>
+                          ))}
+                        </div>
+                      </Row>
+                    )}
                   </div>
 
                   {p.notes && <p className="mt-2 whitespace-pre-line text-xs text-muted">{p.notes}</p>}
@@ -484,20 +596,15 @@ export function RosterBoard({
                     <button
                       onClick={() => (p.audit ? setOpenAudit(openAudit === p.id ? null : p.id) : audit(p))}
                       disabled={(!aiEnabled && !p.audit) || auditing === p.id}
+                      title={aiEnabled ? undefined : 'Add an API key to .env.local to enable AI audits'}
                       className="rounded-md border border-line px-2 py-1 disabled:opacity-40"
                     >
                       {auditing === p.id ? 'Auditing…' : p.audit ? (openAudit === p.id ? 'Hide audit' : 'Show audit') : 'AI audit'}
                     </button>
-                    <button
-                      onClick={() => {
-                        setView('table');
-                        setEditing(p.id);
-                      }}
-                      className="rounded-md border border-line px-2 py-1"
-                    >
+                    <button onClick={() => setEditing(p.id)} className="rounded-md border border-line px-2 py-1">
                       Edit
                     </button>
-                    <button onClick={() => remove(p)} className="ml-auto text-muted hover:text-red-400">
+                    <button onClick={() => setRemoving(p)} className="ml-auto text-muted hover:text-red-400">
                       Remove
                     </button>
                   </div>
@@ -517,10 +624,10 @@ export function RosterBoard({
         </ul>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-line">
-          <table className="w-full min-w-[1100px] text-left text-xs">
+          <table className="w-full min-w-[1150px] text-left text-xs">
             <thead className="bg-surface-2 uppercase text-muted">
               <tr>
-                {['', 'Pokémon', 'Nature', 'Ability', 'Item', 'EVs', 'Move 1', 'Move 2', 'Move 3', 'Move 4', '', ''].map(
+                {['Obtained', 'Pokémon', 'Gender', 'Nature', 'Ability', 'Item', 'EVs', 'Move 1', 'Move 2', 'Move 3', 'Move 4', 'Progress', ''].map(
                   (h, i) => (
                     <th key={i} className="whitespace-nowrap px-2 py-2 font-medium">
                       {h}
@@ -531,18 +638,6 @@ export function RosterBoard({
             </thead>
             <tbody>
               {visible.map((p) => {
-                if (editing === p.id) {
-                  return (
-                    <RosterRowEditor
-                      key={p.id}
-                      pokemon={p}
-                      options={options}
-                      lang={lang}
-                      onSave={(set) => saveEdit(p.id, set)}
-                      onCancel={() => setEditing(null)}
-                    />
-                  );
-                }
                 const prog = progressOf(p);
                 const c = chips(p, true);
                 return (
@@ -553,8 +648,13 @@ export function RosterBoard({
                   >
                     <td className="py-1 pl-3 pr-1">{c.owned}</td>
                     <td className="whitespace-nowrap px-2 py-1 font-medium">
-                      {p.nickname ?? name(p.species)}
+                      <button onClick={() => setEditing(p.id)} className="hover:underline">
+                        {p.nickname ?? name(p.species)}
+                      </button>
                       {p.baseSpecies && <span className="ml-1 font-normal text-muted">({name(p.baseSpecies)})</span>}
+                    </td>
+                    <td className="px-2 py-1">
+                      <GenderControl p={p} onChange={(g) => changeGender(p, g)} />
                     </td>
                     <td className="px-2 py-1">{c.nature}</td>
                     <td className="px-2 py-1">{c.ability}</td>
@@ -566,14 +666,11 @@ export function RosterBoard({
                       </td>
                     ))}
                     <td className={`whitespace-nowrap px-2 py-1 font-semibold ${prog.complete ? 'text-done' : 'text-pending'}`}>
-                      {prog.complete ? '★' : `${prog.done}/${prog.total}`}
+                      {prog.complete ? '★ Ready' : `${prog.done}/${prog.total}`}
                     </td>
                     <td className="whitespace-nowrap px-2 py-1 text-right">
                       <button onClick={() => setEditing(p.id)} className="rounded border border-line px-2 py-0.5">
                         Edit
-                      </button>
-                      <button onClick={() => remove(p)} aria-label="Remove" className="ml-1 px-1 text-muted hover:text-red-400">
-                        ✕
                       </button>
                     </td>
                   </tr>
@@ -583,6 +680,7 @@ export function RosterBoard({
           </table>
         </div>
       )}
+      {dialogs}
     </div>
   );
 }
@@ -608,16 +706,6 @@ function AddBox({ value, onChange, onAdd }: { value: string; onChange: (v: strin
         Add
       </button>
     </form>
-  );
-}
-
-function SpeciesList({ options, lang }: { options: EditorOptions; lang: Lang }) {
-  return (
-    <datalist id="species-list">
-      {options.species.map((s) => (
-        <option key={s.id} value={lang === 'en' ? s.nameEn : s.nameEs} />
-      ))}
-    </datalist>
   );
 }
 
