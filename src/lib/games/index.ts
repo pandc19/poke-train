@@ -1,3 +1,5 @@
+import { VIOLET_STARTER_ROLES } from './starter-roles';
+
 /**
  * Per-game configuration: the single extension point for adding a game.
  * A new game is a new entry here plus `npm run db:seed && npm run sync:pokeapi`.
@@ -24,6 +26,16 @@ export type GameConfig = {
   };
   /** Cartridge colours for the game selector. */
   theme: { from: string; to: string; accent: string };
+  starterRoles: StarterRole[];
+};
+
+/** A curated utility role for the starter-team page. Species are PokéAPI slugs. */
+export type StarterRole = {
+  id: string;
+  title: string;
+  why: string;
+  picks: { slug: string; note: string; where?: string }[];
+  tips: string[];
 };
 
 export const GAMES: GameConfig[] = [
@@ -48,6 +60,7 @@ export const GAMES: GameConfig[] = [
       mirrorHerb: true,
     },
     theme: { from: '#7c3aed', to: '#4c1d95', accent: '#c4b5fd' },
+    starterRoles: VIOLET_STARTER_ROLES,
   },
 ];
 

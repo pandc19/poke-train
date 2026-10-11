@@ -31,6 +31,7 @@ export function RosterRowEditor({
 }) {
   const label = (x: Named | null | undefined) => (x ? (lang === 'en' ? x.nameEn : x.nameEs) : '');
   const [nickname, setNickname] = useState(p.nickname ?? '');
+  const [gender, setGender] = useState(p.gender);
   const [natureId, setNatureId] = useState(p.targetNature?.id ?? 0);
   const [abilityId, setAbilityId] = useState(p.ability?.id ?? 0);
   const [item, setItem] = useState(p.item ? label(p.item) : (p.itemNote ?? ''));
@@ -71,6 +72,7 @@ export function RosterRowEditor({
     setError(null);
     const message = await onSave({
       nickname: nickname.trim() || null,
+      gender,
       targetNatureId: natureId || null,
       abilityId: abilityId || null,
       itemId: matchedItem?.id ?? null,
@@ -98,6 +100,12 @@ export function RosterRowEditor({
         <td className="px-2 py-2">
           <div className="mb-1 font-medium">{label(p.species)}</div>
           <input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="Nickname" aria-label="Nickname" className={inputClass} />
+          <select value={gender} onChange={(e) => setGender(e.target.value as RosterView['gender'])} aria-label="Gender" className={`${inputClass} mt-1`}>
+            <option value="UNKNOWN">Gender?</option>
+            <option value="MALE">♂ Male</option>
+            <option value="FEMALE">♀ Female</option>
+            <option value="GENDERLESS">Genderless</option>
+          </select>
         </td>
         <td className="px-2 py-2">
           <select value={natureId} onChange={(e) => setNatureId(Number(e.target.value))} aria-label="Nature" className={inputClass}>
