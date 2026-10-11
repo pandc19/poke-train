@@ -32,7 +32,10 @@ export async function POST(request: Request) {
   if (!game || !profileId) return Response.json({ error: 'Unknown game' }, { status: 404 });
 
   const dict = await loadDictionaries();
-  const resolved = rows.map((row, i) => interpretRow(row as MappedRow, i, dict)).filter((r) => r.importable);
+  const statusColumn = Object.values(mapping).includes('status');
+  const resolved = rows
+    .map((row, i) => interpretRow(row as MappedRow, i, dict, { statusColumn }))
+    .filter((r) => r.importable);
   if (!resolved.length) return Response.json({ error: 'No importable rows' }, { status: 422 });
 
   const legal = await legalMoves(

@@ -165,4 +165,28 @@ describe('interpretRow', () => {
     const bad = interpretRow({ species: 'Notamon' }, 0, dict);
     expect(bad.importable).toBe(false);
   });
+
+  describe('obtained', () => {
+    const planned = { species: 'Sceptile', baseSpecies: 'Treecko', origin: 'Criado' };
+
+    it('treats a blank status as not obtained when the sheet has a status column', () => {
+      expect(interpretRow(planned, 0, dict, { statusColumn: true }).owned).toBe(false);
+    });
+
+    it('treats any status text as obtained', () => {
+      const r = interpretRow({ ...planned, status: 'Falta golpe bajo' }, 0, dict, { statusColumn: true });
+      expect(r.owned).toBe(true);
+      expect(interpretRow({ ...planned, status: 'Listo' }, 0, dict, { statusColumn: true }).owned).toBe(true);
+    });
+
+    it('lets the status column override an origin or current data', () => {
+      const r = interpretRow({ species: 'Golem', currentMoves: 'Terremoto', origin: 'Encontrado' }, 0, dict, { statusColumn: true });
+      expect(r.owned).toBe(false);
+    });
+
+    it('falls back to origin and current data when there is no status column', () => {
+      expect(interpretRow(planned, 0, dict).owned).toBe(true);
+      expect(interpretRow({ species: 'Sceptile' }, 0, dict).owned).toBe(false);
+    });
+  });
 });

@@ -93,7 +93,7 @@ Open **Import**, drop the file, check what each column is imported as, preview, 
 
 How rows are read:
 
-- **Status column.** "Listo" / "Done" marks everything done. "Falta golpe bajo" / "Missing Sucker Punch" marks only that move pending.
+- **Status column.** "Listo" / "Done" marks everything done. "Falta golpe bajo" / "Missing Sucker Punch" marks only that move pending. A **blank status means you do not have that Pokémon yet** (Obtained = No); any status text means you do.
 - **Recommended vs. current columns.** When a row has current moves, those are the build that is tracked and counted as known; the recommended list is kept in the notes. With only recommended moves, everything starts pending.
 - **Nature** is done when the current nature matches the recommended one.
 - **Alternatives** such as "Vidasfera o Cinta Elegida" keep the first as the item and the full text as a note.

@@ -85,6 +85,8 @@ function parseMissing(status: string): string[] | null {
  * Turns one mapped spreadsheet row into a roster entry, resolving names and
  * deciding which micro-tasks are already done.
  *
+ * Obtained: with a status column, a blank status means "not obtained yet".
+ *
  * Status rules, in order:
  *  - Status says "done" -> everything is DONE.
  *  - Status says "missing X and Y" -> those moves are PENDING, the rest DONE.
@@ -96,7 +98,20 @@ function parseMissing(status: string): string[] | null {
  * When "current" moves exist they are the build that gets tracked and the
  * recommended list is dropped: the AI audit proposes a recommended set on demand.
  */
-export function interpretRow(row: MappedRow, index: number, dict: Dictionaries): ResolvedRow {
+export type InterpretOptions = {
+  /**
+   * The sheet has a status column. When it does, a blank status means "I do
+   * not have this one yet", and any status text means the Pokémon is in hand.
+   */
+  statusColumn?: boolean;
+};
+
+export function interpretRow(
+  row: MappedRow,
+  index: number,
+  dict: Dictionaries,
+  options: InterpretOptions = {}
+): ResolvedRow {
   const issues: string[] = [];
 
   // --- species ---
@@ -172,7 +187,11 @@ export function interpretRow(row: MappedRow, index: number, dict: Dictionaries):
   if (row.teraType && !teraType) issues.push(`Unknown Tera type "${row.teraType}"`);
 
   const origin = parseOrigin(row.origin);
-  const owned = allDone || origin !== 'UNKNOWN' || usingCurrent || currentNature != null;
+  // With a status column the sheet says it outright. Without one, fall back to
+  // whatever suggests the Pokémon exists: a done status, an origin, or current data.
+  const owned = options.statusColumn
+    ? Boolean(row.status?.trim())
+    : allDone || origin !== 'UNKNOWN' || usingCurrent || currentNature != null;
 
   const notes =
     [

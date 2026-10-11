@@ -102,7 +102,10 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
     setBusy(true);
     setError(null);
     try {
-      const data = await post<{ rows: ResolvedRow[] }>('/api/import/preview', { rows: mappedRows() });
+      const data = await post<{ rows: ResolvedRow[] }>('/api/import/preview', {
+        rows: mappedRows(),
+        statusColumn: mappedFields.has('status'),
+      });
       setPreview(data.rows);
       setStep('preview');
     } catch {
@@ -278,6 +281,12 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
                 </button>
                 {!canPreview && <span className="text-sm text-muted">Map a Pokémon column to continue.</span>}
               </div>
+              {mappedFields.has('status') && (
+                <p className="mt-3 text-xs text-muted">
+                  Because a status column is mapped, a row with an <strong className="text-ink">empty status</strong> is
+                  imported as <strong className="text-ink">not obtained yet</strong>, and any status text means you have it.
+                </p>
+              )}
             </div>
           )}
 
