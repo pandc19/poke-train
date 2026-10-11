@@ -48,7 +48,17 @@ export class ClaudeProvider implements AiProvider {
     } catch (error) {
       if (error instanceof Anthropic.AuthenticationError) throw new AiError('ANTHROPIC_API_KEY was rejected. Check .env.local.');
       if (error instanceof Anthropic.RateLimitError) throw new AiError('Claude rate limit reached. Try again later.');
-      if (error instanceof Anthropic.APIError) throw new AiError(`Claude error ${error.status ?? ''}: ${error.message}`);
+      if (error instanceof Anthropic.APIError) {
+        // The SDK's message is "400 {json}"; the readable part is nested inside.
+        const detail = (error.error as { error?: { message?: string } } | undefined)?.error?.message ?? error.message;
+        if (detail.includes('anthropic-workspace-id')) {
+          throw new AiError(
+            'This Anthropic API key is not scoped to a workspace. Set ANTHROPIC_WORKSPACE_ID in .env.local ' +
+              '(the same workspace id taxap uses) and restart the dev server.'
+          );
+        }
+        throw new AiError(`Claude error ${error.status ?? ''}: ${detail}`);
+      }
       throw error;
     }
   }
