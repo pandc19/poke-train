@@ -3,7 +3,20 @@
 import type { BuildAudit } from '@/lib/ai/schema';
 import { useT } from '@/lib/translate-client';
 
-/** Shows a stored AI build audit. */
+/**
+ * A stored audit. Audits saved by earlier versions lack the newer sections and
+ * have a list of "upgrades" instead of "changes", so every section is optional.
+ */
+type StoredAudit = Pick<BuildAudit, 'summary'> &
+  Partial<Omit<BuildAudit, 'summary'>> & { upgrades?: { change: string; reason: string }[] };
+
+const EFFORT_STYLE: Record<'easy' | 'medium' | 'hard', string> = {
+  easy: 'border-done/50 bg-done/10 text-done',
+  medium: 'border-star/50 bg-star/10 text-star',
+  hard: 'border-pending/50 bg-pending/10 text-pending',
+};
+
+/** Shows a stored AI audit of one Pokémon. */
 export function AuditPanel({
   audit,
   auditLang,
@@ -13,7 +26,7 @@ export function AuditPanel({
   onChangeLanguage,
   busy,
 }: {
-  audit: BuildAudit;
+  audit: StoredAudit;
   /** The language the saved answer is written in. */
   auditLang?: string;
   meta: string;
@@ -30,10 +43,12 @@ export function AuditPanel({
     ok: { label: t('Solid, with room to improve'), className: 'text-star' },
     weak: { label: t('Needs work'), className: 'text-pending' },
   };
-  const rating = ratings[audit.rating] ?? ratings.ok;
+  const rating = audit.rating ? (ratings[audit.rating] ?? ratings.ok) : null;
+  const effortLabel = { easy: t('Easy'), medium: t('Medium'), hard: t('Hard') };
   const languageName = (code: string) => (code === 'en' ? t('English') : t('Spanish'));
   // The saved answer is never translated: switching language keeps it until it is re-run.
   const otherLanguage = auditLang != null && auditLang !== lang;
+  const heading = 'mb-1 font-semibold uppercase text-muted';
 
   return (
     <div className="mt-3 space-y-3 rounded-lg bg-surface-2 p-3 text-xs">
@@ -56,25 +71,71 @@ export function AuditPanel({
           )}
         </div>
       )}
+
       <div>
-        <p className={`font-semibold ${rating.className}`}>{rating.label}</p>
+        {rating && <p className={`font-semibold ${rating.className}`}>{rating.label}</p>}
         <p className="mt-1">{audit.summary}</p>
       </div>
-      {audit.issues.length > 0 && (
+
+      {(audit.changes ?? []).length > 0 && (
         <div>
-          <h4 className="mb-1 font-semibold uppercase text-muted">{t('Issues')}</h4>
-          <ul className="list-disc space-y-1 pl-4">
-            {audit.issues.map((issue, i) => (
-              <li key={i}>{issue}</li>
+          <h4 className={heading}>{t('Best changes, easiest first')}</h4>
+          <ol className="space-y-1.5">
+            {audit.changes!.map((c, i) => (
+              <li key={i} className="flex gap-2">
+                <span
+                  className={`mt-0.5 h-fit shrink-0 rounded border px-1.5 py-px text-[10px] font-semibold ${EFFORT_STYLE[c.effort] ?? ''}`}
+                >
+                  {effortLabel[c.effort] ?? c.effort}
+                </span>
+                <span>
+                  <span className="font-medium">{c.change}</span>
+                  <span className="text-muted"> · {c.reason}</span>
+                </span>
+              </li>
             ))}
-          </ul>
+          </ol>
         </div>
       )}
+
+      {audit.evPlan && (
+        <div>
+          <h4 className={heading}>{t('EV plan')}</h4>
+          <dl className="space-y-1">
+            <div>
+              <dt className="inline text-muted">{t('Finish with')}: </dt>
+              <dd className="inline font-medium">{audit.evPlan.spread}</dd>
+            </div>
+            <div>
+              <dt className="inline text-muted">{t('Still to train')}: </dt>
+              <dd className="inline">{audit.evPlan.toTrain}</dd>
+            </div>
+          </dl>
+          {audit.evPlan.steps.length > 0 && (
+            <ul className="mt-1 list-disc space-y-1 pl-4">
+              {audit.evPlan.steps.map((s, i) => (
+                <li key={i}>{s}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {audit.heldItem && (
+        <div>
+          <h4 className={heading}>{t('Held item')}</h4>
+          <p>
+            <span className="font-medium">{audit.heldItem.item}</span>
+            <span className="text-muted"> · {audit.heldItem.reason}</span>
+          </p>
+        </div>
+      )}
+
       {(audit.recommendedMoves ?? []).length > 0 && (
         <div>
-          <h4 className="mb-1 font-semibold uppercase text-muted">{t('Recommended moves')}</h4>
+          <h4 className={heading}>{t('Recommended moves')}</h4>
           <ul className="space-y-1">
-            {audit.recommendedMoves.map((m, i) => (
+            {audit.recommendedMoves!.map((m, i) => (
               <li key={i}>
                 <span className="font-medium">{m.move}</span>
                 <span className="text-muted"> · {m.reason}</span>
@@ -83,11 +144,23 @@ export function AuditPanel({
           </ul>
         </div>
       )}
-      {audit.upgrades.length > 0 && (
+
+      {(audit.issues ?? []).length > 0 && (
         <div>
-          <h4 className="mb-1 font-semibold uppercase text-muted">{t('Suggested upgrades')}</h4>
+          <h4 className={heading}>{t('Issues')}</h4>
+          <ul className="list-disc space-y-1 pl-4">
+            {audit.issues!.map((issue, i) => (
+              <li key={i}>{issue}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(audit.upgrades ?? []).length > 0 && (
+        <div>
+          <h4 className={heading}>{t('Suggested upgrades')}</h4>
           <ul className="space-y-1">
-            {audit.upgrades.map((u, i) => (
+            {audit.upgrades!.map((u, i) => (
               <li key={i}>
                 <span className="font-medium">{u.change}</span>
                 <span className="text-muted"> · {u.reason}</span>
@@ -96,11 +169,12 @@ export function AuditPanel({
           </ul>
         </div>
       )}
-      {audit.howToGet.length > 0 && (
+
+      {(audit.howToGet ?? []).length > 0 && (
         <div>
-          <h4 className="mb-1 font-semibold uppercase text-muted">{t('Where to get it')}</h4>
+          <h4 className={heading}>{t('Where to get it')}</h4>
           <ul className="space-y-1">
-            {audit.howToGet.map((h, i) => (
+            {audit.howToGet!.map((h, i) => (
               <li key={i}>
                 <span className="font-medium">{h.what}</span>
                 <span className="text-muted"> · {h.where}</span>
@@ -109,6 +183,7 @@ export function AuditPanel({
           </ul>
         </div>
       )}
+
       <p className="flex items-center justify-between text-[10px] text-muted">
         <span>
           {t('AI-generated ({meta}). Check locations in game before relying on them.', { meta })}

@@ -7,8 +7,8 @@ import { AuditPanel } from './AuditPanel';
 import { ConfirmDialog } from './Dialog';
 import { RosterEditDialog } from './RosterEditDialog';
 import { TypeBadge } from './TypeBadge';
-import type { BuildAudit, TeamAudit } from '@/lib/ai/schema';
-import { formatEvs } from '@/lib/import/evs';
+import type { TeamAudit } from '@/lib/ai/schema';
+import { evGap, evTotal, formatEvs } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
 import { POTENTIAL_LEVELS, potentialLevel } from '@/lib/potential';
 import { TYPE_COLORS } from '@/lib/pokemon-types';
@@ -186,6 +186,7 @@ export function RosterBoard({
   options,
   lang,
   judge,
+  evs,
   aiEnabled,
   aiProvider,
 }: {
@@ -195,6 +196,8 @@ export function RosterBoard({
   lang: Lang;
   /** The game has a Judge ("Juez"), so each Pokémon can carry its Potential. */
   judge: boolean;
+  /** The game has EV training, so target and current EVs are shown. */
+  evs: boolean;
   aiEnabled: boolean;
   aiProvider: string;
 }) {
@@ -423,6 +426,19 @@ export function RosterBoard({
       evs: p.evs && (
         <TaskChip dense={dense} label={formatEvs(p.evs)} status={p.evStatus} onToggle={() => toggle(p, 'evs', p.evStatus)} />
       ),
+      // What it has now: a fact about the Pokémon, not a task, so it is not coloured as one.
+      currentEvs: p.currentEvs ? (
+        <span
+          title={t('The EVs this Pokémon has right now')}
+          className={`inline-flex max-w-full items-center rounded-md border border-line bg-surface-2 ${
+            dense ? 'px-1.5 py-0.5 text-xs' : 'px-2 py-1 text-xs'
+          }`}
+        >
+          <span className="truncate">{formatEvs(p.currentEvs)}</span>
+        </span>
+      ) : (
+        <span className="text-xs text-muted">{t('Not recorded')}</span>
+      ),
       move: (slot: number) => {
         const m = p.moves.find((x) => x.slot === slot);
         if (!m) return null;
@@ -455,6 +471,7 @@ export function RosterBoard({
         options={options}
         lang={lang}
         judge={judge}
+        evs={evs}
         onSave={saveEdit}
         onClose={() => setEditing(null)}
       />
@@ -659,7 +676,21 @@ export function RosterBoard({
                     {c.nature && <Row label={t('Nature')}>{c.nature}</Row>}
                     {c.ability && <Row label={t('Ability')}>{c.ability}</Row>}
                     {c.item && <Row label={t('Item')}>{c.item}</Row>}
-                    {c.evs && <Row label={t('EVs')}>{c.evs}</Row>}
+                    {evs && c.evs && <Row label={t('Target EVs')}>{c.evs}</Row>}
+                    {evs && (p.evs || p.currentEvs) && (
+                      <Row label={t('Current EVs')}>
+                        <div className="min-w-0">
+                          {c.currentEvs}
+                          {p.evs && p.currentEvs && (
+                            <p className="mt-1 text-[11px] text-muted">
+                              {evTotal(evGap(p.evs, p.currentEvs)) === 0
+                                ? t('Target reached')
+                                : t('Missing for the target: {evs}', { evs: formatEvs(evGap(p.evs, p.currentEvs)) })}
+                            </p>
+                          )}
+                        </div>
+                      </Row>
+                    )}
                     {slots.length > 0 && (
                       <Row label={t('Moves')}>
                         <div className="grid w-full grid-cols-2 gap-1.5">
@@ -700,7 +731,7 @@ export function RosterBoard({
 
                   {openAudit === p.id && p.audit && (
                     <AuditPanel
-                      audit={p.audit.result as BuildAudit}
+                      audit={p.audit.result as Parameters<typeof AuditPanel>[0]['audit']}
                       auditLang={p.audit.lang}
                       meta={`${p.audit.provider} · ${p.audit.model}`}
                       onRefresh={aiEnabled ? () => audit(p, true) : undefined}
@@ -727,7 +758,7 @@ export function RosterBoard({
                   t('Nature'),
                   t('Ability'),
                   t('Item'),
-                  t('EVs'),
+                  ...(evs ? [t('Target EVs'), t('Current EVs')] : []),
                   t('Move {n}', { n: 1 }),
                   t('Move {n}', { n: 2 }),
                   t('Move {n}', { n: 3 }),
@@ -772,7 +803,12 @@ export function RosterBoard({
                     <td className="px-2 py-1">{c.nature}</td>
                     <td className="px-2 py-1">{c.ability}</td>
                     <td className="max-w-40 px-2 py-1">{c.item}</td>
-                    <td className="px-2 py-1">{c.evs}</td>
+                    {evs && (
+                      <>
+                        <td className="px-2 py-1">{c.evs}</td>
+                        <td className="px-2 py-1">{p.currentEvs ? c.currentEvs : null}</td>
+                      </>
+                    )}
                     {[1, 2, 3, 4].map((slot) => (
                       <td key={slot} className="max-w-36 px-2 py-1">
                         {c.move(slot)}

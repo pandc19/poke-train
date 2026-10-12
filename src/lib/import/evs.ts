@@ -52,6 +52,22 @@ const STAT_LABELS: [keyof EvSpread, string][] = [
   ['speed', 'Spe'],
 ];
 
+/** How many EVs a spread still needs to reach a target. Stats already at or past it count as 0. */
+export function evGap(target: EvSpread, current: EvSpread | null): EvSpread {
+  const have = current ?? { hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 };
+  const left = (key: keyof EvSpread) => Math.max(0, target[key] - have[key]);
+  return {
+    hp: left('hp'),
+    attack: left('attack'),
+    defense: left('defense'),
+    specialAttack: left('specialAttack'),
+    specialDefense: left('specialDefense'),
+    speed: left('speed'),
+  };
+}
+
+export const evTotal = (evs: EvSpread): number => Object.values(evs).reduce((sum, v) => sum + v, 0);
+
 /** "252 Atk / 4 SpD / 252 Spe" */
 export function formatEvs(evs: EvSpread): string {
   return STAT_LABELS.filter(([key]) => evs[key] > 0)

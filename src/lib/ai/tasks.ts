@@ -2,20 +2,22 @@ import { createHash } from 'node:crypto';
 import type { z } from 'zod';
 import { prisma } from '../db';
 import type { GameConfig } from '../games';
-import { formatEvs } from '../import/evs';
+import { learnableMoves } from '../breeding/moves';
+import { evGap, evTotal, formatEvs } from '../import/evs';
 import type { Lang } from '../i18n';
 import { potentialLevel } from '../potential';
 import type { RosterView } from '../roster';
-import { BuildAuditSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
+import { BuildAuditNoEvSchema, BuildAuditSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 2;
+const PROMPT_VERSION = 3;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
     `You are a competitive Pokémon coach helping one player with ${game.name}.`,
     `Only recommend Pokémon, moves, items and mechanics that exist in ${game.name}, including its DLC.`,
     'Be specific and practical. If you are not sure where something is found, say so rather than guessing.',
+    'Prefer advice the player can act on without starting over: say what is easy, and never suggest a move the Pokémon cannot learn in this game.',
     `Write every text field in ${lang === 'es' ? 'Spanish, using the official Spanish names' : 'English'}.`,
   ].join(' ');
 
@@ -67,23 +69,33 @@ async function cached<T>(
   return result;
 }
 
-/** A compact, language-neutral description of a build, used both as prompt and cache key. */
-function describeBuild(p: RosterView) {
+/** A compact, language-neutral description of a Pokémon as it is now, used both as prompt and cache key. */
+function describeBuild(p: RosterView, hasEvs = true) {
+  const gap = hasEvs && p.evs && p.currentEvs ? evGap(p.evs, p.currentEvs) : null;
   return {
     pokemon: p.species.nameEn,
     types: p.types,
-    nature: p.targetNature?.nameEn ?? null,
+    baseStats: p.baseStats,
+    // The nature it has now, when known, and the one the player is aiming for.
+    currentNature: p.currentNature?.nameEn ?? null,
+    targetNature: p.targetNature?.nameEn ?? null,
     ability: p.ability?.nameEn ?? null,
-    item: p.item?.nameEn ?? p.itemNote,
-    evs: p.evs ? formatEvs(p.evs) : null,
+    heldItem: p.item?.nameEn ?? p.itemNote,
+    ...(hasEvs
+      ? {
+          currentEvs: p.currentEvs ? formatEvs(p.currentEvs) : null,
+          targetEvs: p.evs ? formatEvs(p.evs) : null,
+          evsStillMissing: gap && evTotal(gap) > 0 ? formatEvs(gap) : null,
+        }
+      : {}),
     teraType: p.teraType,
     // What the in-game Judge said about its IVs, when the player has had it judged.
     judgePotential: potentialLevel(p.potential)?.label ?? null,
-    moves: p.moves.map((m) => m.move?.nameEn ?? m.rawName),
+    moves: p.moves.map((m) => ({ name: m.move?.nameEn ?? m.rawName, known: m.status === 'DONE' })),
   };
 }
 
-export function auditBuild(
+export async function auditBuild(
   provider: AiProvider,
   game: GameConfig,
   lang: Lang,
@@ -92,36 +104,62 @@ export function auditBuild(
   refresh: boolean,
   deep = false
 ) {
-  const build = describeBuild(p);
+  const hasEvs = game.features.evs;
+  const build = describeBuild(p, hasEvs);
   const pending = [
     p.itemStatus === 'PENDING' && (p.item?.nameEn ?? p.itemNote),
     ...p.moves.filter((m) => m.status === 'PENDING').map((m) => m.move?.nameEn ?? m.rawName),
   ].filter(Boolean);
   const illegal = p.moves.filter((m) => m.legal === false).map((m) => m.move!.nameEn);
 
+  // Everything it can legally have in this game, so suggestions come from real options.
+  const pool = await learnableMoves(game, p.species.id);
+  const legalMovePool = {
+    eggMoves: pool.egg.map((m) => m.nameEn),
+    learnedNormally: pool.other.map((m) => m.nameEn),
+  };
+
   return cached(
     provider,
     { kind: 'build', profileId, rosterPokemonId: p.id, refresh, lang },
-    { build, pending, illegal, lang },
+    { build, pending, illegal, legalMovePool, lang },
     {
       system: system(game, lang),
-      schema: BuildAuditSchema,
+      schema: hasEvs ? BuildAuditSchema : BuildAuditNoEvSchema,
       schemaName: 'build_audit',
-      webSearch: pending.length > 0,
+      // Item and EV advice depends on how this game works, so let it look things up.
+      webSearch: true,
       // One Pokémon at a time is the everyday request; "deeper" is the user's choice.
       tier: deep ? 'deep' : 'bulk',
       prompt: [
-        'Audit this planned build.',
-        JSON.stringify(build, null, 2),
+        'Audit this Pokémon as it is right now and say how to get the most out of it.',
+        JSON.stringify({ pokemon: build, legalMovePool }, null, 2),
+        hasEvs
+          ? 'Work with what it already has. Its current nature, ability, potential, current EVs, held item and the moves it already knows are the starting point. ' +
+            'Do not propose rebuilding it.'
+          : `Work with what it already has. ${game.name} has no EV training, so ignore EVs entirely. Its nature, ability, potential, held item and the moves it already knows are the starting point. ` +
+            'Do not propose rebuilding it.',
+        `changes: at most three, easiest and most valuable first. effort "easy" means ${
+          hasEvs ? 'EV training, ' : ''
+        }a held item, or a move it can relearn; "medium" means crafting or buying a TM; "hard" means breeding, or changing its nature or ability. ` +
+          'Only propose a nature or ability change if nothing else comes close, and mark it hard.',
+        hasEvs
+          ? 'evPlan: compare currentEvs with the best spread for its nature, base stats and moves (at most 510 in total and 252 in one stat). ' +
+            'If currentEvs is null, say it is not recorded and base the plan on targetEvs. spread is the spread to finish with, ' +
+            'toTrain is exactly what is still missing from currentEvs, and steps are practical ways to get those EVs in this game ' +
+            `(Power items, vitamins, EV-reducing berries, where to battle). Look up how ${game.name} handles EV training if you are not sure.` +
+            (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
+          : '',
+        'heldItem: the best held item for it as it is now. If the one it holds is already the best, name it and say to keep it.',
+        `recommendedMoves: the best four moves for it given its nature${hasEvs ? ' and EVs' : ''}, chosen ONLY from legalMovePool. ` +
+          'Prefer moves it already knows over ones it would have to get.',
         illegal.length
-          ? `Game data says this Pokémon cannot learn: ${illegal.join(', ')}. Suggest a legal replacement for each.`
+          ? `Game data says this Pokémon cannot learn: ${illegal.join(', ')}. Replace each with a move from legalMovePool.`
           : '',
         pending.length
           ? `The player does not have these yet: ${pending.join(', ')}. For each, look up where to get it in ${game.name} ` +
             '(shop, location, TM number and the materials needed to craft it, or how the move is learned) and put it in howToGet.'
           : 'Nothing is pending, so leave howToGet empty.',
-        'Judge synergy between nature, EVs, ability, item and moves. Suggest at most three upgrades.',
-        'Always fill recommendedMoves with the best moveset you would run on this Pokémon in this game, even if the current moves are already good.',
       ]
         .filter(Boolean)
         .join('\n\n'),
@@ -130,7 +168,7 @@ export function auditBuild(
 }
 
 export function auditTeam(provider: AiProvider, game: GameConfig, lang: Lang, profileId: string, roster: RosterView[]) {
-  const team = roster.map(describeBuild);
+  const team = roster.map((p) => describeBuild(p, game.features.evs));
   return cached(provider, { kind: 'team', profileId, lang }, { team, lang }, {
     system: system(game, lang),
     schema: TeamAuditSchema,

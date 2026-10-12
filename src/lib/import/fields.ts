@@ -19,6 +19,7 @@ export const FIELDS = [
   { key: 'item', label: 'Held item', hint: '' },
   { key: 'berry', label: 'Berry', hint: 'Used as the held item when no item is given' },
   { key: 'evs', label: 'EV spread', hint: 'e.g. 252 Atk / 4 SpD / 252 Spe' },
+  { key: 'currentEvs', label: 'Current EV spread', hint: 'What the Pokémon has right now' },
   { key: 'teraType', label: 'Tera type', hint: '' },
   { key: 'origin', label: 'Origin (caught / bred)', hint: '' },
   { key: 'status', label: 'Status', hint: '"Done", or what is still missing' },
@@ -52,7 +53,9 @@ function guessField(h: string, previous: FieldKey | undefined): FieldKey | undef
   if (has(h, 'habilidad', 'ability')) return 'ability';
   if (has(h, 'baya', 'berry')) return 'berry';
   if (has(h, 'objeto', 'item')) return 'item';
-  if (has(h, 'ev', 'esfuerzo') && !has(h, 'evol', 'nivel', 'level')) return 'evs';
+  if (has(h, 'ev', 'esfuerzo') && !has(h, 'evol', 'nivel', 'level')) {
+    return has(h, 'actual', 'current') ? 'currentEvs' : 'evs';
+  }
   if (has(h, 'tera')) return 'teraType';
   if (has(h, 'origen', 'origin')) return 'origin';
   if (has(h, 'estado', 'status', 'progreso')) return 'status';

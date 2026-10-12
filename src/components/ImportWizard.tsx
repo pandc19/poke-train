@@ -31,8 +31,25 @@ async function readFile(file: File): Promise<Sheet[]> {
 const statusClass = (status: 'PENDING' | 'DONE') =>
   status === 'DONE' ? 'border-done/40 bg-done/10 text-done' : 'border-pending/40 bg-pending/10 text-pending';
 
-export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameName: string; lang: Lang }) {
+export function ImportWizard({
+  gameId,
+  gameName,
+  lang,
+  hasEvs,
+}: {
+  gameId: string;
+  gameName: string;
+  lang: Lang;
+  /** The game has EV training, so EV columns can be mapped. */
+  hasEvs: boolean;
+}) {
   const { t } = useT();
+  const fields = FIELDS.filter((f) => hasEvs || (f.key !== 'evs' && f.key !== 'currentEvs'));
+  /** Guess the mapping, leaving out EV columns for a game that has no EVs. */
+  const guess = (headers: string[]): ColumnMapping =>
+    Object.fromEntries(
+      Object.entries(guessMapping(headers)).filter(([, field]) => hasEvs || (field !== 'evs' && field !== 'currentEvs'))
+    );
   const [step, setStep] = useState<Step>('upload');
   const [fileName, setFileName] = useState('');
   const [sheets, setSheets] = useState<Sheet[]>([]);
@@ -68,7 +85,7 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
       setSheets(parsed);
       setSheetIndex(0);
       setHasHeader(true);
-      setMapping(guessMapping(parsed[0].rows[0] ?? []));
+      setMapping(guess(parsed[0].rows[0] ?? []));
       setStep('map');
     } catch {
       setError(t('That file could not be read. Use a .csv or .xlsx file with one Pokémon per row.'));
@@ -205,7 +222,7 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
                       onChange={(e) => {
                         const i = Number(e.target.value);
                         setSheetIndex(i);
-                        setMapping(guessMapping(sheets[i].rows[0] ?? []));
+                        setMapping(guess(sheets[i].rows[0] ?? []));
                       }}
                       className="rounded-md border border-line bg-surface px-2 py-1 text-ink"
                     >
@@ -258,7 +275,7 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
                             }`}
                           >
                             <option value="">{t('Ignore this column')}</option>
-                            {FIELDS.map((f) => (
+                            {fields.map((f) => (
                               <option key={f.key} value={f.key}>
                                 {t(f.label)}
                               </option>

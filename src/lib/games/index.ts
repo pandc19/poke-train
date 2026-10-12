@@ -21,6 +21,7 @@ export type GameConfig = {
   pokedexes: { slug: string; name: Localized; note: Localized }[];
   features: {
     breeding: boolean;
+    /** EV training exists. When false the app hides EVs and the AI gives no EV advice. */
     evs: boolean;
     heldItems: boolean;
     abilities: boolean;
@@ -35,6 +36,11 @@ export type GameConfig = {
   utilityRoles: UtilityRole[];
   /** For games sold as a pair: what only this version and only the other version have. */
   versionExclusives?: VersionExclusives;
+  /**
+   * How EV training works here, when it is unusual (a different system, or very hard).
+   * Passed to the AI so it does not assume the usual rules.
+   */
+  evNote?: string;
 };
 
 /**

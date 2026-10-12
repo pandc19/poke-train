@@ -311,9 +311,12 @@ model RosterPokemon {
   itemNote   String?    @map("item_note")
   itemStatus TaskStatus @default(PENDING) @map("item_status")
 
-  /// { hp, attack, defense, specialAttack, specialDefense, speed }, or null if not planned.
+  /// The EV spread the player is aiming for: { hp, attack, defense, specialAttack, specialDefense, speed },
+  /// or null if not planned.
   evs      Json?
   evStatus TaskStatus @default(PENDING) @map("ev_status")
+  /// The EVs the Pokémon has right now, same shape. Null = not recorded.
+  currentEvs Json? @map("current_evs")
 
   teraType String? @map("tera_type")
   /// What the Judge said, for games that have one. Null = not judged yet.

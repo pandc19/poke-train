@@ -35,6 +35,7 @@ export type ResolvedRow = {
   itemNote: string | null;
   itemStatus: TaskStatus;
   evs: EvSpread | null;
+  currentEvs: EvSpread | null;
   evStatus: TaskStatus;
   teraType: string | null;
   moves: ResolvedMove[];
@@ -187,6 +188,8 @@ export function interpretRow(
   // --- EVs ---
   const evs = row.evs ? parseEvs(row.evs) : null;
   if (row.evs && !evs) issues.push({ code: 'badEvs', value: row.evs });
+  const currentEvs = row.currentEvs ? parseEvs(row.currentEvs) : null;
+  if (row.currentEvs && !currentEvs) issues.push({ code: 'badEvs', value: row.currentEvs });
 
   const teraType = parseTeraType(row.teraType);
   if (row.teraType && !teraType) issues.push({ code: 'unknownTera', value: row.teraType });
@@ -228,6 +231,7 @@ export function interpretRow(
     itemNote,
     itemStatus: allDone ? 'DONE' : 'PENDING',
     evs,
+    currentEvs,
     evStatus: allDone ? 'DONE' : 'PENDING',
     teraType,
     moves,

@@ -30,6 +30,7 @@ const Body = z.object({
       itemId: id,
       itemNote: z.string().max(200).nullable(),
       evs: z.string().max(200).nullable(),
+      currentEvs: z.string().max(200).nullable(),
       teraType: z.enum(TYPE_SLUGS as [string, ...string[]]).nullable(),
       potential: z.enum(['DECENT', 'ABOVE_AVERAGE', 'RELATIVELY_SUPERIOR', 'OUTSTANDING']).nullable(),
       notes: z.string().max(4000).nullable(),
@@ -90,6 +91,13 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
   }
 
   if (set) {
+    let currentEvs: ReturnType<typeof parseEvs> | undefined;
+    if (set.currentEvs !== undefined) {
+      currentEvs = set.currentEvs ? parseEvs(set.currentEvs) : null;
+      if (set.currentEvs && !currentEvs) {
+        return apiError('EV spread not recognised. Example: 252 Atk / 4 SpD / 252 Spe', 422);
+      }
+    }
     let evs: ReturnType<typeof parseEvs> | undefined;
     if (set.evs !== undefined) {
       evs = set.evs ? parseEvs(set.evs) : null;
@@ -119,6 +127,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
           ...(set.itemId !== undefined && set.itemId !== current.itemId
             ? { itemId: set.itemId, itemStatus: 'PENDING' }
             : {}),
+          ...(currentEvs !== undefined ? { currentEvs: currentEvs ?? Prisma.DbNull } : {}),
           ...(evs !== undefined
             ? {
                 evs: evs ?? Prisma.DbNull,

@@ -77,6 +77,7 @@ export async function POST(request: Request) {
           itemNote: r.itemNote,
           itemStatus: r.itemStatus,
           evs: r.evs ?? undefined,
+          currentEvs: r.currentEvs ?? undefined,
           evStatus: r.evStatus,
           teraType: r.teraType,
           notes: r.notes,
