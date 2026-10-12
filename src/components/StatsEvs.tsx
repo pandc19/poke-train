@@ -58,6 +58,17 @@ export function EvGraph({ evs, nature }: { evs: EvSpread; nature?: EvEstimateInf
         return <line key={i} x1={size.cx} y1={size.cy} x2={edge.x} y2={edge.y} stroke="var(--color-line)" strokeWidth="0.5" />;
       })}
       <polygon points={shape} fill="var(--color-star)" fillOpacity="0.35" stroke="var(--color-star)" strokeWidth="1.5" />
+      {/* A stat at its 252 maximum lights up its corner. */}
+      {STAT_ORDER.map((key, i) => {
+        if (evs[key] < 252) return null;
+        const p = point(i, 1);
+        return (
+          <g key={key}>
+            <circle cx={p.x} cy={p.y} r="7" fill="var(--color-done)" fillOpacity="0.25" />
+            <circle cx={p.x} cy={p.y} r="3.5" fill="var(--color-done)" stroke="var(--color-bg)" strokeWidth="1" />
+          </g>
+        );
+      })}
       {STAT_ORDER.map((key, i) => {
         const at = point(i, 1, size.r + 17);
         const anchor = Math.abs(Math.cos(ANGLES[i])) < 0.2 ? 'middle' : Math.cos(ANGLES[i]) > 0 ? 'start' : 'end';
@@ -78,7 +89,13 @@ export function EvGraph({ evs, nature }: { evs: EvSpread; nature?: EvEstimateInf
                 </tspan>
               )}
             </tspan>
-            <tspan x={at.x} dy="11" fontSize="11" fontWeight="600" fill="var(--color-ink)">
+            <tspan
+              x={at.x}
+              dy="11"
+              fontSize="11"
+              fontWeight={evs[key] >= 252 ? 700 : 600}
+              fill={evs[key] >= 252 ? 'var(--color-done)' : 'var(--color-ink)'}
+            >
               {evs[key]}
             </tspan>
           </text>
