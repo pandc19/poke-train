@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Dialog } from './Dialog';
 import { formatEvs, type EvSpread } from '@/lib/import/evs';
 import { StatsEvsEditor, type EvEstimateInfo } from './StatsEvs';
+import type { IvRatings } from '@/lib/iv-ratings';
 import type { Lang } from '@/lib/i18n';
 import { POTENTIAL_LEVELS } from '@/lib/potential';
 import { TYPE_NAMES_ES, TYPE_SLUGS } from '@/lib/pokemon-types';
@@ -107,6 +108,7 @@ function EditForm({
   const [evs, setEvs] = useState(p.evs ? formatEvs(p.evs) : '');
   const [stats, setStats] = useState<EvSpread | null>(p.currentStats);
   const [level, setLevel] = useState(p.level);
+  const [ratings, setRatings] = useState<IvRatings>(p.ivRatings ?? {});
   // The nature it really has (or, failing that, the one planned) decides the stats-to-EVs maths.
   const natureForEvs = options.natures.find((n) => n.id === (p.currentNature?.id ?? natureId)) ?? null;
   const estimateInfo: EvEstimateInfo | undefined = p.baseStats
@@ -164,6 +166,7 @@ function EditForm({
         ? {
             currentStats: stats && Object.values(stats).some((n) => n > 0) ? stats : null,
             level,
+            ivRatings: Object.values(ratings).some(Boolean) ? ratings : null,
             ...(evTarget ? { evs: evs.trim() || null } : {}),
           }
         : {}),
@@ -263,9 +266,11 @@ function EditForm({
               <StatsEvsEditor
                 stats={stats}
                 level={level}
-                onChange={(nextStats, nextLevel) => {
+                ratings={ratings}
+                onChange={(nextStats, nextLevel, nextRatings) => {
                   setStats(nextStats);
                   setLevel(nextLevel);
+                  setRatings(nextRatings);
                 }}
                 info={estimateInfo}
                 potential={potential || null}

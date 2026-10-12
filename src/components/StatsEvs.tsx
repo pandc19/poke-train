@@ -1,8 +1,9 @@
 'use client';
 
-import { STAT_LABELS, STAT_ORDER, StatInputs, cleanNumber } from './EvInputs';
+import { NO_EVS, STAT_LABELS, STAT_ORDER, cleanNumber } from './EvInputs';
+import { IV_RATINGS, ivRating, type IvRatingValue, type IvRatings } from '@/lib/iv-ratings';
 import { estimateEvRange, type NatureEffect } from '@/lib/ev-estimate';
-import { ivAssumption, potentialLevel } from '@/lib/potential';
+import { ivAssumption } from '@/lib/potential';
 import { evTotal, type EvSpread } from '@/lib/import/evs';
 import { useT } from '@/lib/translate-client';
 
@@ -83,6 +84,7 @@ export function EvGraph({ evs }: { evs: EvSpread }) {
 export function StatsEvsEditor({
   stats,
   level,
+  ratings,
   onChange,
   onCommit,
   info,
@@ -92,7 +94,9 @@ export function StatsEvsEditor({
 }: {
   stats: EvSpread | null;
   level: number;
-  onChange: (stats: EvSpread | null, level: number) => void;
+  /** What the Judge said about each stat's IV. */
+  ratings: IvRatings;
+  onChange: (stats: EvSpread | null, level: number, ratings: IvRatings) => void;
   /** Focus left the stats and level boxes. */
   onCommit?: () => void;
   info?: EvEstimateInfo;
@@ -107,39 +111,84 @@ export function StatsEvsEditor({
   const iv = ivAssumption(potential);
   const range =
     hasStats && info
-      ? estimateEvRange({ stats, level, baseStats: info.baseStats, nature: info.nature, ivsLow: iv.low })
+      ? estimateEvRange({ stats, level, baseStats: info.baseStats, nature: info.nature, ivsLow: iv.low, ratings })
       : null;
   const live = range?.estimate ?? null;
   const evs = live ?? savedEvs;
   const estimated = live != null || savedEstimated;
-  const level_ = potentialLevel(potential);
+  const rated = STAT_ORDER.filter((key) => ivRating(ratings[key]) != null);
+  const hasInfo = rated.length > 0 || iv.fromPotential;
+  // Every IV pinned to one value: the EVs are not a range any more.
+  const exact =
+    range != null &&
+    STAT_ORDER.every((key) => {
+      const r = ivRating(ratings[key]);
+      return r != null && r.low === r.high;
+    });
   const total = evs ? evTotal(evs) : 0;
 
   return (
     <div className="space-y-2">
-      <div>
-        <div
-          onBlur={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onCommit?.();
-          }}
-        >
-          <StatInputs value={stats} onChange={(next) => onChange(next, level)} />
-          <label className="mt-1.5 flex w-24 items-center gap-1.5 text-[11px] text-muted">
-            {t('Level')}
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={100}
-              value={level}
-              onChange={(e) => onChange(stats, Math.min(100, Math.max(1, cleanNumber(e.target.value) || 1)))}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur();
-              }}
-              className="w-full rounded border border-line bg-bg px-1 py-0.5 text-xs text-ink"
-            />
-          </label>
+      <div
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onCommit?.();
+        }}
+      >
+        <div className="grid grid-cols-3 gap-x-1.5 gap-y-2">
+          {STAT_ORDER.map((key) => (
+            <div key={key} className="min-w-0">
+              <label className="block">
+                <span className="block truncate text-[10px] text-muted">{STAT_LABELS[key][lang]}</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  placeholder="0"
+                  value={(stats ?? NO_EVS)[key] || ''}
+                  onChange={(e) => onChange({ ...(stats ?? NO_EVS), [key]: cleanNumber(e.target.value) }, level, ratings)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.currentTarget.blur();
+                  }}
+                  aria-label={STAT_LABELS[key][lang]}
+                  className="w-full rounded border border-line bg-bg px-1 py-0.5 text-xs"
+                />
+              </label>
+              <select
+                value={ratings[key] ?? ''}
+                onChange={(e) =>
+                  onChange(stats, level, { ...ratings, [key]: (e.target.value || null) as IvRatingValue | null })
+                }
+                aria-label={`${STAT_LABELS[key][lang]}: ${t("IV rating from the game's Judge")}`}
+                title={ivRating(ratings[key])
+                  ? `${lang === 'en' ? ivRating(ratings[key])!.label : ivRating(ratings[key])!.labelEs}: IV ${ivRating(ratings[key])!.low === ivRating(ratings[key])!.high ? ivRating(ratings[key])!.low : `${ivRating(ratings[key])!.low}-${ivRating(ratings[key])!.high}`}`
+                  : t("IV rating from the game's Judge")}
+                className="mt-0.5 w-full rounded border border-line bg-bg px-0.5 py-0.5 text-[10px]"
+              >
+                <option value="">{t('IV: not judged')}</option>
+                {[...IV_RATINGS].reverse().map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {lang === 'en' ? r.label : r.labelEs}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
         </div>
+        <label className="mt-2 flex w-24 items-center gap-1.5 text-[11px] text-muted">
+          {t('Level')}
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={100}
+            value={level}
+            onChange={(e) => onChange(stats, Math.min(100, Math.max(1, cleanNumber(e.target.value) || 1)), ratings)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
+            className="w-full rounded border border-line bg-bg px-1 py-0.5 text-xs text-ink"
+          />
+        </label>
       </div>
 
       {evs && total > 0 ? (
@@ -152,13 +201,14 @@ export function StatsEvsEditor({
           {estimated && (
             <div className="mt-0.5 space-y-0.5 text-center text-[10px] text-muted">
               <p>
-                {iv.fromPotential && level_
-                  ? t('The fewest EVs that give these stats. With {potential} potential the real total is between {low} and {high}.', {
-                      potential: lang === 'en' ? level_.label : level_.labelEs,
-                      low: total,
-                      high: range ? evTotal(range.high) : total,
-                    })
-                  : t('The fewest EVs that give these stats. Set its potential to see how many more it could have.')}
+                {exact
+                  ? t('Exact: every IV is known from the ratings.')
+                  : hasInfo
+                    ? t('The fewest EVs that give these stats. The real total is between {low} and {high}.', {
+                        low: total,
+                        high: range ? evTotal(range.high) : total,
+                      })
+                    : t('The fewest EVs that give these stats. Rate its IVs or set its potential to see how many more it could have.')}
               </p>
               {info && (
                 <p>

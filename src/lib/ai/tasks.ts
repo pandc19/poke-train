@@ -5,6 +5,7 @@ import type { GameConfig } from '../games';
 import { learnableMoves } from '../breeding/moves';
 import { evGap, evTotal, formatEvs } from '../import/evs';
 import type { Lang } from '../i18n';
+import { ivRating } from '../iv-ratings';
 import { potentialLevel } from '../potential';
 import type { RosterView } from '../roster';
 import { BuildAuditNoEvSchema, BuildAuditSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
@@ -69,6 +70,17 @@ async function cached<T>(
   return result;
 }
 
+/** The Judge's word for each stat's IV, with the IV it stands for. Only the stats that were judged. */
+function describeIvRatings(p: RosterView): Record<string, string> | null {
+  const names = { hp: 'HP', attack: 'Attack', defense: 'Defense', specialAttack: 'Sp. Atk', specialDefense: 'Sp. Def', speed: 'Speed' } as const;
+  const out: Record<string, string> = {};
+  for (const [key, label] of Object.entries(names)) {
+    const r = ivRating(p.ivRatings?.[key as keyof typeof names]);
+    if (r) out[label] = `${r.label} (IV ${r.low === r.high ? r.low : `${r.low}-${r.high}`})`;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /** A compact, language-neutral description of a Pokémon as it is now, used both as prompt and cache key. */
 function describeBuild(p: RosterView, hasEvs = true, hasTarget = true) {
   const gap = hasEvs && hasTarget && p.evs && p.currentEvs ? evGap(p.evs, p.currentEvs) : null;
@@ -100,6 +112,7 @@ function describeBuild(p: RosterView, hasEvs = true, hasTarget = true) {
     teraType: p.teraType,
     // What the in-game Judge said about its IVs, when the player has had it judged.
     judgePotential: potentialLevel(p.potential)?.label ?? null,
+    ivRatings: describeIvRatings(p),
     moves: p.moves.map((m) => ({ name: m.move?.nameEn ?? m.rawName, known: m.status === 'DONE' })),
   };
 }
@@ -169,7 +182,7 @@ export async function auditBuild(
               (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
             : '',
         hasEvs
-          ? 'If currentEvsAreEstimated is true, currentEvs is the fewest EVs that fit its stats (it assumes perfect IVs), so the real EVs may be somewhat higher, more so the lower its judgePotential is. Treat them as approximate, especially for Attack, Defense, Sp. Atk. and Sp. Def. with a boosting or lowering nature.'
+          ? 'If currentEvsAreEstimated is true, currentEvs is the fewest EVs that fit its stats. ivRatings says what the in-game judge said about each stat\'s IV: stats rated Best have exactly 31 IVs, so their EVs are exact, and a stat with a lower rating may hold somewhat more EVs than shown. Where a stat was not judged, assume its IV is high but not certain. Use the IVs to decide where EVs are worth investing.'
           : '',
         'heldItem: the best held item for it as it is now. If the one it holds is already the best, name it and say to keep it.',
         `recommendedMoves: the best four moves for it given its nature${hasEvs ? ' and EVs' : ''}, chosen ONLY from legalMovePool. ` +

@@ -323,6 +323,8 @@ model RosterPokemon {
   currentStats Json? @map("current_stats")
   /// Its level, which the stats depend on.
   level Int @default(100)
+  /// What the Judge said about each stat's IV: { hp: "PERFECT", attack: "LOW", ... }. Missing = not judged.
+  ivRatings Json? @map("iv_ratings")
 
   teraType String? @map("tera_type")
   /// What the Judge said, for games that have one. Null = not judged yet.

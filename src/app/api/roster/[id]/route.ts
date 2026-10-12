@@ -7,6 +7,7 @@ import { recomputeEvsFromStats } from '@/lib/ev-sync';
 import { rosterGenderToPokedex } from '@/lib/gender-sync';
 import { getGame } from '@/lib/games';
 import { parseEvs } from '@/lib/import/evs';
+import { IV_RATING_VALUES, potentialFromRatings, type IvRatings } from '@/lib/iv-ratings';
 import { TYPE_SLUGS } from '@/lib/pokemon-types';
 import { loadRoster, refreshLegality } from '@/lib/roster';
 
@@ -45,6 +46,17 @@ const Body = z.object({
         })
         .nullable(),
       level: z.number().int().min(1).max(100),
+      /** What the Judge said about each stat's IV. */
+      ivRatings: z
+        .object({
+          hp: z.enum(IV_RATING_VALUES).nullable().optional(),
+          attack: z.enum(IV_RATING_VALUES).nullable().optional(),
+          defense: z.enum(IV_RATING_VALUES).nullable().optional(),
+          specialAttack: z.enum(IV_RATING_VALUES).nullable().optional(),
+          specialDefense: z.enum(IV_RATING_VALUES).nullable().optional(),
+          speed: z.enum(IV_RATING_VALUES).nullable().optional(),
+        })
+        .nullable(),
       teraType: z.enum(TYPE_SLUGS as [string, ...string[]]).nullable(),
       potential: z.enum(['DECENT', 'ABOVE_AVERAGE', 'RELATIVELY_SUPERIOR', 'OUTSTANDING']).nullable(),
       notes: z.string().max(4000).nullable(),
@@ -143,6 +155,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
             : {}),
           ...(set.currentStats !== undefined ? { currentStats: set.currentStats ?? Prisma.DbNull } : {}),
           ...(set.level !== undefined ? { level: set.level } : {}),
+          ...(set.ivRatings !== undefined ? { ivRatings: set.ivRatings ?? Prisma.DbNull } : {}),
           ...(currentEvs !== undefined
             ? { currentEvs: currentEvs ?? Prisma.DbNull, currentEvsEstimated: currentEvs ? (set.currentEvsEstimated ?? false) : false }
             : {}),
@@ -168,11 +181,21 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
         }
       }
     });
+    // When all six IV ratings are known and agree on one overall potential, fill it in
+    // unless the player already set one.
+    if (set.ivRatings && set.potential === undefined && current.potential == null) {
+      const derived = potentialFromRatings(set.ivRatings as IvRatings);
+      if (derived) await prisma.rosterPokemon.update({ where: { id: rosterId }, data: { potential: derived } });
+    }
+
     // EVs follow from the stats, so they are worked out again when any of those inputs change.
     // Typing exact EVs in the same request wins over the estimate.
     if (
       currentEvs === undefined &&
-      (set.currentStats !== undefined || set.level !== undefined || set.targetNatureId !== undefined)
+      (set.currentStats !== undefined ||
+        set.level !== undefined ||
+        set.targetNatureId !== undefined ||
+        set.ivRatings !== undefined)
     ) {
       if (set.currentStats === null) {
         await prisma.rosterPokemon.update({

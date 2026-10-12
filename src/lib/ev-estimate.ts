@@ -1,4 +1,5 @@
 import type { EvSpread } from './import/evs';
+import { ivBoundsFor, type IvRatings } from './iv-ratings';
 
 /** The stat a nature raises or lowers, as PokéAPI names it ("special-attack"). */
 export type NatureEffect = { increased: string | null; decreased: string | null } | null;
@@ -46,7 +47,8 @@ export function estimateEvs(args: {
   level: number;
   baseStats: EvSpread;
   nature: NatureEffect;
-  ivs?: number;
+  /** One IV for every stat, or an IV per stat (31 for any left out). */
+  ivs?: number | Partial<Record<keyof EvSpread, number>>;
 }): EvSpread {
   const { stats, level, baseStats, nature, ivs = 31 } = args;
   const out: EvSpread = { hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 };
@@ -55,7 +57,8 @@ export function estimateEvs(args: {
     if (!target) return;
     // Smallest number of 4-EV steps that makes the shown stat.
     for (let steps = 0; steps <= 63; steps++) {
-      if (statValue(key, baseStats[key], ivs, steps * 4, level, nature) >= target) {
+      const iv = typeof ivs === 'number' ? ivs : (ivs[key] ?? 31);
+      if (statValue(key, baseStats[key], iv, steps * 4, level, nature) >= target) {
         out[key] = steps * 4;
         return;
       }
@@ -66,21 +69,35 @@ export function estimateEvs(args: {
 }
 
 /**
- * The fewest EVs that fit the stats (`estimate`, which assumes perfect IVs) and
- * the most they could be, if the IVs are as low as its Judge potential allows
- * (`high`). The real EVs are somewhere between the two.
+ * The fewest EVs that fit the stats (`estimate`) and the most they could be
+ * (`high`).
+ *
+ * Each stat's IV is what the Judge said about it: a judged stat is held to its
+ * band ("Inmejorable" is exactly 31, so its EVs are exact), an unjudged one can
+ * be anywhere from `ivsLow` (what the overall potential allows, 31 when that
+ * is unknown) to 31. The fewest EVs assume the highest IV each stat can have,
+ * the most assume the lowest. The real EVs are somewhere between the two.
  */
 export function estimateEvRange(args: {
   stats: EvSpread;
   level: number;
   baseStats: EvSpread;
   nature: NatureEffect;
-  /** The lowest average IV its potential allows. */
+  /** The lowest average IV the overall potential allows, for stats not judged. */
   ivsLow: number;
+  ratings?: IvRatings | null;
 }): { estimate: EvSpread; high: EvSpread } {
-  const { ivsLow, ...rest } = args;
+  const { ivsLow, ratings, ...rest } = args;
+  const keys = Object.keys(args.stats) as (keyof EvSpread)[];
+  const best: Partial<Record<keyof EvSpread, number>> = {};
+  const worst: Partial<Record<keyof EvSpread, number>> = {};
+  for (const key of keys) {
+    const bounds = ivBoundsFor(ratings, key, ivsLow);
+    best[key] = bounds.high;
+    worst[key] = bounds.low;
+  }
   return {
-    estimate: estimateEvs({ ...rest, ivs: 31 }),
-    high: estimateEvs({ ...rest, ivs: ivsLow }),
+    estimate: estimateEvs({ ...rest, ivs: best }),
+    high: estimateEvs({ ...rest, ivs: worst }),
   };
 }

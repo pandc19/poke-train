@@ -1,6 +1,7 @@
 import { prisma } from './db';
 import type { GameConfig } from './games';
 import type { EvSpread } from './import/evs';
+import type { IvRatings } from './iv-ratings';
 import { legalMoves } from './legality';
 import type { TaskStatus } from './roster-status';
 
@@ -54,6 +55,8 @@ export type RosterView = {
   /** The stats the game shows (blue graph), when recorded. The current EVs are worked out from them. */
   currentStats: EvSpread | null;
   level: number;
+  /** The Judge's word for each stat's IV, for the stats that have been judged. */
+  ivRatings: IvRatings | null;
   /** Base stats of its form, so a build can be judged against what it is. */
   baseStats: EvSpread | null;
   teraType: string | null;
@@ -150,6 +153,7 @@ export async function loadRoster(profileId: string, ids?: string[]): Promise<Ros
       currentEvsEstimated: r.currentEvsEstimated,
       currentStats: r.currentStats as EvSpread | null,
       level: r.level,
+      ivRatings: r.ivRatings as IvRatings | null,
       baseStats: (form?.baseStats ?? null) as EvSpread | null,
       evStatus: r.evStatus,
       teraType: r.teraType,

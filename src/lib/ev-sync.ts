@@ -1,5 +1,7 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
-import { estimateEvs } from './ev-estimate';
+import { estimateEvRange } from './ev-estimate';
+import { ivAssumption } from './potential';
+import type { IvRatings } from './iv-ratings';
 import type { EvSpread } from './import/evs';
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -20,6 +22,8 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
       formId: true,
       currentNatureId: true,
       targetNatureId: true,
+      potential: true,
+      ivRatings: true,
     },
   });
   if (!row?.currentStats) return;
@@ -35,11 +39,14 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
     ? await db.nature.findUnique({ where: { id: natureId }, select: { increased: true, decreased: true } })
     : null;
 
-  const evs = estimateEvs({
+  // The fewest EVs that fit: judged stats are held to their IV band, the rest assume perfect IVs.
+  const { estimate: evs } = estimateEvRange({
     stats: row.currentStats as unknown as EvSpread,
     level: row.level,
     baseStats: form.baseStats as unknown as EvSpread,
     nature,
+    ivsLow: ivAssumption(row.potential).low,
+    ratings: row.ivRatings as IvRatings | null,
   });
   await db.rosterPokemon.update({
     where: { id: rosterId },

@@ -10,6 +10,7 @@ import { TypeBadge } from './TypeBadge';
 import type { TeamAudit } from '@/lib/ai/schema';
 import { evGap, evTotal, formatEvs, type EvSpread } from '@/lib/import/evs';
 import { StatsEvsEditor, type EvEstimateInfo } from './StatsEvs';
+import type { IvRatings } from '@/lib/iv-ratings';
 import type { Lang } from '@/lib/i18n';
 import { POTENTIAL_LEVELS, potentialLevel } from '@/lib/potential';
 import { TYPE_COLORS } from '@/lib/pokemon-types';
@@ -290,12 +291,12 @@ export function RosterBoard({
   };
 
   /** Saves the stats and level; the server works the EVs out and sends the Pokémon back. */
-  async function saveStats(p: RosterView, stats: EvSpread | null, level: number) {
+  async function saveStats(p: RosterView, stats: EvSpread | null, level: number, ivRatings: IvRatings) {
     setError(null);
-    replace({ ...p, currentStats: stats, level });
+    replace({ ...p, currentStats: stats, level, ivRatings });
     try {
       const data = await api<{ pokemon: RosterView }>(`/api/roster/${p.id}`, 'PATCH', {
-        set: { currentStats: stats, level },
+        set: { currentStats: stats, level, ivRatings: Object.values(ivRatings).some(Boolean) ? ivRatings : null },
       });
       replace(data.pokemon);
     } catch {
@@ -715,7 +716,7 @@ export function RosterBoard({
                           <CardStatsEvs
                             p={p}
                             info={estimateFor(p)}
-                            onSaveStats={(stats, level) => saveStats(p, stats, level)}
+                            onSaveStats={(stats, level, ratings) => saveStats(p, stats, level, ratings)}
                           />
                           {evTarget && p.evs && p.currentEvs && (
                             <p className="mt-1 text-[11px] text-muted">
@@ -875,21 +876,28 @@ function CardStatsEvs({
 }: {
   p: RosterView;
   info?: EvEstimateInfo;
-  onSaveStats: (stats: EvSpread | null, level: number) => void;
+  onSaveStats: (stats: EvSpread | null, level: number, ratings: IvRatings) => void;
 }) {
   const [stats, setStats] = useState<EvSpread | null>(p.currentStats);
   const [level, setLevel] = useState(p.level);
+  const [ratings, setRatings] = useState<IvRatings>(p.ivRatings ?? {});
   const commit = () => {
     const next = stats && evTotal(stats) > 0 ? stats : null;
-    if (JSON.stringify(next) !== JSON.stringify(p.currentStats) || level !== p.level) onSaveStats(next, level);
+    const changed =
+      JSON.stringify(next) !== JSON.stringify(p.currentStats) ||
+      level !== p.level ||
+      JSON.stringify(ratings) !== JSON.stringify(p.ivRatings ?? {});
+    if (changed) onSaveStats(next, level, ratings);
   };
   return (
     <StatsEvsEditor
       stats={stats}
       level={level}
-      onChange={(nextStats, nextLevel) => {
+      ratings={ratings}
+      onChange={(nextStats, nextLevel, nextRatings) => {
         setStats(nextStats);
         setLevel(nextLevel);
+        setRatings(nextRatings);
       }}
       onCommit={commit}
       info={info}
