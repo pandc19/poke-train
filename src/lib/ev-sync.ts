@@ -1,6 +1,5 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { estimateEvs } from './ev-estimate';
-import { ivAssumption } from './potential';
 import type { EvSpread } from './import/evs';
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -21,7 +20,6 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
       formId: true,
       currentNatureId: true,
       targetNatureId: true,
-      potential: true,
     },
   });
   if (!row?.currentStats) return;
@@ -42,8 +40,6 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
     level: row.level,
     baseStats: form.baseStats as unknown as EvSpread,
     nature,
-    // What the Judge's potential says about its IVs, instead of assuming they are perfect.
-    ivs: ivAssumption(row.potential).assumed,
   });
   await db.rosterPokemon.update({
     where: { id: rosterId },

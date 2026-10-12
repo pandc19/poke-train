@@ -77,33 +77,25 @@ describe('estimating EVs from stats', () => {
 describe('IVs from the Judge potential', () => {
   const stats = { hp: 331, attack: 328, defense: 297, speed: 126, specialDefense: 166, specialAttack: 131 };
 
-  it('assumes perfect IVs when no potential is set, and the middle of the range otherwise', () => {
-    expect(ivAssumption(null)).toMatchObject({ assumed: 31, fromPotential: false });
-    expect(ivAssumption('DECENT')).toMatchObject({ assumed: 8, low: 0, high: 15, fromPotential: true });
-    expect(ivAssumption('OUTSTANDING')).toMatchObject({ assumed: 28, low: 25, high: 31 });
+  it('knows the lowest IV each rating allows, and nothing without one', () => {
+    expect(ivAssumption(null)).toMatchObject({ low: 31, fromPotential: false });
+    expect(ivAssumption('DECENT')).toMatchObject({ low: 0, high: 15, fromPotential: true });
+    expect(ivAssumption('OUTSTANDING')).toMatchObject({ low: 25, high: 31 });
   });
 
-  it('needs more EVs for the same stats when the IVs are lower', () => {
-    const total = (potential: string | null) => {
-      const evs = estimateEvs({ stats, level: 100, baseStats: GOLEM, nature: ADAMANT, ivs: ivAssumption(potential).assumed });
-      return Object.values(evs).reduce((a, b) => a + b, 0);
-    };
-    expect(total('DECENT')).toBeGreaterThan(total('ABOVE_AVERAGE'));
-    expect(total('ABOVE_AVERAGE')).toBeGreaterThan(total('OUTSTANDING'));
-    expect(total('OUTSTANDING')).toBeGreaterThan(total(null));
-  });
+  it('shows the fewest EVs, and the potential only says how many more it could be', () => {
+    const range = (potential: string | null) =>
+      estimateEvRange({ stats, level: 100, baseStats: GOLEM, nature: ADAMANT, ivsLow: ivAssumption(potential).low });
+    const total = (e: Record<string, number>) => Object.values(e).reduce((a, b) => a + b, 0);
 
-  it('brackets the estimate with the spread for the best and worst IVs of that rating', () => {
-    const { estimate, low, high } = estimateEvRange({
-      stats,
-      level: 100,
-      baseStats: GOLEM,
-      nature: ADAMANT,
-      ivs: ivAssumption('RELATIVELY_SUPERIOR'),
-    });
-    for (const key of Object.keys(estimate) as (keyof typeof estimate)[]) {
-      expect(low[key]).toBeLessThanOrEqual(estimate[key]);
-      expect(estimate[key]).toBeLessThanOrEqual(high[key]);
-    }
+    // The number shown never depends on the potential: it is the same 216 EVs.
+    expect(range('DECENT').estimate).toEqual(range('OUTSTANDING').estimate);
+    expect(range(null).estimate).toEqual({ hp: 120, attack: 92, defense: 4, specialAttack: 0, specialDefense: 0, speed: 0 });
+    // A lower rating leaves more room above it.
+    expect(total(range('DECENT').high)).toBeGreaterThan(total(range('ABOVE_AVERAGE').high));
+    expect(total(range('ABOVE_AVERAGE').high)).toBeGreaterThan(total(range('OUTSTANDING').high));
+    expect(total(range('OUTSTANDING').high)).toBeGreaterThanOrEqual(total(range('OUTSTANDING').estimate));
+    // With no potential there is no room: the range is a single value.
+    expect(range(null).high).toEqual(range(null).estimate);
   });
 });

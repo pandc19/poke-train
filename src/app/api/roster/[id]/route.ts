@@ -172,10 +172,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
     // Typing exact EVs in the same request wins over the estimate.
     if (
       currentEvs === undefined &&
-      (set.currentStats !== undefined ||
-        set.level !== undefined ||
-        set.targetNatureId !== undefined ||
-        set.potential !== undefined)
+      (set.currentStats !== undefined || set.level !== undefined || set.targetNatureId !== undefined)
     ) {
       if (set.currentStats === null) {
         await prisma.rosterPokemon.update({

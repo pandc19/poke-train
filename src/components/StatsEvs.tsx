@@ -14,6 +14,23 @@ export type EvEstimateInfo = {
   natureName: string | null;
 };
 
+const STAT_KEY: Record<string, keyof typeof STAT_LABELS> = {
+  attack: 'attack',
+  defense: 'defense',
+  'special-attack': 'specialAttack',
+  'special-defense': 'specialDefense',
+  speed: 'speed',
+};
+
+/** "Firme (+Ataque, −At. Esp.)": the nature and what it does to the stats. */
+function natureText(info: EvEstimateInfo, lang: 'es' | 'en'): string {
+  const label = (slug: string) => (STAT_KEY[slug] ? STAT_LABELS[STAT_KEY[slug]][lang] : slug);
+  const { increased, decreased } = info.nature ?? { increased: null, decreased: null };
+  return increased && decreased
+    ? `${info.natureName} (+${label(increased)}, −${label(decreased)})`
+    : `${info.natureName}`;
+}
+
 // Corners of the hexagon, from the top and clockwise, as the game draws it.
 const ANGLES = [-90, -30, 30, 90, 150, 210].map((d) => (d * Math.PI) / 180);
 
@@ -90,7 +107,7 @@ export function StatsEvsEditor({
   const iv = ivAssumption(potential);
   const range =
     hasStats && info
-      ? estimateEvRange({ stats, level, baseStats: info.baseStats, nature: info.nature, ivs: iv })
+      ? estimateEvRange({ stats, level, baseStats: info.baseStats, nature: info.nature, ivsLow: iv.low })
       : null;
   const live = range?.estimate ?? null;
   const evs = live ?? savedEvs;
@@ -133,23 +150,24 @@ export function StatsEvsEditor({
             {t('Total {total} / 510', { total })} · {t('{n} EVs still to spend', { n: Math.max(0, 510 - total) })}
           </p>
           {estimated && (
-            <p className="mt-0.5 text-center text-[10px] text-muted">
-              {iv.fromPotential && level_
-                ? t(
-                    'EVs worked out from the stats. Assumes IVs of about {iv} per stat ({potential}); the real total is between {low} and {high}.',
-                    {
-                      iv: iv.assumed,
+            <div className="mt-0.5 space-y-0.5 text-center text-[10px] text-muted">
+              <p>
+                {iv.fromPotential && level_
+                  ? t('The fewest EVs that give these stats. With {potential} potential the real total is between {low} and {high}.', {
                       potential: lang === 'en' ? level_.label : level_.labelEs,
-                      low: range ? evTotal(range.low) : total,
+                      low: total,
                       high: range ? evTotal(range.high) : total,
-                    }
-                  )
-                : t(
-                    'EVs worked out from the stats. Assumes perfect IVs (31) because its potential is not set: set it for a better estimate.'
-                  )}
-              {info &&
-                ` ${info.natureName ? t('Using its {nature} nature', { nature: info.natureName }) : t('Its nature is not set, so none is applied.')}`}
-            </p>
+                    })
+                  : t('The fewest EVs that give these stats. Set its potential to see how many more it could have.')}
+              </p>
+              {info && (
+                <p>
+                  {info.natureName
+                    ? t('Nature used for the calculation: {nature}.', { nature: natureText(info, lang) })
+                    : t('Its nature is not set, so none is applied.')}
+                </p>
+              )}
+            </div>
           )}
         </div>
       ) : (

@@ -66,21 +66,21 @@ export function estimateEvs(args: {
 }
 
 /**
- * The EVs for the IV the Judge's potential points to, plus the spread they
- * could really be in: with higher IVs it needs fewer EVs for the same stat
- * (`low`), with lower IVs more (`high`).
+ * The fewest EVs that fit the stats (`estimate`, which assumes perfect IVs) and
+ * the most they could be, if the IVs are as low as its Judge potential allows
+ * (`high`). The real EVs are somewhere between the two.
  */
 export function estimateEvRange(args: {
   stats: EvSpread;
   level: number;
   baseStats: EvSpread;
   nature: NatureEffect;
-  ivs: { assumed: number; low: number; high: number };
-}): { estimate: EvSpread; low: EvSpread; high: EvSpread } {
-  const { ivs, ...rest } = args;
+  /** The lowest average IV its potential allows. */
+  ivsLow: number;
+}): { estimate: EvSpread; high: EvSpread } {
+  const { ivsLow, ...rest } = args;
   return {
-    estimate: estimateEvs({ ...rest, ivs: ivs.assumed }),
-    low: estimateEvs({ ...rest, ivs: ivs.high }),
-    high: estimateEvs({ ...rest, ivs: ivs.low }),
+    estimate: estimateEvs({ ...rest, ivs: 31 }),
+    high: estimateEvs({ ...rest, ivs: ivsLow }),
   };
 }
