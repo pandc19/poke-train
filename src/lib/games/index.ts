@@ -23,6 +23,11 @@ export type GameConfig = {
     breeding: boolean;
     /** EV training exists. When false the app hides EVs and the AI gives no EV advice. */
     evs: boolean;
+    /**
+     * EVs are easy to reset and retrain (as in Legends: Z-A), so a target spread is worth planning.
+     * When false the player just records the current EVs and the AI works with them.
+     */
+    evTarget: boolean;
     heldItems: boolean;
     abilities: boolean;
     teraType: boolean;
@@ -80,6 +85,7 @@ export const GAMES: GameConfig[] = [
     features: {
       breeding: true,
       evs: true,
+      evTarget: false,
       heldItems: true,
       abilities: true,
       teraType: true,

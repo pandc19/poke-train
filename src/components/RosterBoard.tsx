@@ -8,7 +8,8 @@ import { ConfirmDialog } from './Dialog';
 import { RosterEditDialog } from './RosterEditDialog';
 import { TypeBadge } from './TypeBadge';
 import type { TeamAudit } from '@/lib/ai/schema';
-import { evGap, evTotal, formatEvs } from '@/lib/import/evs';
+import { evGap, evTotal, formatEvs, type EvSpread } from '@/lib/import/evs';
+import { EvInputs, NO_EVS, evsAreValid } from './EvInputs';
 import type { Lang } from '@/lib/i18n';
 import { POTENTIAL_LEVELS, potentialLevel } from '@/lib/potential';
 import { TYPE_COLORS } from '@/lib/pokemon-types';
@@ -187,6 +188,7 @@ export function RosterBoard({
   lang,
   judge,
   evs,
+  evTarget,
   aiEnabled,
   aiProvider,
 }: {
@@ -198,6 +200,8 @@ export function RosterBoard({
   judge: boolean;
   /** The game has EV training, so target and current EVs are shown. */
   evs: boolean;
+  /** A target spread is planned too (EVs are easy to retrain in this game). */
+  evTarget: boolean;
   aiEnabled: boolean;
   aiProvider: string;
 }) {
@@ -270,6 +274,17 @@ export function RosterBoard({
     } catch {
       replace(p);
       setError(t('Could not save the potential. It has been undone; try again.'));
+    }
+  }
+
+  async function saveCurrentEvs(p: RosterView, next: EvSpread | null) {
+    setError(null);
+    replace({ ...p, currentEvs: next });
+    try {
+      await api(`/api/roster/${p.id}`, 'PATCH', { set: { currentEvs: next ? formatEvs(next) : null } });
+    } catch {
+      replace(p);
+      setError(t('Could not save that change. It has been undone; try again.'));
     }
   }
 
@@ -472,6 +487,7 @@ export function RosterBoard({
         lang={lang}
         judge={judge}
         evs={evs}
+        evTarget={evTarget}
         onSave={saveEdit}
         onClose={() => setEditing(null)}
       />
@@ -676,12 +692,12 @@ export function RosterBoard({
                     {c.nature && <Row label={t('Nature')}>{c.nature}</Row>}
                     {c.ability && <Row label={t('Ability')}>{c.ability}</Row>}
                     {c.item && <Row label={t('Item')}>{c.item}</Row>}
-                    {evs && c.evs && <Row label={t('Target EVs')}>{c.evs}</Row>}
-                    {evs && (p.evs || p.currentEvs) && (
+                    {evs && evTarget && c.evs && <Row label={t('Target EVs')}>{c.evs}</Row>}
+                    {evs && (
                       <Row label={t('Current EVs')}>
-                        <div className="min-w-0">
-                          {c.currentEvs}
-                          {p.evs && p.currentEvs && (
+                        <div className="min-w-0 flex-1">
+                          <CardEvs value={p.currentEvs} onSave={(next) => saveCurrentEvs(p, next)} />
+                          {evTarget && p.evs && p.currentEvs && (
                             <p className="mt-1 text-[11px] text-muted">
                               {evTotal(evGap(p.evs, p.currentEvs)) === 0
                                 ? t('Target reached')
@@ -758,7 +774,8 @@ export function RosterBoard({
                   t('Nature'),
                   t('Ability'),
                   t('Item'),
-                  ...(evs ? [t('Target EVs'), t('Current EVs')] : []),
+                  ...(evs && evTarget ? [t('Target EVs')] : []),
+                  ...(evs ? [t('Current EVs')] : []),
                   t('Move {n}', { n: 1 }),
                   t('Move {n}', { n: 2 }),
                   t('Move {n}', { n: 3 }),
@@ -803,12 +820,8 @@ export function RosterBoard({
                     <td className="px-2 py-1">{c.nature}</td>
                     <td className="px-2 py-1">{c.ability}</td>
                     <td className="max-w-40 px-2 py-1">{c.item}</td>
-                    {evs && (
-                      <>
-                        <td className="px-2 py-1">{c.evs}</td>
-                        <td className="px-2 py-1">{p.currentEvs ? c.currentEvs : null}</td>
-                      </>
-                    )}
+                    {evs && evTarget && <td className="px-2 py-1">{c.evs}</td>}
+                    {evs && <td className="px-2 py-1">{p.currentEvs ? c.currentEvs : null}</td>}
                     {[1, 2, 3, 4].map((slot) => (
                       <td key={slot} className="max-w-36 px-2 py-1">
                         {c.move(slot)}
@@ -832,6 +845,18 @@ export function RosterBoard({
       {dialogs}
     </div>
   );
+}
+
+/** The six EV boxes on a card. Saves when you click away, if the numbers are possible. */
+function CardEvs({ value, onSave }: { value: EvSpread | null; onSave: (next: EvSpread | null) => void }) {
+  const [draft, setDraft] = useState<EvSpread | null>(value);
+  const commit = () => {
+    const spread = draft ?? NO_EVS;
+    if (!evsAreValid(spread)) return;
+    const next = evTotal(spread) === 0 ? null : spread;
+    if (JSON.stringify(next) !== JSON.stringify(value)) onSave(next);
+  };
+  return <EvInputs value={draft} onChange={setDraft} onCommit={commit} />;
 }
 
 /** The Judge's verdict as a coloured select, so the colour tells you the tier at a glance. */

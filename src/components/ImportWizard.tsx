@@ -36,19 +36,24 @@ export function ImportWizard({
   gameName,
   lang,
   hasEvs,
+  hasEvTarget,
 }: {
   gameId: string;
   gameName: string;
   lang: Lang;
   /** The game has EV training, so EV columns can be mapped. */
   hasEvs: boolean;
+  /** A target spread is planned too, so that column can be mapped. */
+  hasEvTarget: boolean;
 }) {
   const { t } = useT();
-  const fields = FIELDS.filter((f) => hasEvs || (f.key !== 'evs' && f.key !== 'currentEvs'));
+  const allowed = (key: string) =>
+    (key !== 'evs' || (hasEvs && hasEvTarget)) && (key !== 'currentEvs' || hasEvs);
+  const fields = FIELDS.filter((f) => allowed(f.key));
   /** Guess the mapping, leaving out EV columns for a game that has no EVs. */
   const guess = (headers: string[]): ColumnMapping =>
     Object.fromEntries(
-      Object.entries(guessMapping(headers)).filter(([, field]) => hasEvs || (field !== 'evs' && field !== 'currentEvs'))
+      Object.entries(guessMapping(headers)).filter(([, field]) => allowed(field))
     );
   const [step, setStep] = useState<Step>('upload');
   const [fileName, setFileName] = useState('');

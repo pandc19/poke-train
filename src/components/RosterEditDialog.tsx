@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { Dialog } from './Dialog';
-import { formatEvs } from '@/lib/import/evs';
+import { formatEvs, type EvSpread } from '@/lib/import/evs';
+import { EvInputs, evsAreValid } from './EvInputs';
 import type { Lang } from '@/lib/i18n';
 import { POTENTIAL_LEVELS } from '@/lib/potential';
 import { TYPE_NAMES_ES, TYPE_SLUGS } from '@/lib/pokemon-types';
@@ -43,6 +44,7 @@ export function RosterEditDialog({
   lang,
   judge,
   evs: hasEvs,
+  evTarget,
   onSave,
   onClose,
 }: {
@@ -53,6 +55,8 @@ export function RosterEditDialog({
   judge: boolean;
   /** The game has EV training. */
   evs: boolean;
+  /** A target spread is planned too. */
+  evTarget: boolean;
   /** Resolves to an error message, or null on success. */
   onSave: (id: string, set: Record<string, unknown>) => Promise<string | null>;
   onClose: () => void;
@@ -66,7 +70,7 @@ export function RosterEditDialog({
       title={pokemon ? t('Edit {name}', { name: lang === 'en' ? pokemon.species.nameEn : pokemon.species.nameEs }) : ''}
     >
       {pokemon && (
-        <EditForm key={pokemon.id} p={pokemon} options={options} lang={lang} judge={judge} hasEvs={hasEvs} onSave={onSave} onClose={onClose} />
+        <EditForm key={pokemon.id} p={pokemon} options={options} lang={lang} judge={judge} hasEvs={hasEvs} evTarget={evTarget} onSave={onSave} onClose={onClose} />
       )}
     </Dialog>
   );
@@ -78,6 +82,7 @@ function EditForm({
   lang,
   judge,
   hasEvs,
+  evTarget,
   onSave,
   onClose,
 }: {
@@ -86,6 +91,7 @@ function EditForm({
   lang: Lang;
   judge: boolean;
   hasEvs: boolean;
+  evTarget: boolean;
   onSave: (id: string, set: Record<string, unknown>) => Promise<string | null>;
   onClose: () => void;
 }) {
@@ -99,7 +105,7 @@ function EditForm({
   const [abilityId, setAbilityId] = useState(p.ability?.id ?? 0);
   const [item, setItem] = useState(p.item ? label(p.item) : (p.itemNote ?? ''));
   const [evs, setEvs] = useState(p.evs ? formatEvs(p.evs) : '');
-  const [currentEvs, setCurrentEvs] = useState(p.currentEvs ? formatEvs(p.currentEvs) : '');
+  const [currentEvs, setCurrentEvs] = useState<EvSpread | null>(p.currentEvs);
   const [teraType, setTeraType] = useState(p.teraType ?? '');
   const [notes, setNotes] = useState(p.notes ?? '');
   const [moves, setMoves] = useState(() =>
@@ -131,6 +137,10 @@ function EditForm({
       }
       moveSet.push({ slot: i + 1, moveId: move.id });
     }
+    if (hasEvs && currentEvs && !evsAreValid(currentEvs)) {
+      setError(t('Max 252 per stat and 510 in total.'));
+      return;
+    }
     const matchedItem = item.trim() ? find(options.items, item) : undefined;
 
     setBusy(true);
@@ -144,7 +154,12 @@ function EditForm({
       itemId: matchedItem?.id ?? null,
       // Text that is not an exact item name is kept as a note ("Life Orb or Choice Band").
       itemNote: item.trim() && !matchedItem ? item.trim() : null,
-      ...(hasEvs ? { evs: evs.trim() || null, currentEvs: currentEvs.trim() || null } : {}),
+      ...(hasEvs
+        ? {
+            currentEvs: currentEvs && formatEvs(currentEvs) ? formatEvs(currentEvs) : null,
+            ...(evTarget ? { evs: evs.trim() || null } : {}),
+          }
+        : {}),
       teraType: teraType || null,
       notes: notes.trim() || null,
       moves: moveSet,
@@ -230,18 +245,19 @@ function EditForm({
           <Field label={t('Held item')} hint={t('Pick from the list, or type your own note such as “Vidasfera o Cinta Elegida”.')}>
             <input list="items-list" value={item} onChange={(e) => setItem(e.target.value)} className={inputClass} />
           </Field>
+          {hasEvs && evTarget && (
+            <Field label={t('Target EV spread')} hint={t('For example 252 Atk / 4 SpD / 252 Spe. English or Spanish stat names work.')}>
+              <input value={evs} onChange={(e) => setEvs(e.target.value)} className={inputClass} />
+            </Field>
+          )}
           {hasEvs && (
-            <>
-              <Field label={t('Target EV spread')} hint={t('For example 252 Atk / 4 SpD / 252 Spe. English or Spanish stat names work.')}>
-                <input value={evs} onChange={(e) => setEvs(e.target.value)} className={inputClass} />
-              </Field>
-              <Field
-                label={t('Current EV spread')}
-                hint={t('What it has right now. The AI audit uses it to suggest how to finish the training.')}
-              >
-                <input value={currentEvs} onChange={(e) => setCurrentEvs(e.target.value)} className={inputClass} />
-              </Field>
-            </>
+            <div className="sm:col-span-2">
+              <span className="mb-1 block text-xs font-medium text-muted">{t('Current EV spread')}</span>
+              <EvInputs value={currentEvs} onChange={setCurrentEvs} />
+              <span className="mt-1 block text-[11px] text-muted">
+                {t('What it has right now. The AI audit uses it to suggest how to finish the training.')}
+              </span>
+            </div>
           )}
           <Field label={t('Tera type')}>
             <select value={teraType} onChange={(e) => setTeraType(e.target.value)} className={inputClass}>

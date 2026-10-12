@@ -70,8 +70,8 @@ async function cached<T>(
 }
 
 /** A compact, language-neutral description of a Pokémon as it is now, used both as prompt and cache key. */
-function describeBuild(p: RosterView, hasEvs = true) {
-  const gap = hasEvs && p.evs && p.currentEvs ? evGap(p.evs, p.currentEvs) : null;
+function describeBuild(p: RosterView, hasEvs = true, hasTarget = true) {
+  const gap = hasEvs && hasTarget && p.evs && p.currentEvs ? evGap(p.evs, p.currentEvs) : null;
   return {
     pokemon: p.species.nameEn,
     types: p.types,
@@ -84,8 +84,12 @@ function describeBuild(p: RosterView, hasEvs = true) {
     ...(hasEvs
       ? {
           currentEvs: p.currentEvs ? formatEvs(p.currentEvs) : null,
-          targetEvs: p.evs ? formatEvs(p.evs) : null,
-          evsStillMissing: gap && evTotal(gap) > 0 ? formatEvs(gap) : null,
+          ...(hasTarget
+            ? {
+                targetEvs: p.evs ? formatEvs(p.evs) : null,
+                evsStillMissing: gap && evTotal(gap) > 0 ? formatEvs(gap) : null,
+              }
+            : {}),
         }
       : {}),
     teraType: p.teraType,
@@ -105,7 +109,9 @@ export async function auditBuild(
   deep = false
 ) {
   const hasEvs = game.features.evs;
-  const build = describeBuild(p, hasEvs);
+  // Where EVs are easy to reset, a target spread makes sense; elsewhere work from what it has.
+  const hasTarget = hasEvs && game.features.evTarget;
+  const build = describeBuild(p, hasEvs, hasTarget);
   const pending = [
     p.itemStatus === 'PENDING' && (p.item?.nameEn ?? p.itemNote),
     ...p.moves.filter((m) => m.status === 'PENDING').map((m) => m.move?.nameEn ?? m.rawName),
@@ -143,13 +149,20 @@ export async function auditBuild(
           hasEvs ? 'EV training, ' : ''
         }a held item, or a move it can relearn; "medium" means crafting or buying a TM; "hard" means breeding, or changing its nature or ability. ` +
           'Only propose a nature or ability change if nothing else comes close, and mark it hard.',
-        hasEvs
+        hasTarget
           ? 'evPlan: compare currentEvs with the best spread for its nature, base stats and moves (at most 510 in total and 252 in one stat). ' +
             'If currentEvs is null, say it is not recorded and base the plan on targetEvs. spread is the spread to finish with, ' +
             'toTrain is exactly what is still missing from currentEvs, and steps are practical ways to get those EVs in this game ' +
             `(Power items, vitamins, EV-reducing berries, where to battle). Look up how ${game.name} handles EV training if you are not sure.` +
             (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
-          : '',
+          : hasEvs
+            ? 'evPlan: its EVs are hard to change in this game, so take currentEvs as given and do not suggest starting over. ' +
+              'If currentEvs is null, say it is not recorded and give general advice only. spread is currentEvs with only the smallest ' +
+              'worthwhile tweaks (spare points up to 510, or a small move between stats); toTrain is those tweaks only, or "nothing" if it is fine as it is; ' +
+              'steps are how to apply them, and only mention items that actually help (vitamins, feathers or wings, EV-reducing berries). ' +
+              'Choose the held item and the moves that suit the EVs it already has.' +
+              (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
+            : '',
         'heldItem: the best held item for it as it is now. If the one it holds is already the best, name it and say to keep it.',
         `recommendedMoves: the best four moves for it given its nature${hasEvs ? ' and EVs' : ''}, chosen ONLY from legalMovePool. ` +
           'Prefer moves it already knows over ones it would have to get.',
@@ -168,7 +181,7 @@ export async function auditBuild(
 }
 
 export function auditTeam(provider: AiProvider, game: GameConfig, lang: Lang, profileId: string, roster: RosterView[]) {
-  const team = roster.map((p) => describeBuild(p, game.features.evs));
+  const team = roster.map((p) => describeBuild(p, game.features.evs, game.features.evTarget));
   return cached(provider, { kind: 'team', profileId, lang }, { team, lang }, {
     system: system(game, lang),
     schema: TeamAuditSchema,

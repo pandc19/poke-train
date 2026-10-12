@@ -15,7 +15,7 @@ export default async function ImportPage({ params }: PageProps<'/[game]/import'>
           { game: game.shortName }
         )}
       </p>
-      <ImportWizard gameId={game.id} gameName={game.shortName} lang={lang} hasEvs={game.features.evs} />
+      <ImportWizard gameId={game.id} gameName={game.shortName} lang={lang} hasEvs={game.features.evs} hasEvTarget={game.features.evTarget} />
     </div>
   );
 }
