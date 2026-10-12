@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useCachedLocations } from './useCachedLocations';
 import type { BuildAudit, LocationResult } from '@/lib/ai/schema';
 import { useT } from '@/lib/translate-client';
 
@@ -10,10 +11,23 @@ type StoredAudit = Partial<BuildAudit>;
 type EvSource = NonNullable<NonNullable<BuildAudit['evPlan']['sources']>[number]['species']>[number];
 
 /** One Pokémon to battle for EVs, with a button that researches where it lives in this game. */
-function SourceRow({ s, gameId, aiEnabled }: { s: EvSource; gameId?: string; aiEnabled?: boolean }) {
+function SourceRow({
+  s,
+  gameId,
+  aiEnabled,
+  known,
+}: {
+  s: EvSource;
+  gameId?: string;
+  aiEnabled?: boolean;
+  /** An answer saved earlier, so it survives a reload. */
+  known?: LocationResult;
+}) {
   const { t, lang } = useT();
   const [state, setState] = useState<{ busy: boolean; result?: LocationResult; error?: string }>({ busy: false });
-  const [hidden, setHidden] = useState(false);
+  // A saved answer starts collapsed; a lookup you just made opens.
+  const [open, setOpen] = useState(false);
+  const result = state.result ?? known;
 
   async function locate() {
     setState({ busy: true });
@@ -26,7 +40,7 @@ function SourceRow({ s, gameId, aiEnabled }: { s: EvSource; gameId?: string; aiE
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? t('Lookup failed.'));
       setState({ busy: false, result: data.result });
-      setHidden(false);
+      setOpen(true);
     } catch (e) {
       setState({ busy: false, error: e instanceof Error ? e.message : t('Lookup failed.') });
     }
@@ -38,23 +52,23 @@ function SourceRow({ s, gameId, aiEnabled }: { s: EvSource; gameId?: string; aiE
       <span className="text-muted"> · +{s.amount}</span>
       {gameId && (
         <button
-          onClick={state.result ? () => setHidden(!hidden) : locate}
+          onClick={result ? () => setOpen(!open) : locate}
           disabled={!aiEnabled || state.busy}
           title={aiEnabled ? t('Researched on the web with AI') : t('Add an API key to .env.local to enable location lookups')}
           className="ml-2 rounded border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-ink disabled:opacity-40"
         >
-          {state.busy ? t('Searching…') : state.result ? (hidden ? t('Show') : t('Hide')) : t('Where do I find it?')}
+          {state.busy ? t('Searching…') : result ? (open ? t('Hide') : t('Show')) : t('Where do I find it?')}
         </button>
       )}
       {state.error && <p className="text-pending">{state.error}</p>}
-      {state.result && !hidden && (
+      {result && open && (
         <div className="mt-1 rounded bg-surface p-2 text-muted">
-          {state.result.locations.map((l, i) => (
+          {result.locations.map((l, i) => (
             <p key={i}>
               <span className="font-medium text-ink">{l.place}</span> · {l.details}
             </p>
           ))}
-          {state.result.notes && <p className="mt-1">{state.result.notes}</p>}
+          {result.notes && <p className="mt-1">{result.notes}</p>}
         </div>
       )}
     </li>
@@ -95,6 +109,10 @@ export function AuditPanel({
   busy: boolean;
 }) {
   const { t, lang } = useT();
+  const saved = useCachedLocations(
+    gameId,
+    (audit.evPlan?.sources ?? []).flatMap((g) => g.species.map((x) => x.id))
+  );
   const languageName = (code: string) => (code === 'en' ? t('English') : t('Spanish'));
   // The saved answer is never translated: switching language keeps it until it is re-run.
   const otherLanguage = auditLang != null && auditLang !== lang;
@@ -172,7 +190,7 @@ export function AuditPanel({
               <p className="text-muted">{t('Battle for {stat} EVs', { stat: group.stat })}</p>
               <ul className="list-disc space-y-1 pl-4">
                 {group.species.map((sp) => (
-                  <SourceRow key={sp.id} s={sp} gameId={gameId} aiEnabled={aiEnabled} />
+                  <SourceRow key={sp.id} s={sp} gameId={gameId} aiEnabled={aiEnabled} known={saved[sp.id]} />
                 ))}
               </ul>
             </div>

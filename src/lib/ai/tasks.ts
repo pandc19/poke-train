@@ -26,13 +26,19 @@ const system = (game: GameConfig, lang: Lang) =>
       : 'Write every text field in English.',
   ].join(' ');
 
+/** Location answers have their own version, so changes to the audit prompt do not throw them away. */
+const LOCATION_PROMPT_VERSION = 11;
+
+const hashOf = (model: string, input: unknown, version = PROMPT_VERSION) =>
+  createHash('sha256').update(JSON.stringify({ v: version, model, input })).digest('hex');
+
 /**
  * Runs an AI task through the AiAudit cache: the same question (same kind,
  * provider and input) is answered from the database and never paid for twice.
  */
 async function cached<Raw, T = Raw>(
   provider: AiProvider,
-  key: { kind: string; profileId: string; rosterPokemonId?: string; refresh?: boolean; lang: Lang },
+  key: { kind: string; profileId: string; rosterPokemonId?: string; refresh?: boolean; lang: Lang; version?: number },
   input: unknown,
   request: {
     system: string;
@@ -46,9 +52,7 @@ async function cached<Raw, T = Raw>(
   }
 ): Promise<T> {
   const model = provider.modelFor(request.tier);
-  const inputHash = createHash('sha256')
-    .update(JSON.stringify({ v: PROMPT_VERSION, model, input }))
-    .digest('hex');
+  const inputHash = hashOf(model, input, key.version);
   const where = { kind_provider_inputHash: { kind: key.kind, provider: provider.name, inputHash } };
 
   if (!key.refresh) {
@@ -252,9 +256,18 @@ export function auditTeam(provider: AiProvider, game: GameConfig, lang: Lang, pr
   });
 }
 
+/** A location already researched for this Pokémon, or null. Never makes a request to the model. */
+export async function savedLocation(provider: AiProvider, game: GameConfig, lang: Lang, pokemon: string) {
+  const inputHash = hashOf(provider.modelFor('bulk'), { game: game.id, pokemon, lang }, LOCATION_PROMPT_VERSION);
+  const hit = await prisma.aiAudit.findUnique({
+    where: { kind_provider_inputHash: { kind: 'location', provider: provider.name, inputHash } },
+  });
+  return (hit?.result as z.infer<typeof LocationSchema> | undefined) ?? null;
+}
+
 /** Where to catch a Pokémon. PokéAPI has no encounter data for recent games, so this is researched. */
 export function researchLocation(provider: AiProvider, game: GameConfig, lang: Lang, profileId: string, pokemon: string) {
-  return cached(provider, { kind: 'location', profileId, lang }, { game: game.id, pokemon, lang }, {
+  return cached(provider, { kind: 'location', profileId, lang, version: LOCATION_PROMPT_VERSION }, { game: game.id, pokemon, lang }, {
     system: system(game, lang),
     schema: LocationSchema,
     schemaName: 'location',

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ConfirmDialog } from './Dialog';
 import { ComboInput } from './roster/parts';
+import { useCachedLocations } from './useCachedLocations';
 import type { LocationResult } from '@/lib/ai/schema';
 import type { MoveOption, MovePlan, ShoppingItem, SpeciesRef, Step } from '@/lib/breeding/engine';
 import type { BreedingGoalView } from '@/lib/breeding/goals';
@@ -53,7 +54,12 @@ export function BreedingBoard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locations, setLocations] = useState<Record<number, LocationState>>({});
-  const [hiddenLocations, setHiddenLocations] = useState<Set<number>>(new Set());
+  // Lookups opened this visit; answers saved earlier start collapsed.
+  const [openLocations, setOpenLocations] = useState<Set<number>>(new Set());
+  const savedLocations = useCachedLocations(
+    gameId,
+    goals.flatMap((g) => g.plan?.shopping.filter((s) => s.have === 'missing').map((s) => s.species.id) ?? [])
+  );
   const [deleting, setDeleting] = useState<BreedingGoalView | null>(null);
 
   const name = (x: Named | SpeciesRef) => (lang === 'en' ? x.nameEn : x.nameEs);
@@ -158,11 +164,7 @@ export function BreedingBoard({
     try {
       const data = await api<{ result: LocationResult }>('/api/ai/location', 'POST', { gameId, speciesId: s.id });
       setLocations((prev) => ({ ...prev, [s.id]: { busy: false, result: data.result } }));
-      setHiddenLocations((prev) => {
-        const next = new Set(prev);
-        next.delete(s.id);
-        return next;
-      });
+      setOpenLocations((prev) => new Set(prev).add(s.id));
     } catch (err) {
       const message = err instanceof Error ? err.message : t('Lookup failed.');
       setLocations((prev) => ({ ...prev, [s.id]: { busy: false, error: message } }));
@@ -211,7 +213,9 @@ export function BreedingBoard({
   };
 
   const renderItem = (goal: BreedingGoalView, item: ShoppingItem, key: number) => {
+    const result = locations[item.species.id]?.result ?? savedLocations[item.species.id];
     const location = locations[item.species.id];
+    const isOpen = openLocations.has(item.species.id);
     const canLookUp = item.have === 'missing';
     return (
       <li key={key} className="rounded-lg border border-line p-2 text-xs">
@@ -225,8 +229,8 @@ export function BreedingBoard({
         {canLookUp && (
           <button
             onClick={() =>
-              location?.result
-                ? setHiddenLocations((prev) => {
+              result
+                ? setOpenLocations((prev) => {
                     const next = new Set(prev);
                     if (!next.delete(item.species.id)) next.add(item.species.id);
                     return next;
@@ -239,22 +243,22 @@ export function BreedingBoard({
           >
             {location?.busy
               ? t('Searching…')
-              : location?.result
-                ? hiddenLocations.has(item.species.id)
-                  ? t('Show')
-                  : t('Hide')
+              : result
+                ? isOpen
+                  ? t('Hide')
+                  : t('Show')
                 : t('Where do I catch it?')}
           </button>
         )}
         {location?.error && <p className="mt-1 text-pending">{location.error}</p>}
-        {location?.result && !hiddenLocations.has(item.species.id) && (
+        {result && isOpen && (
           <div className="mt-1 rounded bg-surface-2 p-2 text-muted">
-            {location.result.locations.map((l, i) => (
+            {result.locations.map((l, i) => (
               <p key={i}>
                 <span className="font-medium text-ink">{l.place}</span> · {l.details}
               </p>
             ))}
-            {location.result.notes && <p className="mt-1">{location.result.notes}</p>}
+            {result.notes && <p className="mt-1">{result.notes}</p>}
             <p className="mt-1 text-[10px]">{t('AI-researched. Check in game before relying on it.')}</p>
           </div>
         )}
