@@ -36,7 +36,7 @@ function natureText(info: EvEstimateInfo, lang: 'es' | 'en'): string {
 const ANGLES = [-90, -30, 30, 90, 150, 210].map((d) => (d * Math.PI) / 180);
 
 /** The EVs as a hexagon, like the yellow shape in the game, with the number at each corner. */
-export function EvGraph({ evs }: { evs: EvSpread }) {
+export function EvGraph({ evs, nature }: { evs: EvSpread; nature?: EvEstimateInfo['nature'] }) {
   const { lang } = useT();
   const size = { w: 230, h: 190, cx: 115, cy: 95, r: 56 };
   const point = (index: number, fraction: number, radius = size.r) => ({
@@ -61,9 +61,23 @@ export function EvGraph({ evs }: { evs: EvSpread }) {
       {STAT_ORDER.map((key, i) => {
         const at = point(i, 1, size.r + 17);
         const anchor = Math.abs(Math.cos(ANGLES[i])) < 0.2 ? 'middle' : Math.cos(ANGLES[i]) > 0 ? 'start' : 'end';
+        // Like the game: a red up arrow for the stat the nature raises, a blue down arrow for the one it lowers.
+        const trend =
+          nature?.increased && STAT_KEY[nature.increased] === key
+            ? { arrow: '▲', color: '#ef4444' }
+            : nature?.decreased && STAT_KEY[nature.decreased] === key
+              ? { arrow: '▼', color: '#3b82f6' }
+              : null;
         return (
           <text key={key} x={at.x} y={at.y} textAnchor={anchor} fontSize="9" fill="var(--color-muted)">
-            <tspan x={at.x}>{STAT_LABELS[key][lang]}</tspan>
+            <tspan x={at.x}>
+              {STAT_LABELS[key][lang]}
+              {trend && (
+                <tspan dx="2" fill={trend.color}>
+                  {trend.arrow}
+                </tspan>
+              )}
+            </tspan>
             <tspan x={at.x} dy="11" fontSize="11" fontWeight="600" fill="var(--color-ink)">
               {evs[key]}
             </tspan>
@@ -194,7 +208,7 @@ export function StatsEvsEditor({
       {evs && total > 0 ? (
         <div>
           <p className="text-center text-xs font-semibold">{t('Current EVs')}</p>
-          <EvGraph evs={evs} />
+          <EvGraph evs={evs} nature={info?.nature} />
           <p className="text-center text-[11px] text-muted">
             {t('Total {total} / 510', { total })} · {t('{n} EVs still to spend', { n: Math.max(0, 510 - total) })}
           </p>
