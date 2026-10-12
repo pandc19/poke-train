@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { NO_EVS, STAT_LABELS, STAT_ORDER, cleanNumber } from './EvInputs';
 import { IV_RATINGS, ivRating, type IvRatingValue, type IvRatings } from '@/lib/iv-ratings';
 import { estimateEvRange, type NatureEffect } from '@/lib/ev-estimate';
@@ -158,6 +159,28 @@ export function StatsEvsEditor({
     });
   const total = evs ? evTotal(evs) : 0;
 
+  const [copied, setCopied] = useState(false);
+  /** The level, the stats and the EVs as plain text, to paste somewhere else. */
+  async function copyText() {
+    const line = (v: EvSpread) => STAT_ORDER.map((key) => `${STAT_LABELS[key][lang]} ${v[key]}`).join(' / ');
+    const text = [
+      `${t('Level')}: ${level}`,
+      hasStats ? `${t('Stats')}: ${line(stats!)}` : null,
+      evs && total > 0
+        ? `EVs${estimated ? ` (${t('estimated')})` : ''}: ${line(evs)} · ${t('Total {total} / 510', { total })}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard blocked: nothing to do.
+    }
+  }
+
   return (
     <div className="space-y-2">
       <div
@@ -205,21 +228,31 @@ export function StatsEvsEditor({
             </div>
           ))}
         </div>
-        <label className="mt-2 flex w-24 items-center gap-1.5 text-[11px] text-muted">
-          {t('Level')}
-          <input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={100}
-            value={level}
-            onChange={(e) => onChange(stats, Math.min(100, Math.max(1, cleanNumber(e.target.value) || 1)), ratings)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') e.currentTarget.blur();
-            }}
-            className="w-full rounded border border-line bg-bg px-1 py-0.5 text-xs text-ink"
-          />
-        </label>
+        <div className="mt-2 flex items-center gap-2">
+          <label className="flex w-24 items-center gap-1.5 text-[11px] text-muted">
+            {t('Level')}
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={100}
+              value={level}
+              onChange={(e) => onChange(stats, Math.min(100, Math.max(1, cleanNumber(e.target.value) || 1)), ratings)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+              }}
+              className="w-full rounded border border-line bg-bg px-1 py-0.5 text-xs text-ink"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={copyText}
+            title={t('Copy the level, stats and EVs as text')}
+            className="rounded border border-line px-1.5 py-0.5 text-[11px] text-muted hover:text-ink"
+          >
+            {copied ? t('Copied') : t('Copy')}
+          </button>
+        </div>
       </div>
 
       {evs && total > 0 ? (
