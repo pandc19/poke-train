@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { apiError } from '@/lib/api-error';
 import { prisma } from '@/lib/db';
+import { pokedexGenderToRoster } from '@/lib/gender-sync';
 import { findProfileId } from '@/lib/profile';
 
 const Body = z.object({
@@ -53,5 +54,7 @@ export async function PATCH(request: Request) {
     update: data,
     create: { profileId, speciesId, ...data },
   });
+  // A gender ticked here is also set on the Pokémon in your roster.
+  await pokedexGenderToRoster(prisma, { profileId, speciesId, hasMale, hasFemale });
   return Response.json({ ok: true });
 }

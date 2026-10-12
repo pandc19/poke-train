@@ -302,7 +302,7 @@ export function DexGrid({
       {visible.length === 0 ? (
         <p className="py-16 text-center text-sm text-muted">{t('No Pokémon match this filter.')}</p>
       ) : (
-        <ul className="grid grid-cols-[repeat(auto-fill,minmax(108px,1fr))] gap-2">
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(136px,1fr))] gap-3">
           {visible.map((c, i) => {
             const isCaught = caught.has(c.speciesId);
             const name = lang === 'en' ? c.nameEn : c.nameEs;
@@ -315,7 +315,7 @@ export function DexGrid({
             return (
               <li
                 key={c.speciesId}
-                className={`relative flex flex-col rounded-lg border px-1 pb-8 pt-1 transition-colors ${
+                className={`relative flex flex-col rounded-lg border px-1.5 pb-9 pt-1.5 transition-colors ${
                   registeredOnly
                     ? 'border-dashed border-line bg-surface opacity-80'
                     : isCaught
@@ -336,14 +336,14 @@ export function DexGrid({
                           ? t('Caught. Click to remove from your Pokédex')
                           : t('Click to mark as caught (shift-click for a range)')
                       }
-                      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                      className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
                         isCaught ? 'bg-done text-bg' : 'border border-line text-muted hover:border-muted hover:text-ink'
                       }`}
                     >
                       {isCaught ? `✓ ${t('Caught')}` : t('Catch')}
                     </button>
                   )}
-                  <span className="font-mono text-[10px] text-muted">#{String(c.entryNumber).padStart(3, '0')}</span>
+                  <span className="font-mono text-[11px] text-muted">#{String(c.entryNumber).padStart(3, '0')}</span>
                   {c.roster !== 'none' ? (
                     <span
                       className={`text-sm leading-none ${c.roster === 'done' ? 'text-star' : 'text-pending'}`}
@@ -366,15 +366,15 @@ export function DexGrid({
                     animate={{ scale: isCaught ? 1 : 0.9 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 15 }}
                   >
-                    <Sprite src={c.spriteUrl} alt="" silhouette={!isCaught} />
+                    <Sprite src={c.spriteUrl} alt="" size={88} silhouette={!isCaught} />
                   </motion.span>
-                  <span className={`w-full truncate text-center text-[11px] ${isCaught ? 'text-ink' : 'text-muted'}`}>
+                  <span className={`w-full truncate text-center text-xs font-medium ${isCaught ? 'text-ink' : 'text-muted'}`}>
                     {name}
                   </span>
                   {/* Notes sit on their own line under the name, never on top of it. */}
                   {c.exclusive && (
                     <span
-                      className={`w-full truncate text-center text-[10px] ${
+                      className={`w-full truncate text-center text-[11px] ${
                         c.exclusive.own ? 'text-muted' : 'font-semibold text-pending'
                       }`}
                       title={
@@ -389,13 +389,13 @@ export function DexGrid({
                     </span>
                   )}
                   {registeredOnly && (
-                    <span className="w-full truncate text-center text-[10px] text-pending">
+                    <span className="w-full truncate text-center text-[11px] text-pending">
                       {evo ? t('evolved → {name}', { name: evo }) : t('not in my box')}
                     </span>
                   )}
                   {have && evo && (
                     <span
-                      className="w-full truncate text-center text-[10px] font-semibold text-pending"
+                      className="w-full truncate text-center text-[11px] font-semibold text-pending"
                       title={t('You also have {name}. If you evolved this one, un-tick Have.', { name: evo })}
                     >
                       ↗ {evo}
@@ -406,7 +406,7 @@ export function DexGrid({
                       {elsewhere.map((game) => (
                         <span
                           key={game}
-                          className="rounded bg-done/20 px-1 text-[9px] font-semibold leading-4 text-done"
+                          className="rounded bg-done/20 px-1 text-[10px] font-semibold leading-4 text-done"
                         >
                           {t('caught in {game}', { game })}
                         </span>
@@ -429,7 +429,7 @@ export function DexGrid({
                             : t('Not in your box (it evolved or was released). Click if you have one again')
                       }
                       onClick={() => setHave(c.speciesId, !have)}
-                      className={`h-5 rounded px-1.5 text-[10px] font-bold ${
+                      className={`h-6 rounded px-2 text-[11px] font-bold ${
                         have ? 'bg-done text-bg' : 'border border-pending/60 text-pending hover:bg-pending/10'
                       } disabled:cursor-default`}
                     >
@@ -442,7 +442,7 @@ export function DexGrid({
                           aria-pressed={g.male}
                           title={g.male ? t('You have a male. Click to remove') : t('Click if you have a male')}
                           onClick={() => setGender(c.speciesId, 'male', !g.male)}
-                          className={`h-5 w-6 rounded text-xs font-bold ${
+                          className={`h-6 w-7 rounded text-sm font-bold ${
                             g.male ? 'bg-sky-500 text-white' : 'border border-line text-muted hover:text-sky-400'
                           }`}
                         >
@@ -453,7 +453,7 @@ export function DexGrid({
                           aria-pressed={g.female}
                           title={g.female ? t('You have a female. Click to remove') : t('Click if you have a female')}
                           onClick={() => setGender(c.speciesId, 'female', !g.female)}
-                          className={`h-5 w-6 rounded text-xs font-bold ${
+                          className={`h-6 w-7 rounded text-sm font-bold ${
                             g.female ? 'bg-pink-500 text-white' : 'border border-line text-muted hover:text-pink-400'
                           }`}
                         >

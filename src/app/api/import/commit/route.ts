@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { apiError } from '@/lib/api-error';
 import { prisma } from '@/lib/db';
+import { sidesOf } from '@/lib/gender-sync';
 import { getGame } from '@/lib/games';
 import { getT } from '@/lib/i18n';
 import { FIELDS, type MappedRow } from '@/lib/import/fields';
@@ -103,6 +104,31 @@ export async function POST(request: Request) {
         data: [...speciesIds].map((speciesId) => ({ profileId, speciesId })),
         skipDuplicates: true,
       });
+    }
+
+    // A gender in the sheet is recorded in the Pokédex too, for species that have both.
+    const genders = new Map<number, { male: boolean; female: boolean }>();
+    for (const r of resolved) {
+      if (!r.owned) continue;
+      const sides = sidesOf(r.gender);
+      if (!sides.male && !sides.female) continue;
+      const known = genders.get(r.species!.id) ?? { male: false, female: false };
+      genders.set(r.species!.id, { male: known.male || sides.male, female: known.female || sides.female });
+    }
+    if (genders.size) {
+      const mixed = await tx.species.findMany({
+        where: { id: { in: [...genders.keys()] }, genderRate: { gt: 0, lt: 8 } },
+        select: { id: true },
+      });
+      for (const { id: speciesId } of mixed) {
+        const sides = genders.get(speciesId)!;
+        const data = { ...(sides.male ? { hasMale: true } : {}), ...(sides.female ? { hasFemale: true } : {}) };
+        await tx.pokedexEntry.upsert({
+          where: { profileId_speciesId: { profileId, speciesId } },
+          update: data,
+          create: { profileId, speciesId, ...data },
+        });
+      }
     }
     return batch;
   });

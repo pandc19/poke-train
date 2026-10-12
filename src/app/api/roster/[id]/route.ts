@@ -3,6 +3,7 @@ import { apiError } from '@/lib/api-error';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { LOCAL_USER_ID } from '@/lib/constants';
+import { rosterGenderToPokedex } from '@/lib/gender-sync';
 import { getGame } from '@/lib/games';
 import { parseEvs } from '@/lib/import/evs';
 import { TYPE_SLUGS } from '@/lib/pokemon-types';
@@ -75,6 +76,16 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
                   ? { itemStatus: status }
                   : { evStatus: status },
       });
+      // Getting a Pokémon whose gender is already set records that gender in the Pokédex.
+      if (key === 'owned' && status === 'DONE' && !current.owned) {
+        await rosterGenderToPokedex(prisma, {
+          profileId: current.profileId,
+          speciesId: current.speciesId,
+          rosterId,
+          before: 'UNKNOWN',
+          after: set?.gender ?? current.gender,
+        });
+      }
     }
   }
 
@@ -132,6 +143,17 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
     });
     const game = getGame(current.profile.gameId);
     if (set.moves && game) await refreshLegality(rosterId, game);
+
+    // A gender set on an obtained Pokémon is also recorded in the Pokédex.
+    if (set.gender !== undefined && set.gender !== current.gender && current.owned) {
+      await rosterGenderToPokedex(prisma, {
+        profileId: current.profileId,
+        speciesId: current.speciesId,
+        rosterId,
+        before: current.gender,
+        after: set.gender,
+      });
+    }
   }
 
   const [view] = await loadRoster(current.profileId, [rosterId]);
