@@ -48,6 +48,8 @@ async function cached<Raw, T = Raw>(
     schemaName: string;
     webSearch: boolean;
     tier: ModelTier;
+    /** When everything asked for is already decided, the answer to use without calling the model. */
+    local?: Raw;
     /** Turns the model's answer into what is stored and shown, before it is saved. */
     finish?: (raw: Raw) => T | Promise<T>;
   }
@@ -64,8 +66,8 @@ async function cached<Raw, T = Raw>(
       return hit.result as T;
     }
   }
-  const { finish, ...ask } = request;
-  const raw = await provider.generate(ask);
+  const { finish, local, ...ask } = request;
+  const raw = local ?? (await provider.generate(ask));
   const result = finish ? await finish(raw) : (raw as unknown as T);
   const data = {
     profileId: key.profileId,
@@ -173,6 +175,9 @@ export async function auditBuild(
   const details = new Map([...pool.egg, ...pool.other].map((m) => [m.nameEn, describeMove(m)]));
   build.moves = build.moves.map((m) => ({ ...m, name: details.get(m.name ?? '') ?? m.name }));
 
+  const locks = p.auditLocks;
+  const allFixed = Boolean(locks?.heldItem && (locks.moves?.length ?? 0) >= 4 && (!hasEvs || p.evs));
+
   return cached(
     provider,
     { kind: 'build', profileId, rosterPokemonId: p.id, refresh, lang },
@@ -207,6 +212,14 @@ export async function auditBuild(
         };
       },
       schemaName: 'build_audit',
+      // Plan, item and moves all fixed: nothing is left for the model to decide.
+      local: allFixed
+        ? ({
+            heldItem: p.auditLocks!.heldItem,
+            recommendedMoves: p.auditLocks!.moves,
+            ...(hasEvs ? { evPlan: { spread: p.evs } } : {}),
+          } as never)
+        : undefined,
       // Item and EV advice depends on how this game works, so let it look things up.
       webSearch: true,
       // One Pokémon at a time is the everyday request; "deeper" is the user's choice.
