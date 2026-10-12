@@ -453,7 +453,7 @@ export function RosterDetail({
           </Section>
 
           {evs && (
-            <Section title={t('Stats')}>
+            <Section title={t('Stats and IVs')}>
               {evTarget && (
                 <Field
                   label={t('Target EV spread')}

@@ -287,7 +287,7 @@ export const ES: Record<string, string> = {
   'Spanish': 'español',
   'Spreadsheet order': 'Orden de la hoja de cálculo',
   'Starter team': 'Equipo inicial',
-  'Stats': 'Estadísticas',
+  'Stats and IVs': 'Estadísticas e IVs',
   'Status': 'Estado',
   'Status "{value}" did not match any listed move': 'El estado "{value}" no coincidió con ningún movimiento de la lista',
   'Still to train': 'Aún por entrenar',
