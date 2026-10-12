@@ -222,7 +222,17 @@ export function RosterDetail({
             <h2 className="text-lg font-bold">{label(p.species)}</h2>
             <span className="font-mono text-xs text-muted">{numberLabel}</span>
           </div>
-          <p className="text-xs text-muted">
+          <label className="mt-1 flex items-center gap-2 text-xs text-muted">
+            {t('Nickname')}
+            <input
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              onBlur={() => nickname.trim() !== (p.nickname ?? '') && save({ nickname: nickname.trim() || null })}
+              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+              className="w-44 rounded-md border border-line bg-bg px-2 py-1 text-sm text-ink"
+            />
+          </label>
+          <p className="mt-1 text-xs text-muted">
             {p.baseSpecies ? t('from {name}', { name: label(p.baseSpecies) }) : ''}
             {p.origin !== 'UNKNOWN' ? `${p.baseSpecies ? ' · ' : ''}${p.origin === 'BRED' ? t('bred') : t('caught')}` : ''}
           </p>
@@ -278,15 +288,6 @@ export function RosterDetail({
               }
             >
               <span className="text-xs text-muted">{t('Do you have this Pokémon?')}</span>
-            </Field>
-            <Field label={t('Nickname')}>
-              <input
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                onBlur={() => nickname.trim() !== (p.nickname ?? '') && save({ nickname: nickname.trim() || null })}
-                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                className={inputClass}
-              />
             </Field>
             <Field label={t('Gender')} hint={t('Used by the breeding planner to know which parents you have.')}>
               <GenderControl p={p} onChange={onGender} />
