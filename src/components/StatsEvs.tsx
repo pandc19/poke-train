@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { NO_EVS, STAT_LABELS, STAT_ORDER, cleanNumber } from './EvInputs';
 import { IV_RATINGS, ivRating, type IvRatingValue, type IvRatings } from '@/lib/iv-ratings';
-import { estimateEvRange, type NatureEffect } from '@/lib/ev-estimate';
+import { estimateEvRange, statsAboveMax, type NatureEffect } from '@/lib/ev-estimate';
 import { ivAssumption } from '@/lib/potential';
 import { evTotal, type EvSpread } from '@/lib/import/evs';
 import { useT } from '@/lib/translate-client';
@@ -37,7 +37,16 @@ function natureText(info: EvEstimateInfo, lang: 'es' | 'en'): string {
 const ANGLES = [-90, -30, 30, 90, 150, 210].map((d) => (d * Math.PI) / 180);
 
 /** The EVs as a hexagon, like the yellow shape in the game, with the number at each corner. */
-export function EvGraph({ evs, nature }: { evs: EvSpread; nature?: EvEstimateInfo['nature'] }) {
+export function EvGraph({
+  evs,
+  nature,
+  over = [],
+}: {
+  evs: EvSpread;
+  nature?: EvEstimateInfo['nature'];
+  /** Stats whose typed value is more than the Pokémon can have: no EVs can be read from them. */
+  over?: (keyof EvSpread)[];
+}) {
   const { lang } = useT();
   const size = { w: 230, h: 190, cx: 115, cy: 95, r: 56 };
   const point = (index: number, fraction: number, radius = size.r) => ({
@@ -63,7 +72,7 @@ export function EvGraph({ evs, nature }: { evs: EvSpread; nature?: EvEstimateInf
       {STAT_ORDER.every((key) => evs[key] === 0) && <circle cx={size.cx} cy={size.cy} r="3" fill="var(--color-star)" />}
       {/* A stat at its 252 maximum lights up its corner. */}
       {STAT_ORDER.map((key, i) => {
-        if (evs[key] < 252) return null;
+        if (evs[key] < 252 || over.includes(key)) return null;
         const p = point(i, 1);
         return (
           <g key={key}>
@@ -96,8 +105,14 @@ export function EvGraph({ evs, nature }: { evs: EvSpread; nature?: EvEstimateInf
               x={at.x}
               dy="11"
               fontSize="11"
-              fontWeight={evs[key] >= 252 ? 700 : 600}
-              fill={evs[key] >= 252 ? 'var(--color-done)' : 'var(--color-ink)'}
+              fontWeight={evs[key] >= 252 && !over.includes(key) ? 700 : 600}
+              fill={
+                over.includes(key)
+                  ? 'var(--color-pending)'
+                  : evs[key] >= 252
+                    ? 'var(--color-done)'
+                    : 'var(--color-ink)'
+              }
             >
               {evs[key]}
             </tspan>
@@ -147,6 +162,9 @@ export function StatsEvsEditor({
     hasStats && info
       ? estimateEvRange({ stats, level, baseStats: info.baseStats, nature: info.nature, ivsLow: iv.low, ratings })
       : null;
+  const above =
+    hasStats && info ? statsAboveMax({ stats, level, baseStats: info.baseStats, nature: info.nature, ratings }) : {};
+  const aboveKeys = Object.keys(above) as (keyof EvSpread)[];
   const live = range?.estimate ?? null;
   const evs = live ?? savedEvs;
   const estimated = live != null || savedEstimated;
@@ -260,10 +278,20 @@ export function StatsEvsEditor({
       {evs ? (
         <div>
           <p className="text-center text-xs font-semibold">{t('Current EVs')}</p>
-          <EvGraph evs={evs} nature={info?.nature} />
+          <EvGraph evs={evs} nature={info?.nature} over={aboveKeys} />
           <p className="text-center text-[11px] text-muted">
             {t('Total {total} / 510', { total })} · {t('{n} EVs still to spend', { n: Math.max(0, 510 - total) })}
           </p>
+          {aboveKeys.map((key) => (
+            <p key={key} role="alert" className="mt-1 text-center text-[11px] text-pending">
+              {t('{stat} {value} is more than it can have at level {level} (the most is {max}). Check the level.', {
+                stat: STAT_LABELS[key][lang],
+                value: stats![key],
+                level,
+                max: above[key]!,
+              })}
+            </p>
+          ))}
           {estimated && (
             <div className="mt-0.5 space-y-0.5 text-center text-[10px] text-muted">
               <p>

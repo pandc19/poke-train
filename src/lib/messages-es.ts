@@ -162,6 +162,8 @@ export const ES: Record<string, string> = {
   'Legendary': 'Legendario',
   'Level': 'Nivel',
   'Near': 'Cerca de',
+  '{stat} {value} is more than it can have at level {level} (the most is {max}). Check the level.':
+    '{stat} {value} es más de lo que puede tener a nivel {level} (el máximo es {max}). Revisa el nivel.',
   'Stats': 'Estadísticas',
   'estimated': 'estimados',
   'Copy': 'Copiar',

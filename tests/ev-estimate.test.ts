@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimateEvRange, estimateEvs, statValue } from '@/lib/ev-estimate';
+import { estimateEvRange, estimateEvs, statValue, statsAboveMax } from '@/lib/ev-estimate';
 import { ivAssumption } from '@/lib/potential';
 
 // Golem's base stats, and an Adamant nature (+Attack, -Sp. Atk).
@@ -97,5 +97,18 @@ describe('IVs from the Judge potential', () => {
     expect(total(range('OUTSTANDING').high)).toBeGreaterThanOrEqual(total(range('OUTSTANDING').estimate));
     // With no potential there is no room: the range is a single value.
     expect(range(null).high).toEqual(range(null).estimate);
+  });
+});
+
+describe('stats above what the level allows', () => {
+  // Lucario: 70 base HP. Its best HP is 253 at level 73 and 257 at level 74.
+  const LUCARIO = { hp: 70, attack: 110, defense: 70, specialAttack: 115, specialDefense: 70, speed: 90 };
+  const stats = { hp: 257, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 };
+
+  it('flags a stat that no EVs and IVs could reach at that level', () => {
+    expect(statsAboveMax({ stats, level: 73, baseStats: LUCARIO, nature: null })).toEqual({ hp: 253 });
+  });
+  it('accepts the same stat at the level where it is the maximum', () => {
+    expect(statsAboveMax({ stats, level: 74, baseStats: LUCARIO, nature: null })).toEqual({});
   });
 });

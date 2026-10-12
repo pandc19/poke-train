@@ -101,3 +101,26 @@ export function estimateEvRange(args: {
     high: estimateEvs({ ...rest, ivs: worst }),
   };
 }
+
+/**
+ * The stats that are higher than the Pokémon can have at this level, with the
+ * most it could have (252 EVs and the best IV its rating allows). That means
+ * the level, the base stats or the number typed is wrong, and the EVs shown
+ * for such a stat would only be a clamp, not a reading.
+ */
+export function statsAboveMax(args: {
+  stats: EvSpread;
+  level: number;
+  baseStats: EvSpread;
+  nature: NatureEffect;
+  ratings?: IvRatings | null;
+}): Partial<Record<keyof EvSpread, number>> {
+  const { stats, level, baseStats, nature, ratings } = args;
+  const out: Partial<Record<keyof EvSpread, number>> = {};
+  for (const key of Object.keys(stats) as (keyof EvSpread)[]) {
+    if (!stats[key]) continue;
+    const max = statValue(key, baseStats[key], ivBoundsFor(ratings, key).high, 252, level, nature);
+    if (stats[key] > max) out[key] = max;
+  }
+  return out;
+}
