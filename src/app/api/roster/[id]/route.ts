@@ -103,6 +103,26 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
                   ? { itemStatus: status }
                   : { evStatus: status },
       });
+      // A Pokémon you have is caught and in your box, so the Pokédex says so too.
+      if (key === 'owned' && status === 'DONE') {
+        await prisma.pokedexEntry.upsert({
+          where: { profileId_speciesId: { profileId: current.profileId, speciesId: current.speciesId } },
+          update: { owned: true },
+          create: { profileId: current.profileId, speciesId: current.speciesId, owned: true },
+        });
+      }
+      // Giving it up leaves it caught, but no longer in the box unless another one is.
+      if (key === 'owned' && status === 'PENDING' && current.owned) {
+        const others = await prisma.rosterPokemon.count({
+          where: { profileId: current.profileId, speciesId: current.speciesId, owned: true, id: { not: rosterId } },
+        });
+        if (others === 0) {
+          await prisma.pokedexEntry.updateMany({
+            where: { profileId: current.profileId, speciesId: current.speciesId },
+            data: { owned: false },
+          });
+        }
+      }
       // Getting a Pokémon whose gender is already set records that gender in the Pokédex.
       if (key === 'owned' && status === 'DONE' && !current.owned) {
         await rosterGenderToPokedex(prisma, {
