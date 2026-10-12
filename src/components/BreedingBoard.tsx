@@ -53,6 +53,7 @@ export function BreedingBoard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locations, setLocations] = useState<Record<number, LocationState>>({});
+  const [hiddenLocations, setHiddenLocations] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState<BreedingGoalView | null>(null);
 
   const name = (x: Named | SpeciesRef) => (lang === 'en' ? x.nameEn : x.nameEs);
@@ -157,6 +158,11 @@ export function BreedingBoard({
     try {
       const data = await api<{ result: LocationResult }>('/api/ai/location', 'POST', { gameId, speciesId: s.id });
       setLocations((prev) => ({ ...prev, [s.id]: { busy: false, result: data.result } }));
+      setHiddenLocations((prev) => {
+        const next = new Set(prev);
+        next.delete(s.id);
+        return next;
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : t('Lookup failed.');
       setLocations((prev) => ({ ...prev, [s.id]: { busy: false, error: message } }));
@@ -218,16 +224,30 @@ export function BreedingBoard({
         </p>
         {canLookUp && (
           <button
-            onClick={() => locate(item.species)}
+            onClick={() =>
+              location?.result
+                ? setHiddenLocations((prev) => {
+                    const next = new Set(prev);
+                    if (!next.delete(item.species.id)) next.add(item.species.id);
+                    return next;
+                  })
+                : locate(item.species)
+            }
             disabled={!aiEnabled || location?.busy}
             title={aiEnabled ? t('Researched on the web with AI') : t('Add an API key to .env.local to enable location lookups')}
             className="mt-1 rounded border border-line px-1.5 py-0.5 text-[11px] text-muted hover:text-ink disabled:opacity-40"
           >
-            {location?.busy ? t('Searching…') : t('Where do I catch it?')}
+            {location?.busy
+              ? t('Searching…')
+              : location?.result
+                ? hiddenLocations.has(item.species.id)
+                  ? t('Show')
+                  : t('Hide')
+                : t('Where do I catch it?')}
           </button>
         )}
         {location?.error && <p className="mt-1 text-pending">{location.error}</p>}
-        {location?.result && (
+        {location?.result && !hiddenLocations.has(item.species.id) && (
           <div className="mt-1 rounded bg-surface-2 p-2 text-muted">
             {location.result.locations.map((l, i) => (
               <p key={i}>

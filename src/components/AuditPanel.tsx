@@ -13,6 +13,7 @@ type EvSource = NonNullable<NonNullable<BuildAudit['evPlan']['sources']>[number]
 function SourceRow({ s, gameId, aiEnabled }: { s: EvSource; gameId?: string; aiEnabled?: boolean }) {
   const { t, lang } = useT();
   const [state, setState] = useState<{ busy: boolean; result?: LocationResult; error?: string }>({ busy: false });
+  const [hidden, setHidden] = useState(false);
 
   async function locate() {
     setState({ busy: true });
@@ -25,6 +26,7 @@ function SourceRow({ s, gameId, aiEnabled }: { s: EvSource; gameId?: string; aiE
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? t('Lookup failed.'));
       setState({ busy: false, result: data.result });
+      setHidden(false);
     } catch (e) {
       setState({ busy: false, error: e instanceof Error ? e.message : t('Lookup failed.') });
     }
@@ -36,16 +38,16 @@ function SourceRow({ s, gameId, aiEnabled }: { s: EvSource; gameId?: string; aiE
       <span className="text-muted"> · +{s.amount}</span>
       {gameId && (
         <button
-          onClick={locate}
+          onClick={state.result ? () => setHidden(!hidden) : locate}
           disabled={!aiEnabled || state.busy}
           title={aiEnabled ? t('Researched on the web with AI') : t('Add an API key to .env.local to enable location lookups')}
           className="ml-2 rounded border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-ink disabled:opacity-40"
         >
-          {state.busy ? t('Searching…') : t('Where do I find it?')}
+          {state.busy ? t('Searching…') : state.result ? (hidden ? t('Show') : t('Hide')) : t('Where do I find it?')}
         </button>
       )}
       {state.error && <p className="text-pending">{state.error}</p>}
-      {state.result && (
+      {state.result && !hidden && (
         <div className="mt-1 rounded bg-surface p-2 text-muted">
           {state.result.locations.map((l, i) => (
             <p key={i}>

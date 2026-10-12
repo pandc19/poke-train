@@ -73,8 +73,10 @@ export type TeamAudit = z.infer<typeof TeamAuditSchema>;
 
 export const LocationSchema = z.object({
   found: z.boolean(),
-  locations: z.array(z.object({ place: z.string(), details: z.string() })),
-  notes: z.string(),
+  locations: z
+    .array(z.object({ place: z.string().describe('Area name'), details: z.string().describe('One short sentence') }))
+    .max(2),
+  notes: z.string().describe('Empty, or one short sentence'),
 });
 export type LocationResult = z.infer<typeof LocationSchema>;
 

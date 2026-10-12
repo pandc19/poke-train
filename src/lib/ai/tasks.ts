@@ -13,7 +13,7 @@ import type { RosterView } from '../roster';
 import { type BuildAudit, type BuildAuditRaw, BuildAuditNoEvSchema, BuildAuditRawSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 10;
+const PROMPT_VERSION = 11;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -255,9 +255,11 @@ export function researchLocation(provider: AiProvider, game: GameConfig, lang: L
     webSearch: true,
     tier: 'bulk',
     prompt:
-      `Where can ${pokemon} be caught in the wild in ${game.name}? List up to four of the best places with the area ` +
-      'name and useful details (level range, time of day, raid-only, DLC area). If it cannot be caught in the wild, ' +
-      'set found to false and explain in notes how it is obtained instead.',
+      `Where can ${pokemon} be caught in ${game.name}? Be brief: at most two places, best first, ` +
+      'each one the area name and at most one short sentence of detail (DLC area or raid only, if that applies). ' +
+      'Do not explain what you could not confirm: leave it out. ' +
+      'If it cannot be caught in the wild, set found to false and say in one sentence how it is obtained. ' +
+      'notes stays empty unless one short sentence is essential (for example, it needs the DLC).',
   });
 }
 
