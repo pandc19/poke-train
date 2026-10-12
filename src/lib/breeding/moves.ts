@@ -1,7 +1,7 @@
 import { prisma } from '../db';
 import type { GameConfig } from '../games';
 
-type Named = { id: number; nameEn: string; nameEs: string };
+type Named = { id: number; nameEn: string; nameEs: string; type: string; damageClass: string; power: number | null };
 
 export type LearnableMoves = {
   /** Egg moves that the Pokémon cannot learn any other way: these need breeding. */
@@ -37,7 +37,7 @@ export async function learnableMoves(game: GameConfig, speciesId: number): Promi
 
   const moves = await prisma.move.findMany({
     where: { id: { in: [...egg, ...natural] } },
-    select: { id: true, nameEn: true, nameEs: true },
+    select: { id: true, nameEn: true, nameEs: true, type: true, damageClass: true, power: true },
     orderBy: { nameEn: 'asc' },
   });
   return {

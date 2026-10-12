@@ -395,7 +395,7 @@ export function BreedingBoard({
         </div>
         <datalist id="breed-species">
           {species.map((s) => (
-            <option key={s.id} value={name(s)} />
+            <option key={s.id} value={name(s)} label={lang === 'en' ? s.nameEs : s.nameEn} />
           ))}
         </datalist>
       </form>

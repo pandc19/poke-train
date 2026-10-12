@@ -149,6 +149,8 @@ export function RosterDetail({
 }) {
   const { t } = useT();
   const label = (x: Named | null | undefined) => (x ? (lang === 'en' ? x.nameEn : x.nameEs) : '');
+  // The name in the other language: the suggestion list matches on it too.
+  const other = (x: Named) => (lang === 'en' ? x.nameEs : x.nameEn);
   const stat = (slug: string) => (STAT_SHORT[slug] ? STAT_SHORT[slug][lang] : slug);
   const find = (list: Named[], text: string) => {
     const q = text.trim().toLowerCase();
@@ -494,12 +496,12 @@ export function RosterDetail({
 
       <datalist id="detail-moves">
         {options.moves.map((m) => (
-          <option key={m.id} value={label(m)} />
+          <option key={m.id} value={label(m)} label={other(m)} />
         ))}
       </datalist>
       <datalist id="detail-items">
         {options.items.map((it) => (
-          <option key={it.id} value={label(it)} />
+          <option key={it.id} value={label(it)} label={other(it)} />
         ))}
       </datalist>
     </article>

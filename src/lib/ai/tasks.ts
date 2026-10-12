@@ -12,7 +12,7 @@ import type { RosterView } from '../roster';
 import { type BuildAudit, type BuildAuditRaw, BuildAuditNoEvSchema, BuildAuditRawSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 4;
+const PROMPT_VERSION = 5;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -158,10 +158,15 @@ export async function auditBuild(
 
   // Everything it can legally have in this game, so suggestions come from real options.
   const pool = await learnableMoves(game, p.species.id);
+  // Each move with its type, category and power, so advice about which stat it uses comes from data.
+  const describeMove = (m: { nameEn: string; type: string; damageClass: string; power: number | null }) =>
+    `${m.nameEn} (${m.type}, ${m.damageClass}${m.power ? `, power ${m.power}` : ''})`;
   const legalMovePool = {
-    eggMoves: pool.egg.map((m) => m.nameEn),
-    learnedNormally: pool.other.map((m) => m.nameEn),
+    eggMoves: pool.egg.map(describeMove),
+    learnedNormally: pool.other.map(describeMove),
   };
+  const details = new Map([...pool.egg, ...pool.other].map((m) => [m.nameEn, describeMove(m)]));
+  build.moves = build.moves.map((m) => ({ ...m, name: details.get(m.name ?? '') ?? m.name }));
 
   return cached(
     provider,
@@ -191,10 +196,16 @@ export async function auditBuild(
             'Do not propose rebuilding it.'
           : `Work with what it already has. ${game.name} has no EV training, so ignore EVs entirely. Its nature, ability, potential, held item and the moves it already knows are the starting point. ` +
             'Do not propose rebuilding it.',
-        `changes: at most three, easiest and most valuable first. effort "easy" means ${
-          hasEvs ? 'EV training, ' : ''
-        }a held item, or a move it can relearn; "medium" means crafting or buying a TM; "hard" means breeding, or changing its nature or ability. ` +
-          'Only propose a nature or ability change if nothing else comes close, and mark it hard.',
+        `changes: at most three, easiest and most valuable first. effort "easy" means a held item, or a move it can relearn; ` +
+          '"medium" means crafting or buying a TM; "hard" means breeding, or changing its nature or ability. ' +
+          'Only propose a nature or ability change if nothing else comes close, and mark it hard. ' +
+          'Each change is one plain sentence saying what to do ("Teach it Stone Edge", "Give it a Choice Band"), then a reason. ' +
+          (hasEvs
+            ? 'Do NOT put EV changes here: evPlan already covers EVs, and EVs cannot be moved from one stat to another. '
+            : '') +
+          'Every change must agree with evPlan, recommendedMoves and heldItem; never contradict them. ' +
+          'Damage uses the stat of the move\'s category (physical moves use Attack, special moves Sp. Atk) except for the few moves that say otherwise, ' +
+          'such as Body Press (Defense) or Foul Play. Use the type, category and power given in legalMovePool and moves; do not invent move effects.',
         hasEvs
           ? 'currentStats are the numbers the game shows (HP 331, Attack 328…). They are NOT EVs, so never put them in evPlan. ' +
             'currentEvs are the EVs it has trained, per stat, and evsLeftToTrain is how many of the 510 are still free. ' +
