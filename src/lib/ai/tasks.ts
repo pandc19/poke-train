@@ -12,7 +12,7 @@ import type { RosterView } from '../roster';
 import { type BuildAudit, type BuildAuditRaw, BuildAuditNoEvSchema, BuildAuditRawSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 5;
+const PROMPT_VERSION = 6;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -20,7 +20,9 @@ const system = (game: GameConfig, lang: Lang) =>
     `Only recommend Pokémon, moves, items and mechanics that exist in ${game.name}, including its DLC.`,
     'Be specific and practical. If you are not sure where something is found, say so rather than guessing.',
     'Prefer advice the player can act on without starting over: say what is easy, and never suggest a move the Pokémon cannot learn in this game.',
-    `Write every text field in ${lang === 'es' ? 'Spanish, using the official Spanish names' : 'English'}.`,
+    lang === 'es'
+      ? 'Write every text field in Spanish, but always write the names of Pokémon, moves, items (TMs, vitamins, berries), abilities, natures and types in English exactly as the English game shows them (for example Stone Edge, Choice Band, Protein, Adamant, Intimidate), never translated.'
+      : 'Write every text field in English.',
   ].join(' ');
 
 /**
@@ -217,7 +219,7 @@ export async function auditBuild(
                 'If currentEvs is null, give general advice only. ') +
             'Put the remaining EVs into the stats its role actually uses and leave the stats it does not use at 0 or as they are: for example, a physical attacker needs no Sp. Atk. ' +
             'steps: practical ways to get the missing EVs in this game. items: for each missing stat, the vitamin or other item that gives those EVs ' +
-            '(Protein/Iron/Calcium/Zinc/Carbos/HP Up and the feathers or wings, with their official names in the answer language) and why; empty if no EVs are missing. ' +
+            '(Protein/Iron/Calcium/Zinc/Carbos/HP Up and the feathers or wings, always by their English names) and why; empty if no EVs are missing. ' +
             `Look up how ${game.name} handles EV training and what those items do there if you are not sure.` +
             (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
           : '',
