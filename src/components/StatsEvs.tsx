@@ -59,6 +59,8 @@ export function EvGraph({ evs, nature }: { evs: EvSpread; nature?: EvEstimateInf
         return <line key={i} x1={size.cx} y1={size.cy} x2={edge.x} y2={edge.y} stroke="var(--color-line)" strokeWidth="0.5" />;
       })}
       <polygon points={shape} fill="var(--color-star)" fillOpacity="0.35" stroke="var(--color-star)" strokeWidth="1.5" />
+      {/* With no EVs the shape shrinks to nothing, so a dot marks the centre. */}
+      {STAT_ORDER.every((key) => evs[key] === 0) && <circle cx={size.cx} cy={size.cy} r="3" fill="var(--color-star)" />}
       {/* A stat at its 252 maximum lights up its corner. */}
       {STAT_ORDER.map((key, i) => {
         if (evs[key] < 252) return null;
@@ -166,7 +168,7 @@ export function StatsEvsEditor({
     const text = [
       `${t('Level')}: ${level}`,
       hasStats ? `${t('Stats')}: ${line(stats!)}` : null,
-      evs && total > 0
+      evs
         ? `EVs${estimated ? ` (${t('estimated')})` : ''}: ${line(evs)} · ${t('Total {total} / 510', { total })}`
         : null,
     ]
@@ -255,7 +257,7 @@ export function StatsEvsEditor({
         </div>
       </div>
 
-      {evs && total > 0 ? (
+      {evs ? (
         <div>
           <p className="text-center text-xs font-semibold">{t('Current EVs')}</p>
           <EvGraph evs={evs} nature={info?.nature} />
