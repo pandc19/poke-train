@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { ConfirmDialog } from './Dialog';
 import { PokemonInfoDialog } from './PokemonInfoDialog';
@@ -30,12 +30,18 @@ type Genders = { male: boolean; female: boolean };
  */
 export function DexGrid({
   cells,
+  stateCells,
   lang,
   gameId,
   gameName,
   accent = '#facc15',
 }: {
   cells: DexCell[];
+  /**
+   * Every Pokémon this grid may show over its lifetime, to start the caught state from.
+   * Given when the same grid is reused for several lists (tabs), so none starts blank.
+   */
+  stateCells?: DexCell[];
   lang: Lang;
   gameId: string | null;
   gameName?: string;
@@ -49,18 +55,19 @@ export function DexGrid({
     have: t('Have now'),
     registered: t('Not in my box'),
   };
+  const seed = stateCells ?? cells;
   const readOnly = gameId === null;
   const hasUnavailable = cells.some((c) => !c.inGame);
   const [onlyInGame, setOnlyInGame] = useState(true);
   const [caught, setCaught] = useState(
-    () => new Set(cells.filter((c) => c.caught || (readOnly && c.caughtIn.length > 0)).map((c) => c.speciesId))
+    () => new Set(seed.filter((c) => c.caught || (readOnly && c.caughtIn.length > 0)).map((c) => c.speciesId))
   );
   /** Caught Pokémon the player has said they no longer have (evolved or released). */
   const [notOwned, setNotOwned] = useState(
-    () => new Set(cells.filter((c) => c.caught && !c.owned).map((c) => c.speciesId))
+    () => new Set(seed.filter((c) => c.caught && !c.owned).map((c) => c.speciesId))
   );
   const [genders, setGenders] = useState<Record<number, Genders>>(() =>
-    Object.fromEntries(cells.map((c) => [c.speciesId, { male: c.hasMale, female: c.hasFemale }]))
+    Object.fromEntries(seed.map((c) => [c.speciesId, { male: c.hasMale, female: c.hasFemale }]))
   );
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -69,6 +76,10 @@ export function DexGrid({
   const [bulk, setBulk] = useState<{ mode: boolean; ids: number[] } | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
   const lastIndex = useRef<number | null>(null);
+  // A range starts from the last click in the list being shown, not one from another tab.
+  useEffect(() => {
+    lastIndex.current = null;
+  }, [cells]);
 
   const haveNow = (c: DexCell) => caught.has(c.speciesId) && (!notOwned.has(c.speciesId) || c.ownedViaRoster);
 

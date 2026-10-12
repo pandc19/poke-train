@@ -1,6 +1,5 @@
-import Link from 'next/link';
-import { DexGrid } from '@/components/DexGrid';
-import { getLang, getT, pick } from '@/lib/i18n';
+import { DexBrowser } from '@/components/DexBrowser';
+import { getLang } from '@/lib/i18n';
 import { loadDex } from '@/lib/pokedex';
 import { requireGameProfile } from '@/lib/profile';
 
@@ -8,38 +7,23 @@ export default async function PokedexPage({ params, searchParams }: PageProps<'/
   const { game: gameId } = await params;
   const { dex } = await searchParams;
   const { game, profileId } = await requireGameProfile(gameId);
-  const current = game.pokedexes.find((d) => d.slug === dex) ?? game.pokedexes[0];
-  const [cells, lang, t] = await Promise.all([
-    loadDex(current.slug, profileId, { gameId: game.id }),
+  const [lists, lang] = await Promise.all([
+    // Every regional Pokédex is loaded, so switching tabs needs no round trip.
+    Promise.all(game.pokedexes.map((d) => loadDex(d.slug, profileId, { gameId: game.id }))),
     getLang(),
-    getT(),
   ]);
+  const cellsBySlug = Object.fromEntries(game.pokedexes.map((d, i) => [d.slug, lists[i]]));
 
   return (
-    <div>
-      <div className="mb-5 flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-bold">{t('{game} Pokédex', { game: game.shortName })}</h1>
-        <div className="flex gap-1">
-          {game.pokedexes.map((d) => (
-            <Link
-              key={d.slug}
-              href={`/${game.id}/pokedex?dex=${d.slug}`}
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                d.slug === current.slug ? 'text-white' : 'bg-surface-2 text-muted hover:text-ink'
-              }`}
-              style={d.slug === current.slug ? { background: game.theme.from } : undefined}
-            >
-              {pick(d.name, lang)}
-            </Link>
-          ))}
-        </div>
-      </div>
-      <p className="-mt-3 mb-5 text-sm text-muted">
-        <span className="font-medium text-ink">{pick(current.name, lang)}</span>: {pick(current.note, lang)}.{' '}
-        {current.slug !== 'paldea' && t('You only need this dex if you own the expansion.')}
-      </p>
-      {/* keyed so switching dex resets search, filter and optimistic state */}
-      <DexGrid key={current.slug} cells={cells} lang={lang} gameId={game.id} accent={game.theme.accent} />
-    </div>
+    <DexBrowser
+      gameId={game.id}
+      gameName={game.shortName}
+      accent={game.theme.accent}
+      tabColor={game.theme.from}
+      dexes={game.pokedexes.map((d) => ({ slug: d.slug, name: d.name, note: d.note }))}
+      cellsBySlug={cellsBySlug}
+      initialSlug={typeof dex === 'string' ? dex : game.pokedexes[0].slug}
+      lang={lang}
+    />
   );
 }
