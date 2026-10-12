@@ -319,6 +319,10 @@ model RosterPokemon {
   currentEvs Json? @map("current_evs")
   /// True when those EVs were worked out from the stats rather than read off the game.
   currentEvsEstimated Boolean @default(false) @map("current_evs_estimated")
+  /// The stats the game shows (the blue graph), same shape as EVs. The EVs are worked out from these.
+  currentStats Json? @map("current_stats")
+  /// Its level, which the stats depend on.
+  level Int @default(100)
 
   teraType String? @map("tera_type")
   /// What the Judge said, for games that have one. Null = not judged yet.

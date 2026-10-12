@@ -76,6 +76,9 @@ function describeBuild(p: RosterView, hasEvs = true, hasTarget = true) {
     pokemon: p.species.nameEn,
     types: p.types,
     baseStats: p.baseStats,
+    level: p.level,
+    // The stats it actually has right now, as the game shows them.
+    currentStats: p.currentStats ? formatEvs(p.currentStats) : null,
     // The nature it has now, when known, and the one the player is aiming for.
     currentNature: p.currentNature?.nameEn ?? null,
     targetNature: p.targetNature?.nameEn ?? null,

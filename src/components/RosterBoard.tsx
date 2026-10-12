@@ -9,7 +9,7 @@ import { RosterEditDialog } from './RosterEditDialog';
 import { TypeBadge } from './TypeBadge';
 import type { TeamAudit } from '@/lib/ai/schema';
 import { evGap, evTotal, formatEvs, type EvSpread } from '@/lib/import/evs';
-import { EvInputs, NO_EVS, evsAreValid, type EvEstimateInfo } from './EvInputs';
+import { StatsEvsEditor, type EvEstimateInfo } from './StatsEvs';
 import type { Lang } from '@/lib/i18n';
 import { POTENTIAL_LEVELS, potentialLevel } from '@/lib/potential';
 import { TYPE_COLORS } from '@/lib/pokemon-types';
@@ -289,15 +289,30 @@ export function RosterBoard({
     };
   };
 
-  async function saveCurrentEvs(p: RosterView, next: EvSpread | null, estimated: boolean) {
+  /** Saves the stats and level; the server works the EVs out and sends the Pokémon back. */
+  async function saveStats(p: RosterView, stats: EvSpread | null, level: number) {
     setError(null);
-    replace({ ...p, currentEvs: next, currentEvsEstimated: next ? estimated : false });
+    replace({ ...p, currentStats: stats, level });
     try {
-      await api(`/api/roster/${p.id}`, 'PATCH', {
-        set: { currentEvs: next ? formatEvs(next) : null, currentEvsEstimated: next ? estimated : false },
+      const data = await api<{ pokemon: RosterView }>(`/api/roster/${p.id}`, 'PATCH', {
+        set: { currentStats: stats, level },
       });
+      replace(data.pokemon);
     } catch {
       replace(p);
+      setError(t('Could not save that change. It has been undone; try again.'));
+    }
+  }
+
+  /** Exact EVs typed by hand: they replace the estimate, so the stats are cleared. */
+  async function saveExactEvs(p: RosterView, evs: EvSpread | null) {
+    setError(null);
+    try {
+      const data = await api<{ pokemon: RosterView }>(`/api/roster/${p.id}`, 'PATCH', {
+        set: { currentEvs: evs ? formatEvs(evs) : null, currentEvsEstimated: false, currentStats: null },
+      });
+      replace(data.pokemon);
+    } catch {
       setError(t('Could not save that change. It has been undone; try again.'));
     }
   }
@@ -710,11 +725,11 @@ export function RosterBoard({
                     {evs && (
                       <Row label={t('Current EVs')}>
                         <div className="min-w-0 flex-1">
-                          <CardEvs
-                            value={p.currentEvs}
-                            estimated={p.currentEvsEstimated}
-                            onSave={(next, estimated) => saveCurrentEvs(p, next, estimated)}
-                            estimate={estimateFor(p)}
+                          <CardStatsEvs
+                            p={p}
+                            info={estimateFor(p)}
+                            onSaveStats={(stats, level) => saveStats(p, stats, level)}
+                            onSaveExact={(evs) => saveExactEvs(p, evs)}
                           />
                           {evTarget && p.evs && p.currentEvs && (
                             <p className="mt-1 text-[11px] text-muted">
@@ -866,26 +881,39 @@ export function RosterBoard({
   );
 }
 
-/** The six EV boxes on a card. Saves when you click away, if the numbers are possible. */
-function CardEvs({
-  value,
-  estimated,
-  onSave,
-  estimate,
+/** A card's training section: type the stats and level, see the EVs. Saves when you click away. */
+function CardStatsEvs({
+  p,
+  info,
+  onSaveStats,
+  onSaveExact,
 }: {
-  value: EvSpread | null;
-  estimated: boolean;
-  onSave: (next: EvSpread | null, estimated: boolean) => void;
-  estimate?: EvEstimateInfo;
+  p: RosterView;
+  info?: EvEstimateInfo;
+  onSaveStats: (stats: EvSpread | null, level: number) => void;
+  onSaveExact: (evs: EvSpread | null) => void;
 }) {
-  const [draft, setDraft] = useState<EvSpread | null>(value);
-  const commit = (isEstimated: boolean) => {
-    const spread = draft ?? NO_EVS;
-    if (!evsAreValid(spread)) return;
-    const next = evTotal(spread) === 0 ? null : spread;
-    if (JSON.stringify(next) !== JSON.stringify(value) || isEstimated !== estimated) onSave(next, isEstimated);
+  const [stats, setStats] = useState<EvSpread | null>(p.currentStats);
+  const [level, setLevel] = useState(p.level);
+  const commit = () => {
+    const next = stats && evTotal(stats) > 0 ? stats : null;
+    if (JSON.stringify(next) !== JSON.stringify(p.currentStats) || level !== p.level) onSaveStats(next, level);
   };
-  return <EvInputs value={draft} onChange={setDraft} onCommit={commit} estimate={estimate} estimated={estimated} />;
+  return (
+    <StatsEvsEditor
+      stats={stats}
+      level={level}
+      onChange={(nextStats, nextLevel) => {
+        setStats(nextStats);
+        setLevel(nextLevel);
+      }}
+      onCommit={commit}
+      info={info}
+      savedEvs={p.currentEvs}
+      savedEstimated={p.currentEvsEstimated}
+      onExactEvs={onSaveExact}
+    />
+  );
 }
 
 /** The Judge's verdict as a coloured select, so the colour tells you the tier at a glance. */

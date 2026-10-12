@@ -1,0 +1,164 @@
+'use client';
+
+import { useState } from 'react';
+import { EvInputs, NO_EVS, STAT_LABELS, STAT_ORDER, StatInputs, cleanNumber, evsAreValid } from './EvInputs';
+import { estimateEvs, type NatureEffect } from '@/lib/ev-estimate';
+import { evTotal, type EvSpread } from '@/lib/import/evs';
+import { useT } from '@/lib/translate-client';
+
+/** What is needed to turn the stats the game shows back into EVs. */
+export type EvEstimateInfo = {
+  baseStats: EvSpread;
+  nature: NatureEffect;
+  /** Display name of the nature that is applied, when there is one. */
+  natureName: string | null;
+};
+
+// Corners of the hexagon, from the top and clockwise, as the game draws it.
+const ANGLES = [-90, -30, 30, 90, 150, 210].map((d) => (d * Math.PI) / 180);
+
+/** The EVs as a hexagon, like the yellow shape in the game, with the number at each corner. */
+export function EvGraph({ evs }: { evs: EvSpread }) {
+  const { lang } = useT();
+  const size = { w: 230, h: 190, cx: 115, cy: 95, r: 56 };
+  const point = (index: number, fraction: number, radius = size.r) => ({
+    x: size.cx + Math.cos(ANGLES[index]) * radius * fraction,
+    y: size.cy + Math.sin(ANGLES[index]) * radius * fraction,
+  });
+  const ring = (fraction: number) =>
+    STAT_ORDER.map((_, i) => point(i, fraction)).map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const shape = STAT_ORDER.map((key, i) => point(i, Math.min(1, evs[key] / 252)))
+    .map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`)
+    .join(' ');
+
+  return (
+    <svg viewBox={`0 0 ${size.w} ${size.h}`} className="mx-auto w-full max-w-[230px]" role="img" aria-label="EVs">
+      <polygon points={ring(1)} fill="none" stroke="var(--color-line)" strokeWidth="1" />
+      <polygon points={ring(0.5)} fill="none" stroke="var(--color-line)" strokeWidth="0.5" strokeDasharray="2 3" />
+      {STAT_ORDER.map((_, i) => {
+        const edge = point(i, 1);
+        return <line key={i} x1={size.cx} y1={size.cy} x2={edge.x} y2={edge.y} stroke="var(--color-line)" strokeWidth="0.5" />;
+      })}
+      <polygon points={shape} fill="var(--color-star)" fillOpacity="0.35" stroke="var(--color-star)" strokeWidth="1.5" />
+      {STAT_ORDER.map((key, i) => {
+        const at = point(i, 1, size.r + 17);
+        const anchor = Math.abs(Math.cos(ANGLES[i])) < 0.2 ? 'middle' : Math.cos(ANGLES[i]) > 0 ? 'start' : 'end';
+        return (
+          <text key={key} x={at.x} y={at.y} textAnchor={anchor} fontSize="9" fill="var(--color-muted)">
+            <tspan x={at.x}>{STAT_LABELS[key][lang]}</tspan>
+            <tspan x={at.x} dy="11" fontSize="11" fontWeight="600" fill="var(--color-ink)">
+              {evs[key]}
+            </tspan>
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
+
+/**
+ * Where a Pokémon's training is recorded. The game shows its stats as numbers
+ * (the blue graph) and its EVs only as a shape, so the stats and level are what
+ * you type, and the EVs are worked out and drawn. Exact EVs can still be typed
+ * for the rare case they are known.
+ *
+ * Controlled: the parent keeps the stats and level and decides when to save.
+ */
+export function StatsEvsEditor({
+  stats,
+  level,
+  onChange,
+  onCommit,
+  info,
+  savedEvs,
+  savedEstimated,
+  onExactEvs,
+}: {
+  stats: EvSpread | null;
+  level: number;
+  onChange: (stats: EvSpread | null, level: number) => void;
+  /** Focus left the stats and level boxes. */
+  onCommit?: () => void;
+  info?: EvEstimateInfo;
+  /** The EVs on record, shown when no stats are typed. */
+  savedEvs: EvSpread | null;
+  savedEstimated: boolean;
+  /** Exact EVs were typed. They replace the stats-based estimate. */
+  onExactEvs?: (evs: EvSpread | null) => void;
+}) {
+  const { t } = useT();
+  const [exact, setExact] = useState<EvSpread | null>(savedEstimated ? null : savedEvs);
+
+  const hasStats = stats != null && evTotal(stats) > 0;
+  const live =
+    hasStats && info ? estimateEvs({ stats, level, baseStats: info.baseStats, nature: info.nature }) : null;
+  const evs = live ?? savedEvs;
+  const estimated = live != null || savedEstimated;
+  const total = evs ? evTotal(evs) : 0;
+
+  return (
+    <div className="space-y-2">
+      <div>
+        <p className="mb-1 text-[11px] text-muted">{t('Stats (the numbers on the blue graph)')}</p>
+        <div
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onCommit?.();
+          }}
+        >
+          <StatInputs value={stats} onChange={(next) => onChange(next, level)} />
+          <label className="mt-1.5 flex w-24 items-center gap-1.5 text-[11px] text-muted">
+            {t('Level')}
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={100}
+              value={level}
+              onChange={(e) => onChange(stats, Math.min(100, Math.max(1, cleanNumber(e.target.value) || 1)))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+              }}
+              className="w-full rounded border border-line bg-bg px-1 py-0.5 text-xs text-ink"
+            />
+          </label>
+        </div>
+      </div>
+
+      {evs && total > 0 ? (
+        <div>
+          <EvGraph evs={evs} />
+          <p className="text-center text-[11px] text-muted">
+            {t('Total {total} / 510', { total })} · {t('{n} EVs still to spend', { n: Math.max(0, 510 - total) })}
+          </p>
+          {estimated && (
+            <p className="mt-0.5 text-center text-[10px] text-muted">
+              {t('EVs worked out from the stats. Assumes perfect IVs (31); with lower IVs it has more EVs than shown.')}
+              {info &&
+                ` ${info.natureName ? t('Using its {nature} nature', { nature: info.natureName }) : t('Its nature is not set, so none is applied.')}`}
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="text-[11px] text-muted">{t('Fill in the stats to see the EVs.')}</p>
+      )}
+
+      {onExactEvs && (
+        <details className="text-[11px]">
+          <summary className="cursor-pointer text-muted hover:text-ink">{t('I know the exact EVs')}</summary>
+          <div className="mt-1.5">
+            <EvInputs
+              value={exact}
+              onChange={setExact}
+              onCommit={() => {
+                const spread = exact ?? NO_EVS;
+                if (!evsAreValid(spread)) return;
+                onExactEvs(evTotal(spread) === 0 ? null : spread);
+              }}
+            />
+            <p className="mt-1 text-[10px] text-muted">{t('Exact EVs replace the estimate from the stats.')}</p>
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}

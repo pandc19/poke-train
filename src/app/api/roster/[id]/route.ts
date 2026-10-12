@@ -3,6 +3,7 @@ import { apiError } from '@/lib/api-error';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { LOCAL_USER_ID } from '@/lib/constants';
+import { recomputeEvsFromStats } from '@/lib/ev-sync';
 import { rosterGenderToPokedex } from '@/lib/gender-sync';
 import { getGame } from '@/lib/games';
 import { parseEvs } from '@/lib/import/evs';
@@ -32,6 +33,18 @@ const Body = z.object({
       evs: z.string().max(200).nullable(),
       currentEvs: z.string().max(200).nullable(),
       currentEvsEstimated: z.boolean(),
+      /** The stats the game shows; the EVs are worked out from them. */
+      currentStats: z
+        .object({
+          hp: z.number().int().min(0).max(999),
+          attack: z.number().int().min(0).max(999),
+          defense: z.number().int().min(0).max(999),
+          specialAttack: z.number().int().min(0).max(999),
+          specialDefense: z.number().int().min(0).max(999),
+          speed: z.number().int().min(0).max(999),
+        })
+        .nullable(),
+      level: z.number().int().min(1).max(100),
       teraType: z.enum(TYPE_SLUGS as [string, ...string[]]).nullable(),
       potential: z.enum(['DECENT', 'ABOVE_AVERAGE', 'RELATIVELY_SUPERIOR', 'OUTSTANDING']).nullable(),
       notes: z.string().max(4000).nullable(),
@@ -128,6 +141,8 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
           ...(set.itemId !== undefined && set.itemId !== current.itemId
             ? { itemId: set.itemId, itemStatus: 'PENDING' }
             : {}),
+          ...(set.currentStats !== undefined ? { currentStats: set.currentStats ?? Prisma.DbNull } : {}),
+          ...(set.level !== undefined ? { level: set.level } : {}),
           ...(currentEvs !== undefined
             ? { currentEvs: currentEvs ?? Prisma.DbNull, currentEvsEstimated: currentEvs ? (set.currentEvsEstimated ?? false) : false }
             : {}),
@@ -153,6 +168,22 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
         }
       }
     });
+    // EVs follow from the stats, so they are worked out again when any of those inputs change.
+    // Typing exact EVs in the same request wins over the estimate.
+    if (
+      currentEvs === undefined &&
+      (set.currentStats !== undefined || set.level !== undefined || set.targetNatureId !== undefined)
+    ) {
+      if (set.currentStats === null) {
+        await prisma.rosterPokemon.update({
+          where: { id: rosterId },
+          data: { currentEvs: Prisma.DbNull, currentEvsEstimated: false },
+        });
+      } else {
+        await recomputeEvsFromStats(prisma, rosterId);
+      }
+    }
+
     const game = getGame(current.profile.gameId);
     if (set.moves && game) await refreshLegality(rosterId, game);
 

@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { Dialog } from './Dialog';
 import { formatEvs, type EvSpread } from '@/lib/import/evs';
-import { EvInputs, evsAreValid, type EvEstimateInfo } from './EvInputs';
+import { evsAreValid } from './EvInputs';
+import { StatsEvsEditor, type EvEstimateInfo } from './StatsEvs';
 import type { Lang } from '@/lib/i18n';
 import { POTENTIAL_LEVELS } from '@/lib/potential';
 import { TYPE_NAMES_ES, TYPE_SLUGS } from '@/lib/pokemon-types';
@@ -105,8 +106,10 @@ function EditForm({
   const [abilityId, setAbilityId] = useState(p.ability?.id ?? 0);
   const [item, setItem] = useState(p.item ? label(p.item) : (p.itemNote ?? ''));
   const [evs, setEvs] = useState(p.evs ? formatEvs(p.evs) : '');
-  const [currentEvs, setCurrentEvs] = useState<EvSpread | null>(p.currentEvs);
-  const [evsEstimated, setEvsEstimated] = useState(p.currentEvsEstimated);
+  const [stats, setStats] = useState<EvSpread | null>(p.currentStats);
+  const [level, setLevel] = useState(p.level);
+  // Exact EVs typed by hand replace the estimate from the stats.
+  const [exactEvs, setExactEvs] = useState<{ evs: EvSpread | null } | null>(null);
   // The nature it really has (or, failing that, the one planned) decides the stats-to-EVs maths.
   const natureForEvs = options.natures.find((n) => n.id === (p.currentNature?.id ?? natureId)) ?? null;
   const estimateInfo: EvEstimateInfo | undefined = p.baseStats
@@ -147,10 +150,6 @@ function EditForm({
       }
       moveSet.push({ slot: i + 1, moveId: move.id });
     }
-    if (hasEvs && currentEvs && !evsAreValid(currentEvs)) {
-      setError(t('Max 252 per stat and 510 in total.'));
-      return;
-    }
     const matchedItem = item.trim() ? find(options.items, item) : undefined;
 
     setBusy(true);
@@ -166,8 +165,16 @@ function EditForm({
       itemNote: item.trim() && !matchedItem ? item.trim() : null,
       ...(hasEvs
         ? {
-            currentEvs: currentEvs && formatEvs(currentEvs) ? formatEvs(currentEvs) : null,
-            currentEvsEstimated: Boolean(currentEvs && formatEvs(currentEvs)) && evsEstimated,
+            ...(exactEvs
+              ? {
+                  currentEvs: exactEvs.evs && formatEvs(exactEvs.evs) ? formatEvs(exactEvs.evs) : null,
+                  currentEvsEstimated: false,
+                  currentStats: null,
+                }
+              : {
+                  currentStats: stats && Object.values(stats).some((n) => n > 0) ? stats : null,
+                  level,
+                }),
             ...(evTarget ? { evs: evs.trim() || null } : {}),
           }
         : {}),
@@ -263,13 +270,22 @@ function EditForm({
           )}
           {hasEvs && (
             <div className="sm:col-span-2">
-              <span className="mb-1 block text-xs font-medium text-muted">{t('Current EV spread')}</span>
-              <EvInputs
-                value={currentEvs}
-                onChange={setCurrentEvs}
-                estimate={estimateInfo}
-                estimated={evsEstimated}
-                onEstimatedChange={setEvsEstimated}
+              <span className="mb-1 block text-xs font-medium text-muted">{t('Current training')}</span>
+              <StatsEvsEditor
+                stats={stats}
+                level={level}
+                onChange={(nextStats, nextLevel) => {
+                  setStats(nextStats);
+                  setLevel(nextLevel);
+                  setExactEvs(null);
+                }}
+                info={estimateInfo}
+                savedEvs={p.currentEvs}
+                savedEstimated={p.currentEvsEstimated}
+                onExactEvs={(evs) => {
+                  if (evs && !evsAreValid(evs)) return;
+                  setExactEvs({ evs });
+                }}
               />
               <span className="mt-1 block text-[11px] text-muted">
                 {t('What it has right now. The AI audit uses it to suggest how to finish the training.')}
