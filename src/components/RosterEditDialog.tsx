@@ -106,6 +106,7 @@ function EditForm({
   const [item, setItem] = useState(p.item ? label(p.item) : (p.itemNote ?? ''));
   const [evs, setEvs] = useState(p.evs ? formatEvs(p.evs) : '');
   const [currentEvs, setCurrentEvs] = useState<EvSpread | null>(p.currentEvs);
+  const [evsEstimated, setEvsEstimated] = useState(p.currentEvsEstimated);
   // The nature it really has (or, failing that, the one planned) decides the stats-to-EVs maths.
   const natureForEvs = options.natures.find((n) => n.id === (p.currentNature?.id ?? natureId)) ?? null;
   const estimateInfo: EvEstimateInfo | undefined = p.baseStats
@@ -166,6 +167,7 @@ function EditForm({
       ...(hasEvs
         ? {
             currentEvs: currentEvs && formatEvs(currentEvs) ? formatEvs(currentEvs) : null,
+            currentEvsEstimated: Boolean(currentEvs && formatEvs(currentEvs)) && evsEstimated,
             ...(evTarget ? { evs: evs.trim() || null } : {}),
           }
         : {}),
@@ -262,7 +264,13 @@ function EditForm({
           {hasEvs && (
             <div className="sm:col-span-2">
               <span className="mb-1 block text-xs font-medium text-muted">{t('Current EV spread')}</span>
-              <EvInputs value={currentEvs} onChange={setCurrentEvs} estimate={estimateInfo} />
+              <EvInputs
+                value={currentEvs}
+                onChange={setCurrentEvs}
+                estimate={estimateInfo}
+                estimated={evsEstimated}
+                onEstimatedChange={setEvsEstimated}
+              />
               <span className="mt-1 block text-[11px] text-muted">
                 {t('What it has right now. The AI audit uses it to suggest how to finish the training.')}
               </span>

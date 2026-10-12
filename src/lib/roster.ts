@@ -49,6 +49,8 @@ export type RosterView = {
   evStatus: TaskStatus;
   /** The EVs it has right now, when recorded. */
   currentEvs: EvSpread | null;
+  /** The current EVs were calculated from the stats, so they are approximate. */
+  currentEvsEstimated: boolean;
   /** Base stats of its form, so a build can be judged against what it is. */
   baseStats: EvSpread | null;
   teraType: string | null;
@@ -142,6 +144,7 @@ export async function loadRoster(profileId: string, ids?: string[]): Promise<Ros
       itemStatus: r.itemStatus,
       evs: r.evs as EvSpread | null,
       currentEvs: r.currentEvs as EvSpread | null,
+      currentEvsEstimated: r.currentEvsEstimated,
       baseStats: (form?.baseStats ?? null) as EvSpread | null,
       evStatus: r.evStatus,
       teraType: r.teraType,

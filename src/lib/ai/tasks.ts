@@ -84,6 +84,8 @@ function describeBuild(p: RosterView, hasEvs = true, hasTarget = true) {
     ...(hasEvs
       ? {
           currentEvs: p.currentEvs ? formatEvs(p.currentEvs) : null,
+          // Worked out from the stats assuming perfect IVs, so they may be a little low.
+          currentEvsAreEstimated: p.currentEvs ? p.currentEvsEstimated : null,
           ...(hasTarget
             ? {
                 targetEvs: p.evs ? formatEvs(p.evs) : null,
@@ -163,6 +165,9 @@ export async function auditBuild(
               'Choose the held item and the moves that suit the EVs it already has.' +
               (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
             : '',
+        hasEvs
+          ? 'If currentEvsAreEstimated is true, the EVs were worked out from its stats assuming perfect IVs, so treat them as approximate and slightly low, especially for Attack, Defense, Sp. Atk. and Sp. Def. with a boosting or lowering nature.'
+          : '',
         'heldItem: the best held item for it as it is now. If the one it holds is already the best, name it and say to keep it.',
         `recommendedMoves: the best four moves for it given its nature${hasEvs ? ' and EVs' : ''}, chosen ONLY from legalMovePool. ` +
           'Prefer moves it already knows over ones it would have to get.',

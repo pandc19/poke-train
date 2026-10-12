@@ -31,6 +31,7 @@ const Body = z.object({
       itemNote: z.string().max(200).nullable(),
       evs: z.string().max(200).nullable(),
       currentEvs: z.string().max(200).nullable(),
+      currentEvsEstimated: z.boolean(),
       teraType: z.enum(TYPE_SLUGS as [string, ...string[]]).nullable(),
       potential: z.enum(['DECENT', 'ABOVE_AVERAGE', 'RELATIVELY_SUPERIOR', 'OUTSTANDING']).nullable(),
       notes: z.string().max(4000).nullable(),
@@ -127,7 +128,9 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
           ...(set.itemId !== undefined && set.itemId !== current.itemId
             ? { itemId: set.itemId, itemStatus: 'PENDING' }
             : {}),
-          ...(currentEvs !== undefined ? { currentEvs: currentEvs ?? Prisma.DbNull } : {}),
+          ...(currentEvs !== undefined
+            ? { currentEvs: currentEvs ?? Prisma.DbNull, currentEvsEstimated: currentEvs ? (set.currentEvsEstimated ?? false) : false }
+            : {}),
           ...(evs !== undefined
             ? {
                 evs: evs ?? Prisma.DbNull,

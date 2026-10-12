@@ -317,6 +317,8 @@ model RosterPokemon {
   evStatus TaskStatus @default(PENDING) @map("ev_status")
   /// The EVs the Pokémon has right now, same shape. Null = not recorded.
   currentEvs Json? @map("current_evs")
+  /// True when those EVs were worked out from the stats rather than read off the game.
+  currentEvsEstimated Boolean @default(false) @map("current_evs_estimated")
 
   teraType String? @map("tera_type")
   /// What the Judge said, for games that have one. Null = not judged yet.

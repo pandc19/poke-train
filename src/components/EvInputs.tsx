@@ -45,11 +45,17 @@ export function EvInputs({
   onChange,
   onCommit,
   estimate,
+  estimated: wasEstimated = false,
+  onEstimatedChange,
 }: {
   value: EvSpread | null;
   onChange: (next: EvSpread) => void;
-  onCommit?: () => void;
+  /** Called once focus leaves the boxes, with whether the numbers are an estimate. */
+  onCommit?: (estimated: boolean) => void;
   estimate?: EvEstimateInfo;
+  /** The numbers shown were calculated from the stats earlier. */
+  estimated?: boolean;
+  onEstimatedChange?: (estimated: boolean) => void;
 }) {
   const { t, lang } = useT();
   const evs = value ?? NO_EVS;
@@ -59,7 +65,11 @@ export function EvInputs({
   const [panelOpen, setPanelOpen] = useState(false);
   const [stats, setStats] = useState<Record<string, string>>({});
   const [level, setLevel] = useState('100');
-  const [estimated, setEstimated] = useState(false);
+  const [estimated, setEstimatedState] = useState(wasEstimated);
+  const setEstimated = (next: boolean) => {
+    setEstimatedState(next);
+    onEstimatedChange?.(next);
+  };
 
   const calculate = () => {
     if (!estimate) return;
@@ -82,7 +92,7 @@ export function EvInputs({
   return (
     <div
       onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onCommit?.();
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onCommit?.(estimated);
       }}
     >
       <div className="grid grid-cols-3 gap-1.5">
@@ -116,7 +126,7 @@ export function EvInputs({
       </p>
       {!valid && estimate && (
         <p className="mt-0.5 text-[11px] text-pending">
-          {t('These look like stat numbers, not EVs. Use "calculate the EVs" below.')}
+          {t('These look like stat numbers, not EVs. Use "Type the stats from the blue graph" below.')}
         </p>
       )}
       {estimated && valid && (
@@ -133,13 +143,13 @@ export function EvInputs({
             aria-expanded={panelOpen}
             className="text-[11px] text-muted underline hover:text-ink"
           >
-            {t('I only see the stats: calculate the EVs')}
+            {t('No EV numbers in the game? Type the stats from the blue graph')}
           </button>
           {panelOpen && (
             <div className="mt-1.5 rounded-md border border-line bg-surface p-2">
               <p className="mb-1.5 text-[11px] text-muted">
                 {t(
-                  'Type the six stats from its summary and its level. The EVs are estimated assuming perfect IVs (31): if its IVs are lower, it has more EVs than this shows.'
+                  'Type the six numbers from the blue graph (the stats) and its level. The EVs are estimated assuming perfect IVs (31): if its IVs are lower, it has more EVs than this shows.'
                 )}
               </p>
               <div className="grid grid-cols-3 gap-1.5">

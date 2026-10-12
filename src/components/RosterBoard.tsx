@@ -289,11 +289,13 @@ export function RosterBoard({
     };
   };
 
-  async function saveCurrentEvs(p: RosterView, next: EvSpread | null) {
+  async function saveCurrentEvs(p: RosterView, next: EvSpread | null, estimated: boolean) {
     setError(null);
-    replace({ ...p, currentEvs: next });
+    replace({ ...p, currentEvs: next, currentEvsEstimated: next ? estimated : false });
     try {
-      await api(`/api/roster/${p.id}`, 'PATCH', { set: { currentEvs: next ? formatEvs(next) : null } });
+      await api(`/api/roster/${p.id}`, 'PATCH', {
+        set: { currentEvs: next ? formatEvs(next) : null, currentEvsEstimated: next ? estimated : false },
+      });
     } catch {
       replace(p);
       setError(t('Could not save that change. It has been undone; try again.'));
@@ -710,7 +712,8 @@ export function RosterBoard({
                         <div className="min-w-0 flex-1">
                           <CardEvs
                             value={p.currentEvs}
-                            onSave={(next) => saveCurrentEvs(p, next)}
+                            estimated={p.currentEvsEstimated}
+                            onSave={(next, estimated) => saveCurrentEvs(p, next, estimated)}
                             estimate={estimateFor(p)}
                           />
                           {evTarget && p.evs && p.currentEvs && (
@@ -866,21 +869,23 @@ export function RosterBoard({
 /** The six EV boxes on a card. Saves when you click away, if the numbers are possible. */
 function CardEvs({
   value,
+  estimated,
   onSave,
   estimate,
 }: {
   value: EvSpread | null;
-  onSave: (next: EvSpread | null) => void;
+  estimated: boolean;
+  onSave: (next: EvSpread | null, estimated: boolean) => void;
   estimate?: EvEstimateInfo;
 }) {
   const [draft, setDraft] = useState<EvSpread | null>(value);
-  const commit = () => {
+  const commit = (isEstimated: boolean) => {
     const spread = draft ?? NO_EVS;
     if (!evsAreValid(spread)) return;
     const next = evTotal(spread) === 0 ? null : spread;
-    if (JSON.stringify(next) !== JSON.stringify(value)) onSave(next);
+    if (JSON.stringify(next) !== JSON.stringify(value) || isEstimated !== estimated) onSave(next, isEstimated);
   };
-  return <EvInputs value={draft} onChange={setDraft} onCommit={commit} estimate={estimate} />;
+  return <EvInputs value={draft} onChange={setDraft} onCommit={commit} estimate={estimate} estimated={estimated} />;
 }
 
 /** The Judge's verdict as a coloured select, so the colour tells you the tier at a glance. */
