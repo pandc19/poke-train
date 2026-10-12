@@ -32,3 +32,29 @@ export function describePlan(plan: EvSpread, current: EvSpread | null, nothing: 
     toTrain: evTotal(gap) > 0 ? formatEvs(gap) : nothing,
   };
 }
+
+/** The vitamin that gives EVs in each stat, and how many EVs one gives. */
+const VITAMINS: Record<keyof EvSpread, { item: string; stat: string }> = {
+  hp: { item: 'HP Up', stat: 'HP' },
+  attack: { item: 'Protein', stat: 'Attack' },
+  defense: { item: 'Iron', stat: 'Defense' },
+  specialAttack: { item: 'Calcium', stat: 'Sp. Atk' },
+  specialDefense: { item: 'Zinc', stat: 'Sp. Def' },
+  speed: { item: 'Carbos', stat: 'Speed' },
+};
+export const EVS_PER_VITAMIN = 10;
+
+/** How many vitamins would cover what is still to train. Counted here: the model gets this arithmetic wrong. */
+export function vitaminsFor(gap: EvSpread, es: boolean) {
+  return KEYS.filter((key) => gap[key] > 0).map((key) => {
+    const count = Math.ceil(gap[key] / EVS_PER_VITAMIN);
+    const { item, stat } = VITAMINS[key];
+    return {
+      item,
+      stat,
+      why: es
+        ? `${count} × ${item} dan ${count * EVS_PER_VITAMIN} EVs (+${EVS_PER_VITAMIN} cada uno) para cubrir los ${gap[key]} que faltan`
+        : `${count} × ${item} give ${count * EVS_PER_VITAMIN} EVs (+${EVS_PER_VITAMIN} each) to cover the ${gap[key]} still missing`,
+    };
+  });
+}

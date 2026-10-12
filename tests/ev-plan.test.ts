@@ -41,3 +41,16 @@ describe('describePlan', () => {
     expect(describePlan(evs(120, 92, 4), evs(120, 92, 4), 'nothing').toTrain).toBe('nothing');
   });
 });
+
+describe('vitaminsFor', () => {
+  it('counts one vitamin per 10 EVs, rounded up, for each missing stat', async () => {
+    const { vitaminsFor } = await import('@/lib/ev-plan');
+    const out = vitaminsFor(evs(0, 160, 134), false);
+    expect(out.map((v) => [v.item, v.stat])).toEqual([
+      ['Protein', 'Attack'],
+      ['Iron', 'Defense'],
+    ]);
+    expect(out[0].why).toContain('16 × Protein');
+    expect(out[1].why).toContain('14 × Iron');
+  });
+});

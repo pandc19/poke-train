@@ -52,9 +52,6 @@ export const BuildAuditRawSchema = BuildAuditSchema.omit({ evPlan: true }).exten
         })
         .describe('EVs (not stats) it should have when finished: the EVs per stat, at most 252 each and 510 in total'),
       steps: z.array(z.string()).describe('Practical ways to get the EVs still missing in this game'),
-      items: z
-        .array(z.object({ item: z.string(), stat: z.string(), why: z.string() }))
-        .describe('Vitamins or similar items that provide the missing EVs, with the stat each one is for. Empty if none are missing'),
     })
     .describe('How to finish its EV training'),
 });

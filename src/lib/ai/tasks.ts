@@ -4,7 +4,7 @@ import { prisma } from '../db';
 import type { GameConfig } from '../games';
 import { learnableMoves } from '../breeding/moves';
 import { evGap, evTotal, formatEvs } from '../import/evs';
-import { describePlan, legalPlan } from '../ev-plan';
+import { describePlan, legalPlan, vitaminsFor } from '../ev-plan';
 import type { Lang } from '../i18n';
 import { ivRating } from '../iv-ratings';
 import { potentialLevel } from '../potential';
@@ -12,7 +12,7 @@ import type { RosterView } from '../roster';
 import { type BuildAudit, type BuildAuditRaw, BuildAuditNoEvSchema, BuildAuditRawSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 6;
+const PROMPT_VERSION = 7;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -183,7 +183,18 @@ export async function auditBuild(
         const withPlan = raw as BuildAuditRaw;
         const plan = legalPlan(withPlan.evPlan.spread, p.currentEvs, !hasTarget);
         const { spread, toTrain } = describePlan(plan, p.currentEvs, lang === 'es' ? 'nada' : 'nothing');
-        return { ...withPlan, evPlan: { spread, toTrain, steps: withPlan.evPlan.steps, items: withPlan.evPlan.items } };
+        // EV advice has one home, the plan; a change that talks about EVs would only contradict it.
+        const changes = withPlan.changes.filter((c) => !/\bEVs?\b/i.test(`${c.change} ${c.reason}`));
+        return {
+          ...withPlan,
+          changes,
+          evPlan: {
+            spread,
+            toTrain,
+            steps: withPlan.evPlan.steps,
+            items: vitaminsFor(evGap(plan, p.currentEvs), lang === 'es'),
+          },
+        };
       },
       schemaName: 'build_audit',
       // Item and EV advice depends on how this game works, so let it look things up.
@@ -218,8 +229,8 @@ export async function auditBuild(
               : 'Its EVs are hard to change in this game, so every stat must stay at or above its currentEvs: only add to them with the evsLeftToTrain still free, and never start over. ' +
                 'If currentEvs is null, give general advice only. ') +
             'Put the remaining EVs into the stats its role actually uses and leave the stats it does not use at 0 or as they are: for example, a physical attacker needs no Sp. Atk. ' +
-            'steps: practical ways to get the missing EVs in this game. items: for each missing stat, the vitamin or other item that gives those EVs ' +
-            '(Protein/Iron/Calcium/Zinc/Carbos/HP Up and the feathers or wings, always by their English names) and why; empty if no EVs are missing. ' +
+            'steps: practical ways to get the missing EVs in this game (where to battle for them, feathers, Power items). ' +
+            'Do not give vitamin counts or EV arithmetic: the app works out the vitamins itself. ' +
             `Look up how ${game.name} handles EV training and what those items do there if you are not sure.` +
             (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
           : '',
