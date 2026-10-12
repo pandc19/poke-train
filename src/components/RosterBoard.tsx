@@ -9,7 +9,7 @@ import { RosterEditDialog } from './RosterEditDialog';
 import { TypeBadge } from './TypeBadge';
 import type { TeamAudit } from '@/lib/ai/schema';
 import { evGap, evTotal, formatEvs, type EvSpread } from '@/lib/import/evs';
-import { EvInputs, NO_EVS, evsAreValid } from './EvInputs';
+import { EvInputs, NO_EVS, evsAreValid, type EvEstimateInfo } from './EvInputs';
 import type { Lang } from '@/lib/i18n';
 import { POTENTIAL_LEVELS, potentialLevel } from '@/lib/potential';
 import { TYPE_COLORS } from '@/lib/pokemon-types';
@@ -276,6 +276,18 @@ export function RosterBoard({
       setError(t('Could not save the potential. It has been undone; try again.'));
     }
   }
+
+  /** What the stats-to-EVs panel needs for this Pokémon: its base stats and the nature it really has. */
+  const estimateFor = (p: RosterView): EvEstimateInfo | undefined => {
+    if (!p.baseStats) return undefined;
+    const nature = p.currentNature ?? p.targetNature;
+    const effect = nature ? options.natures.find((n) => n.id === nature.id) : null;
+    return {
+      baseStats: p.baseStats,
+      nature: effect ? { increased: effect.increased, decreased: effect.decreased } : null,
+      natureName: nature ? name(nature) : null,
+    };
+  };
 
   async function saveCurrentEvs(p: RosterView, next: EvSpread | null) {
     setError(null);
@@ -696,7 +708,11 @@ export function RosterBoard({
                     {evs && (
                       <Row label={t('Current EVs')}>
                         <div className="min-w-0 flex-1">
-                          <CardEvs value={p.currentEvs} onSave={(next) => saveCurrentEvs(p, next)} />
+                          <CardEvs
+                            value={p.currentEvs}
+                            onSave={(next) => saveCurrentEvs(p, next)}
+                            estimate={estimateFor(p)}
+                          />
                           {evTarget && p.evs && p.currentEvs && (
                             <p className="mt-1 text-[11px] text-muted">
                               {evTotal(evGap(p.evs, p.currentEvs)) === 0
@@ -848,7 +864,15 @@ export function RosterBoard({
 }
 
 /** The six EV boxes on a card. Saves when you click away, if the numbers are possible. */
-function CardEvs({ value, onSave }: { value: EvSpread | null; onSave: (next: EvSpread | null) => void }) {
+function CardEvs({
+  value,
+  onSave,
+  estimate,
+}: {
+  value: EvSpread | null;
+  onSave: (next: EvSpread | null) => void;
+  estimate?: EvEstimateInfo;
+}) {
   const [draft, setDraft] = useState<EvSpread | null>(value);
   const commit = () => {
     const spread = draft ?? NO_EVS;
@@ -856,7 +880,7 @@ function CardEvs({ value, onSave }: { value: EvSpread | null; onSave: (next: EvS
     const next = evTotal(spread) === 0 ? null : spread;
     if (JSON.stringify(next) !== JSON.stringify(value)) onSave(next);
   };
-  return <EvInputs value={draft} onChange={setDraft} onCommit={commit} />;
+  return <EvInputs value={draft} onChange={setDraft} onCommit={commit} estimate={estimate} />;
 }
 
 /** The Judge's verdict as a coloured select, so the colour tells you the tier at a glance. */

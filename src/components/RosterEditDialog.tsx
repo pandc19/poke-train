@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Dialog } from './Dialog';
 import { formatEvs, type EvSpread } from '@/lib/import/evs';
-import { EvInputs, evsAreValid } from './EvInputs';
+import { EvInputs, evsAreValid, type EvEstimateInfo } from './EvInputs';
 import type { Lang } from '@/lib/i18n';
 import { POTENTIAL_LEVELS } from '@/lib/potential';
 import { TYPE_NAMES_ES, TYPE_SLUGS } from '@/lib/pokemon-types';
@@ -106,6 +106,15 @@ function EditForm({
   const [item, setItem] = useState(p.item ? label(p.item) : (p.itemNote ?? ''));
   const [evs, setEvs] = useState(p.evs ? formatEvs(p.evs) : '');
   const [currentEvs, setCurrentEvs] = useState<EvSpread | null>(p.currentEvs);
+  // The nature it really has (or, failing that, the one planned) decides the stats-to-EVs maths.
+  const natureForEvs = options.natures.find((n) => n.id === (p.currentNature?.id ?? natureId)) ?? null;
+  const estimateInfo: EvEstimateInfo | undefined = p.baseStats
+    ? {
+        baseStats: p.baseStats,
+        nature: natureForEvs ? { increased: natureForEvs.increased, decreased: natureForEvs.decreased } : null,
+        natureName: natureForEvs ? label(natureForEvs) : null,
+      }
+    : undefined;
   const [teraType, setTeraType] = useState(p.teraType ?? '');
   const [notes, setNotes] = useState(p.notes ?? '');
   const [moves, setMoves] = useState(() =>
@@ -253,7 +262,7 @@ function EditForm({
           {hasEvs && (
             <div className="sm:col-span-2">
               <span className="mb-1 block text-xs font-medium text-muted">{t('Current EV spread')}</span>
-              <EvInputs value={currentEvs} onChange={setCurrentEvs} />
+              <EvInputs value={currentEvs} onChange={setCurrentEvs} estimate={estimateInfo} />
               <span className="mt-1 block text-[11px] text-muted">
                 {t('What it has right now. The AI audit uses it to suggest how to finish the training.')}
               </span>
