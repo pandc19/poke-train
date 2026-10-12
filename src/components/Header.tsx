@@ -118,9 +118,9 @@ export function Header({ games }: { games: GameLink[] }) {
               </Link>
             );
           })}
-          {current.catalog.length > 0 && <CatalogButton sections={current.catalog} />}
         </nav>
       )}
+      {current.catalog.length > 0 && <CatalogButton sections={current.catalog} />}
     </header>
   );
 }

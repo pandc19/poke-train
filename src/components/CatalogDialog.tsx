@@ -6,7 +6,7 @@ import { Sprite } from './Sprite';
 import { type CatalogSection, itemSpriteUrl } from '@/lib/games/catalog';
 import { useT } from '@/lib/translate-client';
 
-/** A tab beside the game's other sections that opens the current game's quick-reference catalog (EV berries and the like). */
+/** A floating button, reachable from anywhere on the page, that opens the current game's quick-reference catalog (EV berries and the like). */
 export function CatalogButton({ sections }: { sections: CatalogSection[] }) {
   const { t, lang } = useT();
   const [open, setOpen] = useState(false);
@@ -14,8 +14,10 @@ export function CatalogButton({ sections }: { sections: CatalogSection[] }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="whitespace-nowrap px-3 py-2 text-sm text-muted hover:text-ink"
+        aria-label={t('Catalog')}
+        className="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-sm font-medium text-ink shadow-lg hover:bg-surface-2"
       >
+        <span aria-hidden>📖</span>
         {t('Catalog')}
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} title={t('Catalog')} wide>
