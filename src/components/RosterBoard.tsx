@@ -909,6 +909,7 @@ function CardStatsEvs({
       }}
       onCommit={commit}
       info={info}
+      potential={p.potential}
       savedEvs={p.currentEvs}
       savedEstimated={p.currentEvsEstimated}
       onExactEvs={onSaveExact}

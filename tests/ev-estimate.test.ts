@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { estimateEvs, statValue } from '@/lib/ev-estimate';
+import { estimateEvRange, estimateEvs, statValue } from '@/lib/ev-estimate';
+import { ivAssumption } from '@/lib/potential';
 
 // Golem's base stats, and an Adamant nature (+Attack, -Sp. Atk).
 const GOLEM = { hp: 80, attack: 120, defense: 130, specialAttack: 55, specialDefense: 65, speed: 45 };
@@ -70,5 +71,39 @@ describe('estimating EVs from stats', () => {
     });
     expect(statValue('speed', 45, 31, back.speed, 50, null)).toBe(stat);
     expect(back.speed).toBeLessThanOrEqual(100);
+  });
+});
+
+describe('IVs from the Judge potential', () => {
+  const stats = { hp: 331, attack: 328, defense: 297, speed: 126, specialDefense: 166, specialAttack: 131 };
+
+  it('assumes perfect IVs when no potential is set, and the middle of the range otherwise', () => {
+    expect(ivAssumption(null)).toMatchObject({ assumed: 31, fromPotential: false });
+    expect(ivAssumption('DECENT')).toMatchObject({ assumed: 8, low: 0, high: 15, fromPotential: true });
+    expect(ivAssumption('OUTSTANDING')).toMatchObject({ assumed: 28, low: 25, high: 31 });
+  });
+
+  it('needs more EVs for the same stats when the IVs are lower', () => {
+    const total = (potential: string | null) => {
+      const evs = estimateEvs({ stats, level: 100, baseStats: GOLEM, nature: ADAMANT, ivs: ivAssumption(potential).assumed });
+      return Object.values(evs).reduce((a, b) => a + b, 0);
+    };
+    expect(total('DECENT')).toBeGreaterThan(total('ABOVE_AVERAGE'));
+    expect(total('ABOVE_AVERAGE')).toBeGreaterThan(total('OUTSTANDING'));
+    expect(total('OUTSTANDING')).toBeGreaterThan(total(null));
+  });
+
+  it('brackets the estimate with the spread for the best and worst IVs of that rating', () => {
+    const { estimate, low, high } = estimateEvRange({
+      stats,
+      level: 100,
+      baseStats: GOLEM,
+      nature: ADAMANT,
+      ivs: ivAssumption('RELATIVELY_SUPERIOR'),
+    });
+    for (const key of Object.keys(estimate) as (keyof typeof estimate)[]) {
+      expect(low[key]).toBeLessThanOrEqual(estimate[key]);
+      expect(estimate[key]).toBeLessThanOrEqual(high[key]);
+    }
   });
 });

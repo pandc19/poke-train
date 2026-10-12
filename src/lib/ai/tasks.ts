@@ -5,7 +5,7 @@ import type { GameConfig } from '../games';
 import { learnableMoves } from '../breeding/moves';
 import { evGap, evTotal, formatEvs } from '../import/evs';
 import type { Lang } from '../i18n';
-import { potentialLevel } from '../potential';
+import { ivAssumption, potentialLevel } from '../potential';
 import type { RosterView } from '../roster';
 import { BuildAuditNoEvSchema, BuildAuditSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
@@ -89,6 +89,7 @@ function describeBuild(p: RosterView, hasEvs = true, hasTarget = true) {
           currentEvs: p.currentEvs ? formatEvs(p.currentEvs) : null,
           // Worked out from the stats assuming perfect IVs, so they may be a little low.
           currentEvsAreEstimated: p.currentEvs ? p.currentEvsEstimated : null,
+          assumedIvPerStat: p.currentEvs && p.currentEvsEstimated ? ivAssumption(p.potential).assumed : null,
           ...(hasTarget
             ? {
                 targetEvs: p.evs ? formatEvs(p.evs) : null,
@@ -169,7 +170,7 @@ export async function auditBuild(
               (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
             : '',
         hasEvs
-          ? 'If currentEvsAreEstimated is true, the EVs were worked out from its stats assuming perfect IVs, so treat them as approximate and slightly low, especially for Attack, Defense, Sp. Atk. and Sp. Def. with a boosting or lowering nature.'
+          ? 'If currentEvsAreEstimated is true, the EVs were worked out from its stats assuming IVs of about assumedIvPerStat in each stat (taken from its judge potential, or 31 when that is not set), so treat them as approximate, especially for Attack, Defense, Sp. Atk. and Sp. Def. with a boosting or lowering nature.'
           : '',
         'heldItem: the best held item for it as it is now. If the one it holds is already the best, name it and say to keep it.',
         `recommendedMoves: the best four moves for it given its nature${hasEvs ? ' and EVs' : ''}, chosen ONLY from legalMovePool. ` +

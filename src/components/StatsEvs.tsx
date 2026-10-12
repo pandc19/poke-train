@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { EvInputs, NO_EVS, STAT_LABELS, STAT_ORDER, StatInputs, cleanNumber, evsAreValid } from './EvInputs';
-import { estimateEvs, type NatureEffect } from '@/lib/ev-estimate';
+import { estimateEvRange, type NatureEffect } from '@/lib/ev-estimate';
+import { ivAssumption, potentialLevel } from '@/lib/potential';
 import { evTotal, type EvSpread } from '@/lib/import/evs';
 import { useT } from '@/lib/translate-client';
 
@@ -70,6 +71,7 @@ export function StatsEvsEditor({
   onChange,
   onCommit,
   info,
+  potential,
   savedEvs,
   savedEstimated,
   onExactEvs,
@@ -80,20 +82,27 @@ export function StatsEvsEditor({
   /** Focus left the stats and level boxes. */
   onCommit?: () => void;
   info?: EvEstimateInfo;
+  /** The Judge's potential, which says roughly what IVs to assume. */
+  potential: string | null;
   /** The EVs on record, shown when no stats are typed. */
   savedEvs: EvSpread | null;
   savedEstimated: boolean;
   /** Exact EVs were typed. They replace the stats-based estimate. */
   onExactEvs?: (evs: EvSpread | null) => void;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [exact, setExact] = useState<EvSpread | null>(savedEstimated ? null : savedEvs);
 
   const hasStats = stats != null && evTotal(stats) > 0;
-  const live =
-    hasStats && info ? estimateEvs({ stats, level, baseStats: info.baseStats, nature: info.nature }) : null;
+  const iv = ivAssumption(potential);
+  const range =
+    hasStats && info
+      ? estimateEvRange({ stats, level, baseStats: info.baseStats, nature: info.nature, ivs: iv })
+      : null;
+  const live = range?.estimate ?? null;
   const evs = live ?? savedEvs;
   const estimated = live != null || savedEstimated;
+  const level_ = potentialLevel(potential);
   const total = evs ? evTotal(evs) : 0;
 
   return (
@@ -132,7 +141,19 @@ export function StatsEvsEditor({
           </p>
           {estimated && (
             <p className="mt-0.5 text-center text-[10px] text-muted">
-              {t('EVs worked out from the stats. Assumes perfect IVs (31); with lower IVs it has more EVs than shown.')}
+              {iv.fromPotential && level_
+                ? t(
+                    'EVs worked out from the stats. Assumes IVs of about {iv} per stat ({potential}); the real total is between {low} and {high}.',
+                    {
+                      iv: iv.assumed,
+                      potential: lang === 'en' ? level_.label : level_.labelEs,
+                      low: range ? evTotal(range.low) : total,
+                      high: range ? evTotal(range.high) : total,
+                    }
+                  )
+                : t(
+                    'EVs worked out from the stats. Assumes perfect IVs (31) because its potential is not set: set it for a better estimate.'
+                  )}
               {info &&
                 ` ${info.natureName ? t('Using its {nature} nature', { nature: info.natureName }) : t('Its nature is not set, so none is applied.')}`}
             </p>

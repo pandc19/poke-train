@@ -280,6 +280,7 @@ function EditForm({
                   setExactEvs(null);
                 }}
                 info={estimateInfo}
+                potential={potential || null}
                 savedEvs={p.currentEvs}
                 savedEstimated={p.currentEvsEstimated}
                 onExactEvs={(evs) => {
