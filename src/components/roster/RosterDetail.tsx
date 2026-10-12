@@ -162,7 +162,6 @@ export function RosterDetail({
   const [error, setError] = useState<string | null>(null);
   const [nickname, setNickname] = useState(p.nickname ?? '');
   const [targetEvs, setTargetEvs] = useState(p.evs ? formatEvs(p.evs) : '');
-  const [notes, setNotes] = useState(p.notes ?? '');
 
   const prog = progressOf(p);
 
@@ -246,14 +245,6 @@ export function RosterDetail({
           </div>
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
-          <button
-            onClick={() => (p.audit ? onToggleAudit() : onAudit(false, false))}
-            disabled={(!aiEnabled && !p.audit) || auditing}
-            title={aiEnabled ? undefined : t('Add an API key to .env.local to enable AI audits')}
-            className="rounded-md border border-line px-3 py-1.5 disabled:opacity-40"
-          >
-            {auditing ? t('Auditing…') : p.audit ? (auditOpen ? t('Hide audit') : t('Show audit')) : t('AI audit')}
-          </button>
           <button onClick={onRemove} className="rounded-md border border-line px-3 py-1.5 text-muted hover:text-red-400">
             {t('Remove')}
           </button>
@@ -471,17 +462,18 @@ export function RosterDetail({
             </Section>
           )}
 
-          <Section title={t('Notes')}>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              onBlur={() => notes.trim() !== (p.notes ?? '') && save({ notes: notes.trim() || null })}
-              rows={3}
-              aria-label={t('Notes')}
-              className={inputClass}
-            />
-          </Section>
         </div>
+      </div>
+
+      <div className="mt-5">
+        <button
+          onClick={() => (p.audit ? onToggleAudit() : onAudit(false, false))}
+          disabled={(!aiEnabled && !p.audit) || auditing}
+          title={aiEnabled ? undefined : t('Add an API key to .env.local to enable AI audits')}
+          className="rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
+        >
+          {auditing ? t('Auditing…') : p.audit ? (auditOpen ? t('Hide audit') : t('Show audit')) : t('AI audit')}
+        </button>
       </div>
 
       {auditOpen && p.audit && (
