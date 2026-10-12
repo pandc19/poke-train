@@ -49,9 +49,14 @@ export const BuildAuditRawSchema = BuildAuditSchema.omit({ evPlan: true }).exten
         })
         .describe('EVs (not stats) it should have when finished: the EVs per stat, at most 252 each and 510 in total'),
       training: z
-        .array(z.object({ stat: z.string(), battle: z.string() }))
+        .array(
+          z.object({
+            stat: z.enum(['hp', 'attack', 'defense', 'specialAttack', 'specialDefense', 'speed']),
+            battle: z.string(),
+          })
+        )
         .describe(
-          'One entry for each stat that still needs EVs: which wild Pokémon give that stat\'s EVs and where in this game to find them (area names). Empty if nothing is missing'
+          'One entry for each stat that still needs EVs, most important first: which wild Pokémon give that stat\'s EVs and where in this game to find them (area names). Empty if nothing is missing'
         ),
     })
     .describe('How to finish its EV training'),

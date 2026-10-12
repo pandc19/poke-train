@@ -24,6 +24,13 @@ describe('legalPlan', () => {
     expect(Object.values(plan).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(510);
   });
 
+  it('takes the surplus from the least important stat first', () => {
+    const plan = legalPlan(evs(120, 252, 4, 0, 0, 252), evs(120, 92, 4), true, ['attack', 'speed']);
+    expect(plan).toEqual(evs(120, 252, 4, 0, 0, 134));
+    const other = legalPlan(evs(120, 252, 4, 0, 0, 252), evs(120, 92, 4), true, ['speed', 'attack']);
+    expect(other).toEqual(evs(120, 134, 4, 0, 0, 252));
+  });
+
   it('keeps what is trained when the plan already fits', () => {
     expect(legalPlan(current, current, true)).toEqual(current);
   });

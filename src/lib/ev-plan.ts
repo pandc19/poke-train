@@ -9,17 +9,24 @@ const MAX_TOTAL = 510;
  * a stat and 510 in all. Where EVs are hard to change, `keepCurrent` also never
  * goes below what the Pokémon already has, so the plan only adds to it.
  */
-export function legalPlan(proposed: EvSpread, current: EvSpread | null, keepCurrent: boolean): EvSpread {
+export function legalPlan(
+  proposed: EvSpread,
+  current: EvSpread | null,
+  keepCurrent: boolean,
+  /** Stats from most to least important. When the spread is over 510, the least important lose EVs first. */
+  priority: (keyof EvSpread)[] = []
+): EvSpread {
   const floor = (key: keyof EvSpread) => (keepCurrent ? Math.min(MAX_STAT, current?.[key] ?? 0) : 0);
   const plan = { ...proposed };
   for (const key of KEYS) {
     plan[key] = Math.max(floor(key), Math.min(MAX_STAT, Math.max(0, Math.round(proposed[key]))));
   }
-  // Over 510: take the surplus back from the stat with the most EVs above its floor.
-  while (evTotal(plan) > MAX_TOTAL) {
-    const key = KEYS.reduce((best, k) => (plan[k] - floor(k) > plan[best] - floor(best) ? k : best), KEYS[0]);
-    if (plan[key] - floor(key) <= 0) break;
-    plan[key] -= Math.min(plan[key] - floor(key), evTotal(plan) - MAX_TOTAL);
+  // Over 510: take the surplus back from the least important stat, then the next, never below its floor.
+  const unlisted = KEYS.filter((k) => !priority.includes(k)).sort((a, b) => plan[b] - floor(b) - (plan[a] - floor(a)));
+  for (const key of [...unlisted, ...[...priority].reverse()]) {
+    const surplus = evTotal(plan) - MAX_TOTAL;
+    if (surplus <= 0) break;
+    plan[key] -= Math.min(plan[key] - floor(key), surplus);
   }
   return plan;
 }

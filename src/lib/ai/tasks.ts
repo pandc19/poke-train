@@ -12,7 +12,7 @@ import type { RosterView } from '../roster';
 import { type BuildAudit, type BuildAuditRaw, BuildAuditNoEvSchema, BuildAuditRawSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 8;
+const PROMPT_VERSION = 9;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -177,7 +177,12 @@ export async function auditBuild(
         if (!hasEvs) return raw as BuildAudit;
         // The spread is the model's proposal; what it means for this Pokémon is worked out here.
         const withPlan = raw as BuildAuditRaw;
-        const plan = legalPlan(withPlan.evPlan.spread, p.currentEvs, !hasTarget);
+        const plan = legalPlan(
+          withPlan.evPlan.spread,
+          p.currentEvs,
+          !hasTarget,
+          withPlan.evPlan.training.map((x) => x.stat)
+        );
         const { spread, toTrain } = describePlan(plan, p.currentEvs, lang === 'es' ? 'nada' : 'nothing');
         const gap = evGap(plan, p.currentEvs);
         return {
@@ -186,7 +191,9 @@ export async function auditBuild(
           evPlan: {
             spread,
             toTrain,
-            steps: withPlan.evPlan.training.map((x) => `${x.stat}: ${x.battle}`),
+            steps: withPlan.evPlan.training
+              .filter((x) => gap[x.stat] > 0)
+              .map((x) => `${STAT_NAMES[x.stat]}: ${x.battle}`),
             items: trainingItemsFor(gap, lang === 'es'),
           },
         };
@@ -207,7 +214,8 @@ export async function auditBuild(
             (hasTarget
               ? 'EVs are easy to retrain in this game, so choose the best spread for its role, nature, base stats and moves; currentEvs only says where it starts. '
               : 'Its EVs are hard to change in this game, so every stat must stay at or above its currentEvs: only add to them with the evsLeftToTrain still free, and never start over. ') +
-            'Put the remaining EVs into the stats its role actually uses; a physical attacker needs no Sp. Atk. ' +
+            'The EVs you add in total must not go over evsLeftToTrain, and it is fine to leave some unspent: ' +
+            'put them only into the stats its role really needs (a physical attacker needs no Sp. Atk, and a slow bulky Pokémon rarely needs Speed). ' +
             'training: for each stat that still needs EVs, which wild Pokémon give those EVs and where in ' +
             `${game.name} to find them (real area names). Say if you are not sure of an area rather than guessing. Do not give vitamin counts or EV arithmetic: the app works those out.` +
             (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
