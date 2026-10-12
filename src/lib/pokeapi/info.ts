@@ -28,7 +28,7 @@ export type PokemonInfo = {
   /** The whole evolution family, each with the stage it sits at and what it comes from. */
   evolutions: { id: number; nameEn: string; nameEs: string; spriteUrl: string | null; stage: number; from: number | null }[];
   /** Where it sits in the game's own Pokédexes, when a game was given. */
-  dexEntries: { dex: string; number: number }[];
+  dexEntries: { dex: { en: string; es: string }; number: number }[];
 };
 
 type FlavorEntry = { flavor_text: string; language: { name: string }; version?: { name: string } };
@@ -169,6 +169,10 @@ export async function loadPokemonInfo(speciesId: number, game?: GameConfig): Pro
     })),
     dexEntries: slots
       .sort((a, b) => a.pokedex.sortOrder - b.pokedex.sortOrder)
-      .map((s) => ({ dex: s.pokedex.name, number: s.entryNumber })),
+      .map((s) => {
+        // The game config knows each Pokédex by name in both languages.
+        const configured = game?.pokedexes.find((d) => d.slug === s.pokedex.slug);
+        return { dex: configured?.name ?? { en: s.pokedex.name, es: s.pokedex.name }, number: s.entryNumber };
+      }),
   };
 }

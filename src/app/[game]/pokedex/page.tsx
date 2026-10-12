@@ -29,13 +29,13 @@ export default async function PokedexPage({ params, searchParams }: PageProps<'/
               }`}
               style={d.slug === current.slug ? { background: game.theme.from } : undefined}
             >
-              {d.name}
+              {pick(d.name, lang)}
             </Link>
           ))}
         </div>
       </div>
       <p className="-mt-3 mb-5 text-sm text-muted">
-        <span className="font-medium text-ink">{current.name}</span>: {pick(current.note, lang)}.{' '}
+        <span className="font-medium text-ink">{pick(current.name, lang)}</span>: {pick(current.note, lang)}.{' '}
         {current.slug !== 'paldea' && t('You only need this dex if you own the expansion.')}
       </p>
       {/* keyed so switching dex resets search, filter and optimistic state */}

@@ -163,10 +163,10 @@ export function PokemonInfoDialog({
                 <p className="mt-3 text-xs text-muted">
                   {t('In this game:')}{' '}
                   {info.dexEntries.map((d, i) => (
-                    <span key={d.dex}>
+                    <span key={d.dex.en}>
                       {i > 0 && ' · '}
                       <span className="text-ink">
-                        {d.dex} #{d.number}
+                        {lang === 'en' ? d.dex.en : d.dex.es} #{d.number}
                       </span>
                     </span>
                   ))}

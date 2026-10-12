@@ -221,7 +221,7 @@ async function main() {
   console.log('pokedexes');
   const dexes = [
     { slug: NATIONAL_DEX_SLUG, name: 'National', gameId: null as string | null, sortOrder: 0 },
-    ...GAMES.flatMap((g) => g.pokedexes.map((d, i) => ({ slug: d.slug, name: d.name, gameId: g.id, sortOrder: i }))),
+    ...GAMES.flatMap((g) => g.pokedexes.map((d, i) => ({ slug: d.slug, name: d.name.en, gameId: g.id, sortOrder: i }))),
   ];
   for (const dex of dexes) {
     const d = dex.slug === NATIONAL_DEX_SLUG ? national : await get(`pokedex/${dex.slug}`);

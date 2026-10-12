@@ -26,7 +26,7 @@ const GROUP_TEXT: Record<string, { label: Localized; note?: Localized }> = {
   },
   'teal-mask': {
     label: { en: 'The Teal Mask', es: 'La Máscara Turquesa' },
-    note: { en: 'Kitakami DLC', es: 'DLC de Kitakami' },
+    note: { en: 'Kitakami DLC', es: 'DLC de Noroteo' },
   },
   'indigo-disk': {
     label: { en: 'The Indigo Disk', es: 'El Disco Índigo' },

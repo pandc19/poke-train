@@ -18,7 +18,7 @@ export type GameConfig = {
   /** Every version group whose learnsets count as legal (base game + DLC). */
   learnsetVersionGroups: string[];
   /** PokéAPI pokedex slugs, in display order. `note` says where the dex comes from. */
-  pokedexes: { slug: string; name: string; note: Localized }[];
+  pokedexes: { slug: string; name: Localized; note: Localized }[];
   features: {
     breeding: boolean;
     evs: boolean;
@@ -67,9 +67,9 @@ export const GAMES: GameConfig[] = [
     versionGroup: 'scarlet-violet',
     learnsetVersionGroups: ['scarlet-violet', 'the-teal-mask', 'the-indigo-disk'],
     pokedexes: [
-      { slug: 'paldea', name: 'Paldea', note: { en: 'Base game', es: 'Juego base' } },
-      { slug: 'kitakami', name: 'Kitakami', note: { en: 'DLC: The Teal Mask', es: 'DLC: La Máscara Turquesa' } },
-      { slug: 'blueberry', name: 'Blueberry', note: { en: 'DLC: The Indigo Disk', es: 'DLC: El Disco Índigo' } },
+      { slug: 'paldea', name: { en: 'Paldea', es: 'Paldea' }, note: { en: 'Base game', es: 'Juego base' } },
+      { slug: 'kitakami', name: { en: 'Kitakami', es: 'Noroteo' }, note: { en: 'DLC: The Teal Mask', es: 'DLC: La Máscara Turquesa' } },
+      { slug: 'blueberry', name: { en: 'Blueberry', es: 'Arándano' }, note: { en: 'DLC: The Indigo Disk', es: 'DLC: El Disco Índigo' } },
     ],
     features: {
       breeding: true,
