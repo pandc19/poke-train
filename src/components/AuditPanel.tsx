@@ -125,15 +125,16 @@ export function AuditPanel({
   };
   const itemFixed = Boolean(locks?.heldItem);
   const movesFixed = locks?.moves ?? [];
-  const toggleMove = (m: { move: string; reason: string }) => {
-    const isFixed = movesFixed.some((x) => x.move === m.move);
+  const anyFixed = itemFixed || movesFixed.length > 0;
+  const recommended = audit.recommendedMoves ?? [];
+  // One button fixes the held item and all the moves together, or lets them all go.
+  const toggleFixed = () => {
+    if (anyFixed) return setLocks({});
     setLocks({
-      ...locks,
-      moves: isFixed ? movesFixed.filter((x) => x.move !== m.move) : [...movesFixed, m].slice(0, 4),
+      heldItem: audit.heldItem ? { item: audit.heldItem.item, reason: audit.heldItem.reason } : undefined,
+      moves: recommended.slice(0, 4).map((m) => ({ move: m.move, reason: m.reason })),
     });
   };
-  const fixButton =
-    'ml-2 rounded border px-1.5 py-0.5 text-[10px] disabled:opacity-40';
   const languageName = (code: string) => (code === 'en' ? t('English') : t('Spanish'));
   // The saved answer is never translated: switching language keeps it until it is re-run.
   const otherLanguage = auditLang != null && auditLang !== lang;
@@ -232,16 +233,6 @@ export function AuditPanel({
           <p>
             <span className="font-medium">{audit.heldItem.item}</span>
             <span className="text-muted"> · {audit.heldItem.reason}</span>
-            {onLocksChange && (
-              <button
-                onClick={() =>
-                  setLocks({ ...locks, heldItem: itemFixed ? undefined : { item: audit.heldItem!.item, reason: audit.heldItem!.reason } })
-                }
-                className={`${fixButton} ${itemFixed ? 'border-done/50 text-done' : 'border-line text-muted hover:text-ink'}`}
-              >
-                {itemFixed ? `✓ ${t('Fixed')}` : t('Fix')}
-              </button>
-            )}
           </p>
         </div>
       )}
@@ -254,28 +245,28 @@ export function AuditPanel({
               <li key={i}>
                 <span className="font-medium">{m.move}</span>
                 <span className="text-muted"> · {m.reason}</span>
-                {onLocksChange && (
-                  <button
-                    onClick={() => toggleMove(m)}
-                    disabled={!movesFixed.some((x) => x.move === m.move) && movesFixed.length >= 4}
-                    className={`${fixButton} ${
-                      movesFixed.some((x) => x.move === m.move) ? 'border-done/50 text-done' : 'border-line text-muted hover:text-ink'
-                    }`}
-                  >
-                    {movesFixed.some((x) => x.move === m.move) ? `✓ ${t('Fixed')}` : t('Fix')}
-                  </button>
-                )}
               </li>
             ))}
           </ul>
-          {(movesFixed.length > 0 || itemFixed) && (
-            <p className="mt-1 text-[10px] text-muted">{t('Fixed parts stay the same when you run the audit again.')}</p>
-          )}
         </div>
       )}
 
       {!audit.evPlan && !audit.heldItem && !(audit.recommendedMoves ?? []).length && (
         <p className="text-muted">{t('This audit is in an older format. Re-run it to get the EV plan, held item and moves.')}</p>
+      )}
+
+      {onLocksChange && (audit.heldItem || recommended.length > 0) && (
+        <p className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={toggleFixed}
+            title={t('Fixed parts stay the same when you run the audit again.')}
+            className={`rounded border px-2 py-0.5 text-[11px] font-medium ${
+              anyFixed ? 'border-done/50 text-done' : 'border-line text-muted hover:text-ink'
+            }`}
+          >
+            {anyFixed ? `✓ ${t('Item and moves fixed. Unfix')}` : t('Fix item and moves')}
+          </button>
+        </p>
       )}
 
       <p className="flex items-center justify-between text-[10px] text-muted">
