@@ -2,22 +2,20 @@ import { z } from 'zod';
 
 /** Shapes every AI provider must return. Kept small: each field is shown in the UI. */
 
+/**
+ * What an audit of one Pokémon gives: how to finish its EV training, the best
+ * held item, and the best moves. Nothing else.
+ */
 export const BuildAuditSchema = z.object({
-  rating: z.enum(['strong', 'ok', 'weak']).describe('How good this Pokémon is as it stands right now'),
-  summary: z.string().describe('Two or three sentences on the role it plays and how well it does it as it is'),
-  issues: z.array(z.string()).describe('Short list of concrete problems: wasted EVs, a dead move slot, a mismatched item'),
-  changes: z
-    .array(z.object({ change: z.string(), effort: z.enum(['easy', 'medium', 'hard']), reason: z.string() }))
-    .describe('At most three changes that would most improve it as it is, easiest and most valuable first'),
   evPlan: z
     .object({
       spread: z.string().describe('The EV spread to finish with, e.g. "252 Atk / 252 Spe / 4 HP"'),
-      toTrain: z.string().describe('Exactly what is still missing from its current EVs, or "nothing" if it is done'),
-      steps: z.array(z.string()).describe('Practical ways to get those EVs in this game'),
+      toTrain: z.string().describe('Exactly what is still missing from its current EVs'),
+      steps: z.array(z.string()).describe('Where and against which Pokémon to train each missing stat'),
       items: z
         .array(z.object({ item: z.string(), stat: z.string(), why: z.string() }))
         .optional()
-        .describe('Vitamins and similar items that would provide the EVs still to train'),
+        .describe('Vitamins and Power items for the missing EVs'),
     })
     .describe('How to finish its EV training'),
   heldItem: z
@@ -26,39 +24,39 @@ export const BuildAuditSchema = z.object({
   recommendedMoves: z
     .array(z.object({ move: z.string(), reason: z.string() }))
     .describe('The best set of up to four moves for it, chosen only from the moves it can learn in this game'),
-  howToGet: z
-    .array(z.object({ what: z.string(), where: z.string() }))
-    .describe('Where to obtain pending items, TMs (and their materials) or moves in this game'),
 });
 export type BuildAudit = z.infer<typeof BuildAuditSchema>;
 
-const EvCount = z.number().int();
+/** The same answer for a game without EV training: there is no EV plan to give. */
+export const BuildAuditNoEvSchema = BuildAuditSchema.omit({ evPlan: true });
 
 /**
- * What the model returns for an EV plan: the spread as numbers per stat, so
- * nothing can be mistaken for a stat value. The text shown is built from it.
+ * What the model returns for the EV plan: the spread as numbers per stat, so
+ * nothing can be mistaken for a stat value, and where to battle for each stat.
+ * The text shown, and the vitamin counts, are built from it in code.
  */
 export const BuildAuditRawSchema = BuildAuditSchema.omit({ evPlan: true }).extend({
   evPlan: z
     .object({
       spread: z
         .object({
-          hp: EvCount,
-          attack: EvCount,
-          defense: EvCount,
-          specialAttack: EvCount,
-          specialDefense: EvCount,
-          speed: EvCount,
+          hp: z.number().int(),
+          attack: z.number().int(),
+          defense: z.number().int(),
+          specialAttack: z.number().int(),
+          specialDefense: z.number().int(),
+          speed: z.number().int(),
         })
         .describe('EVs (not stats) it should have when finished: the EVs per stat, at most 252 each and 510 in total'),
-      steps: z.array(z.string()).describe('Practical ways to get the EVs still missing in this game'),
+      training: z
+        .array(z.object({ stat: z.string(), battle: z.string() }))
+        .describe(
+          'One entry for each stat that still needs EVs: which wild Pokémon give that stat\'s EVs and where in this game to find them (area names). Empty if nothing is missing'
+        ),
     })
     .describe('How to finish its EV training'),
 });
 export type BuildAuditRaw = z.infer<typeof BuildAuditRawSchema>;
-
-/** The same answer for a game without EV training: there is no EV plan to give. */
-export const BuildAuditNoEvSchema = BuildAuditSchema.omit({ evPlan: true });
 
 export const TeamAuditSchema = z.object({
   summary: z.string(),

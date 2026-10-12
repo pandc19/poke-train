@@ -4,7 +4,7 @@ import { prisma } from '../db';
 import type { GameConfig } from '../games';
 import { learnableMoves } from '../breeding/moves';
 import { evGap, evTotal, formatEvs } from '../import/evs';
-import { describePlan, legalPlan, vitaminsFor } from '../ev-plan';
+import { describePlan, legalPlan, trainingItemsFor } from '../ev-plan';
 import type { Lang } from '../i18n';
 import { ivRating } from '../iv-ratings';
 import { potentialLevel } from '../potential';
@@ -12,7 +12,7 @@ import type { RosterView } from '../roster';
 import { type BuildAudit, type BuildAuditRaw, BuildAuditNoEvSchema, BuildAuditRawSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 7;
+const PROMPT_VERSION = 8;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -152,10 +152,6 @@ export async function auditBuild(
   // Where EVs are easy to reset, a target spread makes sense; elsewhere work from what it has.
   const hasTarget = hasEvs && game.features.evTarget;
   const build = describeBuild(p, hasEvs, hasTarget);
-  const pending = [
-    p.itemStatus === 'PENDING' && (p.item?.nameEn ?? p.itemNote),
-    ...p.moves.filter((m) => m.status === 'PENDING').map((m) => m.move?.nameEn ?? m.rawName),
-  ].filter(Boolean);
   const illegal = p.moves.filter((m) => m.legal === false).map((m) => m.move!.nameEn);
 
   // Everything it can legally have in this game, so suggestions come from real options.
@@ -173,7 +169,7 @@ export async function auditBuild(
   return cached(
     provider,
     { kind: 'build', profileId, rosterPokemonId: p.id, refresh, lang },
-    { build, pending, illegal, legalMovePool, lang },
+    { build, illegal, legalMovePool, lang },
     {
       system: system(game, lang),
       schema: hasEvs ? BuildAuditRawSchema : BuildAuditNoEvSchema,
@@ -183,16 +179,15 @@ export async function auditBuild(
         const withPlan = raw as BuildAuditRaw;
         const plan = legalPlan(withPlan.evPlan.spread, p.currentEvs, !hasTarget);
         const { spread, toTrain } = describePlan(plan, p.currentEvs, lang === 'es' ? 'nada' : 'nothing');
-        // EV advice has one home, the plan; a change that talks about EVs would only contradict it.
-        const changes = withPlan.changes.filter((c) => !/\bEVs?\b/i.test(`${c.change} ${c.reason}`));
+        const gap = evGap(plan, p.currentEvs);
         return {
-          ...withPlan,
-          changes,
+          heldItem: withPlan.heldItem,
+          recommendedMoves: withPlan.recommendedMoves,
           evPlan: {
             spread,
             toTrain,
-            steps: withPlan.evPlan.steps,
-            items: vitaminsFor(evGap(plan, p.currentEvs), lang === 'es'),
+            steps: withPlan.evPlan.training.map((x) => `${x.stat}: ${x.battle}`),
+            items: trainingItemsFor(gap, lang === 'es'),
           },
         };
       },
@@ -202,53 +197,30 @@ export async function auditBuild(
       // One Pokémon at a time is the everyday request; "deeper" is the user's choice.
       tier: deep ? 'deep' : 'bulk',
       prompt: [
-        'Audit this Pokémon as it is right now and say how to get the most out of it.',
+        'Give exactly what the player needs for this Pokémon as it is right now, and nothing else. ' +
+          'Work with what it already has: its nature, ability, potential, current EVs, held item and known moves are the starting point. Do not propose rebuilding it.',
         JSON.stringify({ pokemon: build, legalMovePool }, null, 2),
         hasEvs
-          ? 'Work with what it already has. Its current nature, ability, potential, current EVs, held item and the moves it already knows are the starting point. ' +
-            'Do not propose rebuilding it.'
-          : `Work with what it already has. ${game.name} has no EV training, so ignore EVs entirely. Its nature, ability, potential, held item and the moves it already knows are the starting point. ` +
-            'Do not propose rebuilding it.',
-        `changes: at most three, easiest and most valuable first. effort "easy" means a held item, or a move it can relearn; ` +
-          '"medium" means crafting or buying a TM; "hard" means breeding, or changing its nature or ability. ' +
-          'Only propose a nature or ability change if nothing else comes close, and mark it hard. ' +
-          'Each change is one plain sentence saying what to do ("Teach it Stone Edge", "Give it a Choice Band"), then a reason. ' +
-          (hasEvs
-            ? 'Do NOT put EV changes here: evPlan already covers EVs, and EVs cannot be moved from one stat to another. '
-            : '') +
-          'Every change must agree with evPlan, recommendedMoves and heldItem; never contradict them. ' +
-          'Damage uses the stat of the move\'s category (physical moves use Attack, special moves Sp. Atk) except for the few moves that say otherwise, ' +
-          'such as Body Press (Defense) or Foul Play. Use the type, category and power given in legalMovePool and moves; do not invent move effects.',
-        hasEvs
-          ? 'currentStats are the numbers the game shows (HP 331, Attack 328…). They are NOT EVs, so never put them in evPlan. ' +
+          ? 'evPlan: currentStats are the numbers the game shows (HP 331, Attack 328…). They are NOT EVs, so never use them for the plan. ' +
             'currentEvs are the EVs it has trained, per stat, and evsLeftToTrain is how many of the 510 are still free. ' +
-            'evPlan.spread is the EVs it should finish with, as numbers per stat (at most 252 each and 510 in total). ' +
+            'spread is the EVs it should finish with, as numbers per stat (at most 252 each and 510 in total). ' +
             (hasTarget
-              ? 'EVs are easy to retrain in this game, so choose the best spread for its role, nature, base stats and moves; ' +
-                'currentEvs only says where it starts. If currentEvs is null, say so in the steps and base the plan on targetEvs. '
-              : 'Its EVs are hard to change in this game, so every stat must stay at or above its currentEvs: only add to them with the evsLeftToTrain still free, and never start over. ' +
-                'If currentEvs is null, give general advice only. ') +
-            'Put the remaining EVs into the stats its role actually uses and leave the stats it does not use at 0 or as they are: for example, a physical attacker needs no Sp. Atk. ' +
-            'steps: practical ways to get the missing EVs in this game (where to battle for them, feathers, Power items). ' +
-            'Do not give vitamin counts or EV arithmetic: the app works out the vitamins itself. ' +
-            `Look up how ${game.name} handles EV training and what those items do there if you are not sure.` +
+              ? 'EVs are easy to retrain in this game, so choose the best spread for its role, nature, base stats and moves; currentEvs only says where it starts. '
+              : 'Its EVs are hard to change in this game, so every stat must stay at or above its currentEvs: only add to them with the evsLeftToTrain still free, and never start over. ') +
+            'Put the remaining EVs into the stats its role actually uses; a physical attacker needs no Sp. Atk. ' +
+            'training: for each stat that still needs EVs, which wild Pokémon give those EVs and where in ' +
+            `${game.name} to find them (real area names). Say if you are not sure of an area rather than guessing. Do not give vitamin counts or EV arithmetic: the app works those out.` +
             (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
-          : '',
-        hasEvs
-          ? 'If currentEvsAreEstimated is true, currentEvs is the fewest EVs that fit its stats. ivRatings says what the in-game judge said about each stat\'s IV: stats rated Best have exactly 31 IVs, so their EVs are exact, and a stat with a lower rating may hold somewhat more EVs than shown. Where a stat was not judged, assume its IV is high but not certain. Use the IVs to decide where EVs are worth investing.'
-          : '',
+          : `${game.name} has no EV training, so there is no EV plan.`,
         'heldItem: the best held item for it as it is now. If the one it holds is already the best, name it and say to keep it.',
         `recommendedMoves: the best four moves for it given its nature${hasEvs ? ' and the EVs it will finish with' : ''}, chosen ONLY from legalMovePool. ` +
           'Prefer moves it already knows over ones it would have to get. ' +
           'Do not recommend moves that use a stat it is not investing in: no special attacks when its Sp. Atk gets no EVs and its nature does not raise it, ' +
-          'and no physical attacks when its Attack gets none. Status and setup moves are fine.',
+          'and no physical attacks when its Attack gets none. Status and setup moves are fine. ' +
+          'Use the type, category and power given; do not invent move effects. Keep each reason to one short sentence.',
         illegal.length
           ? `Game data says this Pokémon cannot learn: ${illegal.join(', ')}. Replace each with a move from legalMovePool.`
           : '',
-        pending.length
-          ? `The player does not have these yet: ${pending.join(', ')}. For each, look up where to get it in ${game.name} ` +
-            '(shop, location, TM number and the materials needed to craft it, or how the move is learned) and put it in howToGet.'
-          : 'Nothing is pending, so leave howToGet empty.',
       ]
         .filter(Boolean)
         .join('\n\n'),

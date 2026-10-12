@@ -33,28 +33,45 @@ export function describePlan(plan: EvSpread, current: EvSpread | null, nothing: 
   };
 }
 
-/** The vitamin that gives EVs in each stat, and how many EVs one gives. */
-const VITAMINS: Record<keyof EvSpread, { item: string; stat: string }> = {
-  hp: { item: 'HP Up', stat: 'HP' },
-  attack: { item: 'Protein', stat: 'Attack' },
-  defense: { item: 'Iron', stat: 'Defense' },
-  specialAttack: { item: 'Calcium', stat: 'Sp. Atk' },
-  specialDefense: { item: 'Zinc', stat: 'Sp. Def' },
-  speed: { item: 'Carbos', stat: 'Speed' },
+/** What gives EVs in each stat: the vitamin, and the Power item that adds EVs while it is held in battle. */
+const TRAINING: Record<keyof EvSpread, { vitamin: string; power: string; stat: string }> = {
+  hp: { vitamin: 'HP Up', power: 'Power Weight', stat: 'HP' },
+  attack: { vitamin: 'Protein', power: 'Power Bracer', stat: 'Attack' },
+  defense: { vitamin: 'Iron', power: 'Power Belt', stat: 'Defense' },
+  specialAttack: { vitamin: 'Calcium', power: 'Power Lens', stat: 'Sp. Atk' },
+  specialDefense: { vitamin: 'Zinc', power: 'Power Band', stat: 'Sp. Def' },
+  speed: { vitamin: 'Carbos', power: 'Power Anklet', stat: 'Speed' },
 };
 export const EVS_PER_VITAMIN = 10;
+export const EVS_PER_POWER_ITEM = 8;
 
-/** How many vitamins would cover what is still to train. Counted here: the model gets this arithmetic wrong. */
-export function vitaminsFor(gap: EvSpread, es: boolean) {
-  return KEYS.filter((key) => gap[key] > 0).map((key) => {
+/**
+ * The items that cover what is still to train: how many vitamins, and the
+ * Power item to hold while battling. Counted here, since the model gets the
+ * arithmetic wrong.
+ */
+export function trainingItemsFor(gap: EvSpread, es: boolean) {
+  const missing = KEYS.filter((key) => gap[key] > 0);
+  const vitamins = missing.map((key) => {
     const count = Math.ceil(gap[key] / EVS_PER_VITAMIN);
-    const { item, stat } = VITAMINS[key];
+    const { vitamin, stat } = TRAINING[key];
+    return {
+      item: vitamin,
+      stat,
+      why: es
+        ? `${count} × ${vitamin} dan ${count * EVS_PER_VITAMIN} EVs (+${EVS_PER_VITAMIN} cada uno) para cubrir los ${gap[key]} que faltan`
+        : `${count} × ${vitamin} give ${count * EVS_PER_VITAMIN} EVs (+${EVS_PER_VITAMIN} each) to cover the ${gap[key]} still missing`,
+    };
+  });
+  const power = missing.map((key) => {
+    const { power: item, stat } = TRAINING[key];
     return {
       item,
       stat,
       why: es
-        ? `${count} × ${item} dan ${count * EVS_PER_VITAMIN} EVs (+${EVS_PER_VITAMIN} cada uno) para cubrir los ${gap[key]} que faltan`
-        : `${count} × ${item} give ${count * EVS_PER_VITAMIN} EVs (+${EVS_PER_VITAMIN} each) to cover the ${gap[key]} still missing`,
+        ? `Llévalo equipado mientras combates: +${EVS_PER_POWER_ITEM} EVs de más por combate`
+        : `Hold it while battling: +${EVS_PER_POWER_ITEM} extra EVs per battle`,
     };
   });
+  return [...vitamins, ...power];
 }
