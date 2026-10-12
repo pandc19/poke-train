@@ -30,13 +30,13 @@ function SourceRow({
   const [open, setOpen] = useState(false);
   const result = state.result ?? known;
 
-  async function locate() {
+  async function locate(refresh = false) {
     setState({ busy: true });
     try {
       const res = await fetch('/api/ai/location', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId, speciesId: s.id }),
+        body: JSON.stringify({ gameId, speciesId: s.id, refresh }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? t('Lookup failed.'));
@@ -53,7 +53,7 @@ function SourceRow({
       <span className="text-muted"> · +{s.amount}</span>
       {gameId && (
         <button
-          onClick={result ? () => setOpen(!open) : locate}
+          onClick={result ? () => setOpen(!open) : () => locate()}
           disabled={!aiEnabled || state.busy}
           title={aiEnabled ? t('Researched on the web with AI') : t('Add an API key to .env.local to enable location lookups')}
           className="ml-2 rounded border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-ink disabled:opacity-40"
@@ -70,6 +70,13 @@ function SourceRow({
             </p>
           ))}
           {result.notes && <p className="mt-1">{result.notes}</p>}
+          <button
+            onClick={() => locate(true)}
+            disabled={!aiEnabled || state.busy}
+            className="mt-1 text-[10px] underline disabled:opacity-40"
+          >
+            {state.busy ? t('Searching…') : t('Search again')}
+          </button>
         </div>
       )}
     </li>

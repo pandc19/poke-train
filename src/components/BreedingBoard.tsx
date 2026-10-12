@@ -159,10 +159,10 @@ export function BreedingBoard({
     }
   }
 
-  async function locate(s: SpeciesRef) {
+  async function locate(s: SpeciesRef, refresh = false) {
     setLocations((prev) => ({ ...prev, [s.id]: { busy: true } }));
     try {
-      const data = await api<{ result: LocationResult }>('/api/ai/location', 'POST', { gameId, speciesId: s.id });
+      const data = await api<{ result: LocationResult }>('/api/ai/location', 'POST', { gameId, speciesId: s.id, refresh });
       setLocations((prev) => ({ ...prev, [s.id]: { busy: false, result: data.result } }));
       setOpenLocations((prev) => new Set(prev).add(s.id));
     } catch (err) {
@@ -259,6 +259,13 @@ export function BreedingBoard({
               </p>
             ))}
             {result.notes && <p className="mt-1">{result.notes}</p>}
+            <button
+              onClick={() => locate(item.species, true)}
+              disabled={!aiEnabled || location?.busy}
+              className="mt-1 text-[10px] underline disabled:opacity-40"
+            >
+              {location?.busy ? t('Searching…') : t('Search again')}
+            </button>
             <p className="mt-1 text-[10px]">{t('AI-researched. Check in game before relying on it.')}</p>
           </div>
         )}

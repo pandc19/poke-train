@@ -7,7 +7,12 @@ import { getGame } from '@/lib/games';
 import { getLang } from '@/lib/i18n';
 import { findProfileId } from '@/lib/profile';
 
-const Body = z.object({ gameId: z.string(), speciesId: z.number().int().positive() });
+const Body = z.object({
+  gameId: z.string(),
+  speciesId: z.number().int().positive(),
+  /** Research it again instead of using the saved answer. */
+  refresh: z.boolean().default(false),
+});
 
 /**
  * Where to catch a Pokémon. PokéAPI has no encounter data for recent games,
@@ -24,7 +29,7 @@ export async function POST(request: Request) {
   const provider = getAiProvider();
   if (!provider) return apiError(NO_AI_MESSAGE, 503);
   try {
-    const result = await researchLocation(provider, game, await getLang(), profileId, species.nameEn);
+    const result = await researchLocation(provider, game, await getLang(), profileId, species.nameEn, parsed.data.refresh);
     return Response.json({ result });
   } catch (error) {
     if (error instanceof AiError) return apiError(error.message, 502, error.vars);

@@ -283,10 +283,19 @@ export async function savedLocation(provider: AiProvider, game: GameConfig, lang
 }
 
 /** Where to catch a Pokémon. PokéAPI has no encounter data for recent games, so this is researched. */
-export async function researchLocation(provider: AiProvider, game: GameConfig, lang: Lang, profileId: string, pokemon: string) {
-  const saved = await savedLocation(provider, game, lang, pokemon);
-  if (saved) return saved;
-  return cached(provider, { kind: 'location', profileId, lang, version: LOCATION_PROMPT_VERSION }, { game: game.id, pokemon, lang }, {
+export async function researchLocation(
+  provider: AiProvider,
+  game: GameConfig,
+  lang: Lang,
+  profileId: string,
+  pokemon: string,
+  refresh = false
+) {
+  if (!refresh) {
+    const saved = await savedLocation(provider, game, lang, pokemon);
+    if (saved) return saved;
+  }
+  return cached(provider, { kind: 'location', profileId, lang, refresh, version: LOCATION_PROMPT_VERSION }, { game: game.id, pokemon, lang }, {
     system: system(game, lang),
     schema: LocationSchema,
     schemaName: 'location',

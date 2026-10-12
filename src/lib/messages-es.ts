@@ -274,6 +274,7 @@ export const ES: Record<string, string> = {
   'Saves this spread as your plan. The checklist marks it done once the Pokémon reaches it.': 'Guarda este reparto como tu plan. La lista lo marca como hecho cuando el Pokémon lo alcanza.',
   'Say which Pokémon you want. The plan checks the Pokémon and genders you recorded in your Pokédex and roster, then lists what you already have and what you still need to catch or breed.': 'Di qué Pokémon quieres. El plan revisa los Pokémon y géneros que registraste en tu Pokédex y en tu equipo, y luego enumera lo que ya tienes y lo que aún necesitas capturar o criar.',
   'Search Pokémon': 'Buscar Pokémon',
+  'Search again': 'Volver a buscar',
   'Search name or number': 'Buscar por nombre o número',
   'Search the roster': 'Buscar en el equipo',
   'Searching…': 'Buscando…',
