@@ -49,6 +49,12 @@ export type GameConfig = {
    * Passed to the AI so it does not assume the usual rules.
    */
   evNote?: string;
+  /**
+   * How to describe where a Pokémon is found, when the map works in a particular
+   * way (open world with fast travel, several maps...). Passed to the AI as guidance on the
+   * format of the answer, not as facts about locations.
+   */
+  locationNote?: string;
 };
 
 /**
@@ -98,6 +104,9 @@ export const GAMES: GameConfig[] = [
     theme: { from: '#7c3aed', to: '#4c1d95', accent: '#c4b5fd' },
     utilityRoles: VIOLET_UTILITY_ROLES,
     catalog: SCARLET_VIOLET_CATALOG,
+    locationNote:
+      'Paldea is one open map and you can fast travel almost anywhere, so for each place give the area and the nearest fast-travel point, town or landmark to travel to. ' +
+      'Kitakami and Blueberry Academy are separate DLC maps: say which map it is, and the nearest region of that map.',
     versionExclusives: scarletVioletExclusives('violet'),
   },
 ];

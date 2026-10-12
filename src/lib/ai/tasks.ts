@@ -321,8 +321,10 @@ export async function researchLocation(
     webSearch: true,
     tier: 'bulk',
     prompt:
-      `Where can ${pokemon} be caught in ${game.name}? Be brief: at most two places, best first, ` +
-      'each one the area name and at most one short sentence of detail (DLC area or raid only, if that applies). ' +
+      `Where can ${pokemon} be caught in ${game.name}? Be brief: at most two places, best first. ` +
+      'For each: place is the area name; nearby is the nearest fast-travel point, town or region to head to; ' +
+      'details is at most one short sentence on where in the area or how to get there (DLC area or raid only, if that applies). ' +
+      (game.locationNote ? `${game.locationNote} ` : '') +
       'Do not explain what you could not confirm: leave it out. ' +
       'If it cannot be caught in the wild, set found to false and say in one sentence how it is obtained. ' +
       'notes stays empty unless one short sentence is essential (for example, it needs the DLC).',

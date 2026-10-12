@@ -84,7 +84,13 @@ export type TeamAudit = z.infer<typeof TeamAuditSchema>;
 export const LocationSchema = z.object({
   found: z.boolean(),
   locations: z
-    .array(z.object({ place: z.string().describe('Area name'), details: z.string().describe('One short sentence') }))
+    .array(
+      z.object({
+        place: z.string().describe('Area name'),
+        nearby: z.string().describe('The nearest fast-travel point, town or region to travel to. Empty if not known'),
+        details: z.string().describe('One short sentence on where in the area or how to get to it'),
+      })
+    )
     .max(2),
   notes: z.string().describe('Empty, or one short sentence'),
 });

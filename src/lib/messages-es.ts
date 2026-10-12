@@ -161,6 +161,7 @@ export const ES: Record<string, string> = {
   'Least finished first': 'Primero los menos terminados',
   'Legendary': 'Legendario',
   'Level': 'Nivel',
+  'Near': 'Cerca de',
   'Stats': 'Estadísticas',
   'estimated': 'estimados',
   'Copy': 'Copiar',

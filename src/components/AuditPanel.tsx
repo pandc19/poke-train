@@ -75,7 +75,8 @@ function SourceRow({
         <div className="mt-1 rounded bg-surface p-2 text-muted">
           {result.locations.map((l, i) => (
             <p key={i}>
-              <span className="font-medium text-ink">{l.place}</span> · {l.details}
+              <span className="font-medium text-ink">{l.place}</span>
+              {l.nearby && ` · ${t('Near')}: ${l.nearby}`} · {l.details}
             </p>
           ))}
           {result.notes && <p className="mt-1">{result.notes}</p>}
