@@ -23,9 +23,10 @@ const isMixed = (genderRate: number) => genderRate > 0 && genderRate < 8;
 
 /**
  * The roster says what gender a Pokémon you have is; the Pokédex says which
- * genders of the species you have. They are the same fact, so a change to one
- * is carried to the other. Only obtained roster Pokémon take part: a planned
- * one is not in your box yet.
+ * genders of the species you have. A roster change is carried to the Pokédex,
+ * but not the other way: a gender ticked in the Pokédex (a parent you keep
+ * outside the roster) never changes a roster Pokémon. Only obtained roster
+ * Pokémon take part: a planned one is not in your box yet.
  */
 
 /**
@@ -66,33 +67,5 @@ export async function rosterGenderToPokedex(
   } else {
     // Only clearing: never create a Pokédex entry just to say "no".
     await db.pokedexEntry.updateMany({ where: { profileId, speciesId }, data });
-  }
-}
-
-/**
- * Pokédex -> roster. A gender ticked or cleared in the Pokédex is applied to
- * the obtained roster Pokémon of that species.
- */
-export async function pokedexGenderToRoster(
-  db: Db,
-  args: { profileId: string; speciesId: number; hasMale?: boolean; hasFemale?: boolean }
-): Promise<void> {
-  const { profileId, speciesId, hasMale, hasFemale } = args;
-  if (hasMale === undefined && hasFemale === undefined) return;
-  const species = await db.species.findUnique({ where: { id: speciesId }, select: { genderRate: true } });
-  if (!species || !isMixed(species.genderRate)) return;
-
-  const entries = await db.rosterPokemon.findMany({
-    where: { profileId, speciesId, owned: true },
-    select: { id: true, gender: true },
-  });
-  for (const entry of entries) {
-    const sides = sidesOf(entry.gender);
-    if (hasMale !== undefined) sides.male = hasMale;
-    if (hasFemale !== undefined) sides.female = hasFemale;
-    const next = genderOf(sides, entry.gender);
-    if (next !== entry.gender) {
-      await db.rosterPokemon.update({ where: { id: entry.id }, data: { gender: next } });
-    }
   }
 }
