@@ -204,6 +204,7 @@ export const ES: Record<string, string> = {
   'Not planned': 'Sin planear',
   'Not yet': 'Aún no',
   'Notes': 'Notas',
+  'Nothing': 'Nada',
   'Nothing to change: every Pokémon currently shown is already caught.': 'No hay nada que cambiar: todos los Pokémon mostrados ya están capturados.',
   'Nothing to change: every Pokémon currently shown is already not caught.': 'No hay nada que cambiar: ninguno de los Pokémon mostrados está capturado.',
   'Nothing usable yet.': 'Todavía no hay nada utilizable.',

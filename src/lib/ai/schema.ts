@@ -14,6 +14,10 @@ export const BuildAuditSchema = z.object({
       spread: z.string().describe('The EV spread to finish with, e.g. "252 Atk / 252 Spe / 4 HP"'),
       toTrain: z.string().describe('Exactly what is still missing from its current EVs, or "nothing" if it is done'),
       steps: z.array(z.string()).describe('Practical ways to get those EVs in this game'),
+      items: z
+        .array(z.object({ item: z.string(), stat: z.string(), why: z.string() }))
+        .optional()
+        .describe('Vitamins and similar items that would provide the EVs still to train'),
     })
     .describe('How to finish its EV training'),
   heldItem: z
@@ -27,6 +31,34 @@ export const BuildAuditSchema = z.object({
     .describe('Where to obtain pending items, TMs (and their materials) or moves in this game'),
 });
 export type BuildAudit = z.infer<typeof BuildAuditSchema>;
+
+const EvCount = z.number().int();
+
+/**
+ * What the model returns for an EV plan: the spread as numbers per stat, so
+ * nothing can be mistaken for a stat value. The text shown is built from it.
+ */
+export const BuildAuditRawSchema = BuildAuditSchema.omit({ evPlan: true }).extend({
+  evPlan: z
+    .object({
+      spread: z
+        .object({
+          hp: EvCount,
+          attack: EvCount,
+          defense: EvCount,
+          specialAttack: EvCount,
+          specialDefense: EvCount,
+          speed: EvCount,
+        })
+        .describe('EVs (not stats) it should have when finished: the EVs per stat, at most 252 each and 510 in total'),
+      steps: z.array(z.string()).describe('Practical ways to get the EVs still missing in this game'),
+      items: z
+        .array(z.object({ item: z.string(), stat: z.string(), why: z.string() }))
+        .describe('Vitamins or similar items that provide the missing EVs, with the stat each one is for. Empty if none are missing'),
+    })
+    .describe('How to finish its EV training'),
+});
+export type BuildAuditRaw = z.infer<typeof BuildAuditRawSchema>;
 
 /** The same answer for a game without EV training: there is no EV plan to give. */
 export const BuildAuditNoEvSchema = BuildAuditSchema.omit({ evPlan: true });

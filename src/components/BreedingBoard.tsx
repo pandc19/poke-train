@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ConfirmDialog } from './Dialog';
+import { ComboInput } from './roster/parts';
 import type { LocationResult } from '@/lib/ai/schema';
 import type { MoveOption, MovePlan, ShoppingItem, SpeciesRef, Step } from '@/lib/breeding/engine';
 import type { BreedingGoalView } from '@/lib/breeding/goals';
@@ -318,10 +319,10 @@ export function BreedingBoard({
         <div className="grid gap-3 md:grid-cols-[1.2fr_repeat(4,1fr)]">
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-muted">{t('Pokémon you want')}</span>
-            <input
+            <ComboInput
               list="breed-species"
               value={target}
-              onChange={(e) => onTargetChange(e.target.value)}
+              onChange={onTargetChange}
               placeholder={t('e.g. Garchomp')}
               required
               className={inputClass}

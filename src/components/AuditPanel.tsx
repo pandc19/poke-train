@@ -108,9 +108,19 @@ export function AuditPanel({
             </div>
             <div>
               <dt className="inline text-muted">{t('Still to train')}: </dt>
-              <dd className="inline">{audit.evPlan.toTrain}</dd>
+              <dd className="inline">{audit.evPlan.toTrain === 'nothing' || audit.evPlan.toTrain === 'nada' ? t('Nothing') : audit.evPlan.toTrain}</dd>
             </div>
           </dl>
+          {audit.evPlan.items && audit.evPlan.items.length > 0 && (
+            <ul className="mt-1 list-disc space-y-1 pl-4">
+              {audit.evPlan.items.map((it, i) => (
+                <li key={i}>
+                  <span className="font-medium">{it.item}</span>
+                  <span className="text-muted"> · {it.stat}: {it.why}</span>
+                </li>
+              ))}
+            </ul>
+          )}
           {audit.evPlan.steps.length > 0 && (
             <ul className="mt-1 list-disc space-y-1 pl-4">
               {audit.evPlan.steps.map((s, i) => (

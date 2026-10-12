@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { POTENTIAL_LEVELS, potentialLevel } from '@/lib/potential';
 import type { RosterView } from '@/lib/roster';
@@ -183,5 +183,71 @@ export function PotentialSelect({ p, onChange }: { p: RosterView; onChange: (v: 
         </option>
       ))}
     </select>
+  );
+}
+
+/**
+ * A text box with a list of suggestions that is easy to change: clicking into
+ * it empties it (the current value stays visible as the placeholder), so the
+ * list is not filtered by the old choice. Leaving it untouched keeps the old
+ * value.
+ *
+ * Without `onChange` it is a "saved value" box: it shows `value`, and
+ * `onCommit` gets the text typed once you click away.
+ */
+export function ComboInput({
+  value,
+  onChange,
+  onCommit,
+  placeholder,
+  ...rest
+}: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> & {
+  value: string;
+  onChange?: (text: string) => void;
+  onCommit?: (text: string) => void | Promise<void>;
+}) {
+  // null = not being edited: show `value`.
+  const [typing, setTyping] = useState<string | null>(null);
+  const touched = useRef(false);
+
+  async function finish() {
+    const text = typing;
+    if (text === null) return;
+    if (!touched.current) {
+      setTyping(null);
+      return;
+    }
+    // Keep showing what was typed while it saves, so it does not flash back.
+    try {
+      await onCommit?.(text);
+    } finally {
+      setTyping(null);
+    }
+  }
+
+  return (
+    <input
+      {...rest}
+      value={typing ?? value}
+      placeholder={typing === '' && value ? value : placeholder}
+      onFocus={(e) => {
+        touched.current = false;
+        setTyping('');
+        rest.onFocus?.(e);
+      }}
+      onChange={(e) => {
+        touched.current = true;
+        setTyping(e.target.value);
+        onChange?.(e.target.value);
+      }}
+      onBlur={(e) => {
+        void finish();
+        rest.onBlur?.(e);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+        rest.onKeyDown?.(e);
+      }}
+    />
   );
 }

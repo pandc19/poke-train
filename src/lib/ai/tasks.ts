@@ -4,14 +4,15 @@ import { prisma } from '../db';
 import type { GameConfig } from '../games';
 import { learnableMoves } from '../breeding/moves';
 import { evGap, evTotal, formatEvs } from '../import/evs';
+import { describePlan, legalPlan } from '../ev-plan';
 import type { Lang } from '../i18n';
 import { ivRating } from '../iv-ratings';
 import { potentialLevel } from '../potential';
 import type { RosterView } from '../roster';
-import { BuildAuditNoEvSchema, BuildAuditSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
+import { type BuildAudit, type BuildAuditRaw, BuildAuditNoEvSchema, BuildAuditRawSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 3;
+const PROMPT_VERSION = 4;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -26,17 +27,19 @@ const system = (game: GameConfig, lang: Lang) =>
  * Runs an AI task through the AiAudit cache: the same question (same kind,
  * provider and input) is answered from the database and never paid for twice.
  */
-async function cached<T>(
+async function cached<Raw, T = Raw>(
   provider: AiProvider,
   key: { kind: string; profileId: string; rosterPokemonId?: string; refresh?: boolean; lang: Lang },
   input: unknown,
   request: {
     system: string;
     prompt: string;
-    schema: z.ZodType<T>;
+    schema: z.ZodType<Raw>;
     schemaName: string;
     webSearch: boolean;
     tier: ModelTier;
+    /** Turns the model's answer into what is stored and shown, before it is saved. */
+    finish?: (raw: Raw) => T;
   }
 ): Promise<T> {
   const model = provider.modelFor(request.tier);
@@ -53,7 +56,9 @@ async function cached<T>(
       return hit.result as T;
     }
   }
-  const result = await provider.generate(request);
+  const { finish, ...ask } = request;
+  const raw = await provider.generate(ask);
+  const result = finish ? finish(raw) : (raw as unknown as T);
   const data = {
     profileId: key.profileId,
     rosterPokemonId: key.rosterPokemonId,
@@ -81,6 +86,19 @@ function describeIvRatings(p: RosterView): Record<string, string> | null {
   return Object.keys(out).length ? out : null;
 }
 
+const STAT_NAMES = {
+  hp: 'HP',
+  attack: 'Attack',
+  defense: 'Defense',
+  specialAttack: 'Sp. Atk',
+  specialDefense: 'Sp. Def',
+  speed: 'Speed',
+} as const;
+
+/** All six values with their stat names, so a stat can never be read as an EV or the other way round. */
+const statLine = (v: Record<keyof typeof STAT_NAMES, number>) =>
+  Object.fromEntries(Object.entries(STAT_NAMES).map(([k, name]) => [name, v[k as keyof typeof STAT_NAMES]]));
+
 /** A compact, language-neutral description of a Pokémon as it is now, used both as prompt and cache key. */
 function describeBuild(p: RosterView, hasEvs = true, hasTarget = true) {
   const gap = hasEvs && hasTarget && p.evs && p.currentEvs ? evGap(p.evs, p.currentEvs) : null;
@@ -89,8 +107,8 @@ function describeBuild(p: RosterView, hasEvs = true, hasTarget = true) {
     types: p.types,
     baseStats: p.baseStats,
     level: p.level,
-    // The stats it actually has right now, as the game shows them.
-    currentStats: p.currentStats ? formatEvs(p.currentStats) : null,
+    // The stats it actually has right now, as the game shows them. These are NOT EVs.
+    currentStats: p.currentStats ? statLine(p.currentStats) : null,
     // The nature it has now, when known, and the one the player is aiming for.
     currentNature: p.currentNature?.nameEn ?? null,
     targetNature: p.targetNature?.nameEn ?? null,
@@ -98,12 +116,14 @@ function describeBuild(p: RosterView, hasEvs = true, hasTarget = true) {
     heldItem: p.item?.nameEn ?? p.itemNote,
     ...(hasEvs
       ? {
-          currentEvs: p.currentEvs ? formatEvs(p.currentEvs) : null,
-          // Worked out from the stats assuming perfect IVs, so they may be a little low.
+          // EVs per stat, all six listed. Not the same thing as the stats above.
+          currentEvs: p.currentEvs ? statLine(p.currentEvs) : null,
+          evsLeftToTrain: p.currentEvs ? Math.max(0, 510 - evTotal(p.currentEvs)) : null,
+          // Worked out from the stats and IV ratings, so they may be a little low.
           currentEvsAreEstimated: p.currentEvs ? p.currentEvsEstimated : null,
           ...(hasTarget
             ? {
-                targetEvs: p.evs ? formatEvs(p.evs) : null,
+                targetEvs: p.evs ? statLine(p.evs) : null,
                 evsStillMissing: gap && evTotal(gap) > 0 ? formatEvs(gap) : null,
               }
             : {}),
@@ -149,7 +169,15 @@ export async function auditBuild(
     { build, pending, illegal, legalMovePool, lang },
     {
       system: system(game, lang),
-      schema: hasEvs ? BuildAuditSchema : BuildAuditNoEvSchema,
+      schema: hasEvs ? BuildAuditRawSchema : BuildAuditNoEvSchema,
+      finish: (raw) => {
+        if (!hasEvs) return raw as BuildAudit;
+        // The spread is the model's proposal; what it means for this Pokémon is worked out here.
+        const withPlan = raw as BuildAuditRaw;
+        const plan = legalPlan(withPlan.evPlan.spread, p.currentEvs, !hasTarget);
+        const { spread, toTrain } = describePlan(plan, p.currentEvs, lang === 'es' ? 'nada' : 'nothing');
+        return { ...withPlan, evPlan: { spread, toTrain, steps: withPlan.evPlan.steps, items: withPlan.evPlan.items } };
+      },
       schemaName: 'build_audit',
       // Item and EV advice depends on how this game works, so let it look things up.
       webSearch: true,
@@ -167,26 +195,29 @@ export async function auditBuild(
           hasEvs ? 'EV training, ' : ''
         }a held item, or a move it can relearn; "medium" means crafting or buying a TM; "hard" means breeding, or changing its nature or ability. ` +
           'Only propose a nature or ability change if nothing else comes close, and mark it hard.',
-        hasTarget
-          ? 'evPlan: compare currentEvs with the best spread for its nature, base stats and moves (at most 510 in total and 252 in one stat). ' +
-            'If currentEvs is null, say it is not recorded and base the plan on targetEvs. spread is the spread to finish with, ' +
-            'toTrain is exactly what is still missing from currentEvs, and steps are practical ways to get those EVs in this game ' +
-            `(Power items, vitamins, EV-reducing berries, where to battle). Look up how ${game.name} handles EV training if you are not sure.` +
+        hasEvs
+          ? 'currentStats are the numbers the game shows (HP 331, Attack 328…). They are NOT EVs, so never put them in evPlan. ' +
+            'currentEvs are the EVs it has trained, per stat, and evsLeftToTrain is how many of the 510 are still free. ' +
+            'evPlan.spread is the EVs it should finish with, as numbers per stat (at most 252 each and 510 in total). ' +
+            (hasTarget
+              ? 'EVs are easy to retrain in this game, so choose the best spread for its role, nature, base stats and moves; ' +
+                'currentEvs only says where it starts. If currentEvs is null, say so in the steps and base the plan on targetEvs. '
+              : 'Its EVs are hard to change in this game, so every stat must stay at or above its currentEvs: only add to them with the evsLeftToTrain still free, and never start over. ' +
+                'If currentEvs is null, give general advice only. ') +
+            'Put the remaining EVs into the stats its role actually uses and leave the stats it does not use at 0 or as they are: for example, a physical attacker needs no Sp. Atk. ' +
+            'steps: practical ways to get the missing EVs in this game. items: for each missing stat, the vitamin or other item that gives those EVs ' +
+            '(Protein/Iron/Calcium/Zinc/Carbos/HP Up and the feathers or wings, with their official names in the answer language) and why; empty if no EVs are missing. ' +
+            `Look up how ${game.name} handles EV training and what those items do there if you are not sure.` +
             (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
-          : hasEvs
-            ? 'evPlan: its EVs are hard to change in this game, so take currentEvs as given and do not suggest starting over. ' +
-              'If currentEvs is null, say it is not recorded and give general advice only. spread is currentEvs with only the smallest ' +
-              'worthwhile tweaks (spare points up to 510, or a small move between stats); toTrain is those tweaks only, or "nothing" if it is fine as it is; ' +
-              'steps are how to apply them, and only mention items that actually help (vitamins, feathers or wings, EV-reducing berries). ' +
-              'Choose the held item and the moves that suit the EVs it already has.' +
-              (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
-            : '',
+          : '',
         hasEvs
           ? 'If currentEvsAreEstimated is true, currentEvs is the fewest EVs that fit its stats. ivRatings says what the in-game judge said about each stat\'s IV: stats rated Best have exactly 31 IVs, so their EVs are exact, and a stat with a lower rating may hold somewhat more EVs than shown. Where a stat was not judged, assume its IV is high but not certain. Use the IVs to decide where EVs are worth investing.'
           : '',
         'heldItem: the best held item for it as it is now. If the one it holds is already the best, name it and say to keep it.',
-        `recommendedMoves: the best four moves for it given its nature${hasEvs ? ' and EVs' : ''}, chosen ONLY from legalMovePool. ` +
-          'Prefer moves it already knows over ones it would have to get.',
+        `recommendedMoves: the best four moves for it given its nature${hasEvs ? ' and the EVs it will finish with' : ''}, chosen ONLY from legalMovePool. ` +
+          'Prefer moves it already knows over ones it would have to get. ' +
+          'Do not recommend moves that use a stat it is not investing in: no special attacks when its Sp. Atk gets no EVs and its nature does not raise it, ' +
+          'and no physical attacks when its Attack gets none. Status and setup moves are fine.',
         illegal.length
           ? `Game data says this Pokémon cannot learn: ${illegal.join(', ')}. Replace each with a move from legalMovePool.`
           : '',

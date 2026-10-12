@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { AuditPanel } from '../AuditPanel';
 import { StatsEvsEditor, type EvEstimateInfo } from '../StatsEvs';
 import { TypeBadge } from '../TypeBadge';
-import { GenderControl, PokemonSprite, PotentialSelect, TaskToggle, progressOf, type Gender } from './parts';
+import { ComboInput, GenderControl, PokemonSprite, PotentialSelect, TaskToggle, progressOf, type Gender } from './parts';
 import { evTotal, formatEvs, type EvSpread } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
 import type { IvRatings } from '@/lib/iv-ratings';
@@ -157,15 +157,8 @@ export function RosterDetail({
 
   const [error, setError] = useState<string | null>(null);
   const [nickname, setNickname] = useState(p.nickname ?? '');
-  const [item, setItem] = useState(p.item ? label(p.item) : (p.itemNote ?? ''));
   const [targetEvs, setTargetEvs] = useState(p.evs ? formatEvs(p.evs) : '');
   const [notes, setNotes] = useState(p.notes ?? '');
-  const [moves, setMoves] = useState(() =>
-    [1, 2, 3, 4].map((slot) => {
-      const m = p.moves.find((x) => x.slot === slot);
-      return m ? (m.move ? label(m.move) : (m.rawName ?? '')) : '';
-    })
-  );
 
   const prog = progressOf(p);
 
@@ -181,27 +174,28 @@ export function RosterDetail({
     return m ? (m.move ? label(m.move) : (m.rawName ?? '')) : '';
   };
 
-  function commitMove(slot: number) {
-    const text = moves[slot - 1];
+  async function commitMove(slot: number, text: string) {
     if (text.trim() === savedMove(slot).trim()) return;
     if (!text.trim()) {
-      void save({ moves: [{ slot, moveId: null }] });
+      await save({ moves: [{ slot, moveId: null }] });
       return;
     }
     const move = find(options.moves, text);
     if (!move) {
       setError(t('Move {n}: "{name}" is not a known move. Pick one from the suggestions.', { n: slot, name: text }));
-      setMoves((prev) => prev.map((m, i) => (i === slot - 1 ? savedMove(slot) : m)));
       return;
     }
-    void save({ moves: [{ slot, moveId: move.id }] });
+    await save({ moves: [{ slot, moveId: move.id }] });
   }
 
-  function commitItem() {
-    const current = p.item ? label(p.item) : (p.itemNote ?? '');
+  // Shown in the current language, so it follows the language switch.
+  const itemText = p.item ? label(p.item) : (p.itemNote ?? '');
+
+  async function commitItem(item: string) {
+    const current = itemText;
     if (item.trim() === current.trim()) return;
     const matched = item.trim() ? find(options.items, item) : undefined;
-    void save({
+    await save({
       itemId: matched?.id ?? null,
       // Text that is not an exact item name is kept as a note ("Life Orb or Choice Band").
       itemNote: item.trim() && !matched ? item.trim() : null,
@@ -379,12 +373,10 @@ export function RosterDetail({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={p.item.spriteUrl} alt="" width={24} height={24} className="sprite shrink-0" />
                 )}
-                <input
+                <ComboInput
                   list="detail-items"
-                  value={item}
-                  onChange={(e) => setItem(e.target.value)}
-                  onBlur={commitItem}
-                  onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                  value={itemText}
+                  onCommit={commitItem}
                   className={inputClass}
                 />
               </div>
@@ -430,14 +422,12 @@ export function RosterDetail({
                     ) : (
                       <span className="w-[3.1rem] shrink-0 text-center text-xs text-muted">—</span>
                     )}
-                    <input
+                    <ComboInput
                       list="detail-moves"
-                      value={moves[slot - 1]}
+                      value={savedMove(slot)}
                       placeholder={t('Move {n}', { n: slot })}
                       aria-label={t('Move {n}', { n: slot })}
-                      onChange={(e) => setMoves((prev) => prev.map((v, i) => (i === slot - 1 ? e.target.value : v)))}
-                      onBlur={() => commitMove(slot)}
-                      onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                      onCommit={(text) => commitMove(slot, text)}
                       className={inputClass}
                     />
                   </div>

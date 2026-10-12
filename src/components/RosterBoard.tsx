@@ -5,7 +5,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { ConfirmDialog } from './Dialog';
 import { RosterDetail } from './roster/RosterDetail';
 import { PAGE_SIZE, RosterList } from './roster/RosterList';
-import { progressOf, withTask, type Gender } from './roster/parts';
+import { ComboInput, progressOf, withTask, type Gender } from './roster/parts';
 import type { EvEstimateInfo } from './StatsEvs';
 import type { TeamAudit } from '@/lib/ai/schema';
 import type { EvSpread } from '@/lib/import/evs';
@@ -326,10 +326,10 @@ export function RosterBoard({
       }}
       className="flex gap-1"
     >
-      <input
+      <ComboInput
         list="species-list"
         value={adding}
-        onChange={(e) => setAdding(e.target.value)}
+        onChange={setAdding}
         placeholder={t('Add Pokémon…')}
         aria-label={t('Add a Pokémon by name')}
         className="w-40 rounded-md border border-line bg-surface px-2 py-1.5 text-xs placeholder:text-muted"

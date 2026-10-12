@@ -1,0 +1,43 @@
+import { describe, expect, it } from 'vitest';
+import { describePlan, legalPlan } from '@/lib/ev-plan';
+
+const evs = (hp = 0, attack = 0, defense = 0, specialAttack = 0, specialDefense = 0, speed = 0) => ({
+  hp,
+  attack,
+  defense,
+  specialAttack,
+  specialDefense,
+  speed,
+});
+
+describe('legalPlan', () => {
+  const current = evs(120, 92, 4);
+
+  it('never goes below the current EVs when they are hard to change', () => {
+    expect(legalPlan(evs(0, 252, 0, 0, 0, 252), current, true)).toEqual(evs(120, 252, 4, 0, 0, 134));
+  });
+
+  it('caps a stat at 252 and the total at 510', () => {
+    const plan = legalPlan(evs(300, 300, 0, 0, 0, 300), null, false);
+    expect(Math.max(...Object.values(plan))).toBeLessThanOrEqual(252);
+    expect(plan.speed).toBe(252);
+    expect(Object.values(plan).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(510);
+  });
+
+  it('keeps what is trained when the plan already fits', () => {
+    expect(legalPlan(current, current, true)).toEqual(current);
+  });
+});
+
+describe('describePlan', () => {
+  it('says what is still to train', () => {
+    expect(describePlan(evs(120, 252, 4), evs(120, 92, 4), 'nothing')).toEqual({
+      spread: '120 HP / 252 Atk / 4 Def',
+      toTrain: '160 Atk',
+    });
+  });
+
+  it('says nothing is missing when the plan is reached', () => {
+    expect(describePlan(evs(120, 92, 4), evs(120, 92, 4), 'nothing').toTrain).toBe('nothing');
+  });
+});
