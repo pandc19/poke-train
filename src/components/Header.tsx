@@ -5,6 +5,7 @@ import { useParams, usePathname } from 'next/navigation';
 import { useTransition } from 'react';
 import { motion } from 'motion/react';
 import { setLang } from '@/app/actions';
+import { CatalogButton } from './CatalogDialog';
 import { useT } from '@/lib/translate-client';
 
 type GameLink = {
@@ -76,17 +77,20 @@ export function Header({ games }: { games: GameLink[] }) {
           ))}
         </div>
 
-        <div className="ml-auto flex items-center rounded-md border border-line text-xs" aria-label={t('Language')}>
-          {(['es', 'en'] as const).map((l) => (
-            <button
-              key={l}
-              disabled={pending}
-              onClick={() => startTransition(() => setLang(l))}
-              className={`px-2 py-1 uppercase ${lang === l ? 'bg-surface-2 font-semibold text-ink' : 'text-muted'}`}
-            >
-              {l}
-            </button>
-          ))}
+        <div className="ml-auto flex items-center gap-2">
+        <CatalogButton />
+          <div className="flex items-center rounded-md border border-line text-xs" aria-label={t('Language')}>
+            {(['es', 'en'] as const).map((l) => (
+              <button
+                key={l}
+                disabled={pending}
+                onClick={() => startTransition(() => setLang(l))}
+                className={`px-2 py-1 uppercase ${lang === l ? 'bg-surface-2 font-semibold text-ink' : 'text-muted'}`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

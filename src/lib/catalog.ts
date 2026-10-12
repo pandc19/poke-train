@@ -1,0 +1,41 @@
+import type { Localized } from './translate';
+
+/** One thing in a catalog: its name, what it does, and its sprite (a PokéAPI item slug). */
+export type CatalogEntry = {
+  name: Localized;
+  effect: Localized;
+  sprite?: string;
+};
+
+export type CatalogSection = {
+  id: string;
+  title: Localized;
+  note?: Localized;
+  entries: CatalogEntry[];
+};
+
+/**
+ * Quick reference shown from the header on every page. To add more, add a
+ * section here (or entries to one); the dialog lists whatever is in it.
+ */
+export const CATALOG: CatalogSection[] = [
+  {
+    id: 'ev-berries',
+    title: { en: 'EV-reducing berries', es: 'Bayas que reducen EVs' },
+    note: {
+      en: 'Eat one to lower the EVs of that stat and free room for others.',
+      es: 'Dale una para bajar los EVs de esa estadística y dejar sitio a otros.',
+    },
+    entries: [
+      { name: { en: 'Pomeg Berry', es: 'Baya Grana' }, effect: { en: 'Lowers HP', es: 'Reduce PS' }, sprite: 'pomeg-berry' },
+      { name: { en: 'Kelpsy Berry', es: 'Baya Algama' }, effect: { en: 'Lowers Attack', es: 'Reduce Ataque' }, sprite: 'kelpsy-berry' },
+      { name: { en: 'Qualot Berry', es: 'Baya Ispero' }, effect: { en: 'Lowers Defense', es: 'Reduce Defensa' }, sprite: 'qualot-berry' },
+      { name: { en: 'Hondew Berry', es: 'Baya Meluce' }, effect: { en: 'Lowers Sp. Atk', es: 'Reduce Ataque Especial' }, sprite: 'hondew-berry' },
+      { name: { en: 'Grepa Berry', es: 'Baya Uvav' }, effect: { en: 'Lowers Sp. Def', es: 'Reduce Defensa Especial' }, sprite: 'grepa-berry' },
+      { name: { en: 'Tamato Berry', es: 'Baya Tamate' }, effect: { en: 'Lowers Speed', es: 'Reduce Velocidad' }, sprite: 'tamato-berry' },
+    ],
+  },
+];
+
+export const itemSpriteUrl = (slug: string) =>
+  `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/${slug}.png`;

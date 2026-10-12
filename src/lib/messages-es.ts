@@ -65,6 +65,7 @@ export const ES: Record<string, string> = {
   'Click if you have a female': 'Haz clic si tienes una hembra',
   'Click if you have a male': 'Haz clic si tienes un macho',
   'Click to mark as caught (shift-click for a range)': 'Haz clic para marcarlo como capturado (Mayús + clic para un rango)',
+  'Catalog': 'Catálogo',
   'Close': 'Cerrar',
   'Column in your file': 'Columna de tu archivo',
   'Column {n}': 'Columna {n}',
