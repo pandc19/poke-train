@@ -63,3 +63,29 @@ describe('trainingItemsFor', () => {
     expect(out[1].why).toContain('14 × Iron');
   });
 });
+
+describe('bestSources', () => {
+  it('puts pure yields first, then early evolution stages, then the biggest yield', async () => {
+    const { bestSources } = await import('@/lib/ev-catalog');
+    const c = (id: number, stage: number, yields: Record<string, number>) => ({
+      id,
+      nameEn: `P${id}`,
+      nameEs: `P${id}`,
+      amount: 0,
+      yields,
+      national: id,
+      stage,
+    });
+    const out = bestSources(
+      [
+        c(1, 2, { attack: 3 }),
+        c(2, 0, { attack: 1 }),
+        c(3, 0, { attack: 1, speed: 1 }),
+        c(4, 1, { attack: 2 }),
+        c(5, 0, { speed: 3 }),
+      ],
+      'attack'
+    );
+    expect(out.map((x) => x.id)).toEqual([2, 4, 1, 3]);
+  });
+});

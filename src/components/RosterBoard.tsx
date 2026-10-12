@@ -477,6 +477,7 @@ export function RosterBoard({
           {selected ? (
             <RosterDetail
               key={selected.id}
+              gameId={gameId}
               p={selected}
               options={options}
               lang={lang}

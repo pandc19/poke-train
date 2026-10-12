@@ -11,11 +11,21 @@ export const BuildAuditSchema = z.object({
     .object({
       spread: z.string().describe('The EV spread to finish with, e.g. "252 Atk / 252 Spe / 4 HP"'),
       toTrain: z.string().describe('Exactly what is still missing from its current EVs'),
-      steps: z.array(z.string()).describe('Where and against which Pokémon to train each missing stat'),
+      /** Written by earlier versions; the Pokémon to battle now come from game data (`sources`). */
+      steps: z.array(z.string()).optional(),
       items: z
         .array(z.object({ item: z.string(), stat: z.string(), why: z.string() }))
         .optional()
         .describe('Vitamins and Power items for the missing EVs'),
+      sources: z
+        .array(
+          z.object({
+            stat: z.string(),
+            species: z.array(z.object({ id: z.number(), nameEn: z.string(), nameEs: z.string(), amount: z.number() })),
+          })
+        )
+        .optional()
+        .describe('The Pokémon that give each missing stat'),
     })
     .describe('How to finish its EV training'),
   heldItem: z
@@ -32,8 +42,8 @@ export const BuildAuditNoEvSchema = BuildAuditSchema.omit({ evPlan: true });
 
 /**
  * What the model returns for the EV plan: the spread as numbers per stat, so
- * nothing can be mistaken for a stat value, and where to battle for each stat.
- * The text shown, and the vitamin counts, are built from it in code.
+ * nothing can be mistaken for a stat value. The text shown, the vitamin counts
+ * and the Pokémon to battle are all built from it in code.
  */
 export const BuildAuditRawSchema = BuildAuditSchema.omit({ evPlan: true }).extend({
   evPlan: z
@@ -48,16 +58,6 @@ export const BuildAuditRawSchema = BuildAuditSchema.omit({ evPlan: true }).exten
           speed: z.number().int(),
         })
         .describe('EVs (not stats) it should have when finished: the EVs per stat, at most 252 each and 510 in total'),
-      training: z
-        .array(
-          z.object({
-            stat: z.enum(['hp', 'attack', 'defense', 'specialAttack', 'specialDefense', 'speed']),
-            battle: z.string(),
-          })
-        )
-        .describe(
-          'One entry for each stat that still needs EVs, most important first: which wild Pokémon give that stat\'s EVs and where in this game to find them (area names). Empty if nothing is missing'
-        ),
     })
     .describe('How to finish its EV training'),
 });

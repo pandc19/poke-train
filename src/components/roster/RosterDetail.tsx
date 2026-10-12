@@ -106,6 +106,7 @@ function StatsSection({
  * the drafts start fresh for each Pokémon.
  */
 export function RosterDetail({
+  gameId,
   p,
   options,
   lang,
@@ -126,6 +127,7 @@ export function RosterDetail({
   onToggleAudit,
   onRemove,
 }: {
+  gameId: string;
   p: RosterView;
   options: EditorOptions;
   lang: Lang;
@@ -484,6 +486,8 @@ export function RosterDetail({
 
       {auditOpen && p.audit && (
         <AuditPanel
+          gameId={gameId}
+          aiEnabled={aiEnabled}
           audit={p.audit.result as Parameters<typeof AuditPanel>[0]['audit']}
           auditLang={p.audit.lang}
           meta={`${p.audit.provider} · ${p.audit.model}`}

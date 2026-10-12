@@ -1,13 +1,68 @@
 'use client';
 
-import type { BuildAudit } from '@/lib/ai/schema';
+import { useState } from 'react';
+import type { BuildAudit, LocationResult } from '@/lib/ai/schema';
 import { useT } from '@/lib/translate-client';
 
 /** A stored audit. Audits saved by earlier versions hold other sections, which are no longer shown. */
 type StoredAudit = Partial<BuildAudit>;
 
+type EvSource = NonNullable<NonNullable<BuildAudit['evPlan']['sources']>[number]['species']>[number];
+
+/** One Pokémon to battle for EVs, with a button that researches where it lives in this game. */
+function SourceRow({ s, gameId, aiEnabled }: { s: EvSource; gameId?: string; aiEnabled?: boolean }) {
+  const { t, lang } = useT();
+  const [state, setState] = useState<{ busy: boolean; result?: LocationResult; error?: string }>({ busy: false });
+
+  async function locate() {
+    setState({ busy: true });
+    try {
+      const res = await fetch('/api/ai/location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId, speciesId: s.id }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? t('Lookup failed.'));
+      setState({ busy: false, result: data.result });
+    } catch (e) {
+      setState({ busy: false, error: e instanceof Error ? e.message : t('Lookup failed.') });
+    }
+  }
+
+  return (
+    <li>
+      <span className="font-medium">{lang === 'es' ? s.nameEs : s.nameEn}</span>
+      <span className="text-muted"> · +{s.amount}</span>
+      {gameId && (
+        <button
+          onClick={locate}
+          disabled={!aiEnabled || state.busy}
+          title={aiEnabled ? t('Researched on the web with AI') : t('Add an API key to .env.local to enable location lookups')}
+          className="ml-2 rounded border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-ink disabled:opacity-40"
+        >
+          {state.busy ? t('Searching…') : t('Where do I find it?')}
+        </button>
+      )}
+      {state.error && <p className="text-pending">{state.error}</p>}
+      {state.result && (
+        <div className="mt-1 rounded bg-surface p-2 text-muted">
+          {state.result.locations.map((l, i) => (
+            <p key={i}>
+              <span className="font-medium text-ink">{l.place}</span> · {l.details}
+            </p>
+          ))}
+          {state.result.notes && <p className="mt-1">{state.result.notes}</p>}
+        </div>
+      )}
+    </li>
+  );
+}
+
 /** Shows a stored AI audit of one Pokémon. */
 export function AuditPanel({
+  gameId,
+  aiEnabled,
   audit,
   auditLang,
   meta,
@@ -16,6 +71,9 @@ export function AuditPanel({
   onChangeLanguage,
   busy,
 }: {
+  /** Lets the Pokémon to battle be looked up. */
+  gameId?: string;
+  aiEnabled?: boolean;
   audit: StoredAudit;
   /** The language the saved answer is written in. */
   auditLang?: string;
@@ -78,9 +136,19 @@ export function AuditPanel({
               ))}
             </ul>
           )}
-          {audit.evPlan.steps.length > 0 && (
+          {(audit.evPlan.sources ?? []).map((group) => (
+            <div key={group.stat} className="mt-2">
+              <p className="text-muted">{t('Battle for {stat} EVs', { stat: group.stat })}</p>
+              <ul className="list-disc space-y-1 pl-4">
+                {group.species.map((sp) => (
+                  <SourceRow key={sp.id} s={sp} gameId={gameId} aiEnabled={aiEnabled} />
+                ))}
+              </ul>
+            </div>
+          ))}
+          {(audit.evPlan.steps ?? []).length > 0 && !audit.evPlan.sources && (
             <ul className="mt-1 list-disc space-y-1 pl-4">
-              {audit.evPlan.steps.map((s, i) => (
+              {audit.evPlan.steps!.map((s, i) => (
                 <li key={i}>{s}</li>
               ))}
             </ul>

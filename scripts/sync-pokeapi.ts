@@ -59,6 +59,15 @@ async function mapPool<T, R>(label: string, items: T[], fn: (item: T) => Promise
   return out;
 }
 
+const STAT_KEY: Record<string, string> = {
+  hp: 'hp',
+  attack: 'attack',
+  defense: 'defense',
+  'special-attack': 'specialAttack',
+  'special-defense': 'specialDefense',
+  speed: 'speed',
+};
+
 const idFromUrl = (url: string) => Number(url.split('/').filter(Boolean).pop());
 const nameIn = (names: Json[], lang: string): string | undefined =>
   names?.find((n) => n.language.name === lang)?.name;
@@ -102,6 +111,7 @@ async function main() {
       eggGroups: s.egg_groups.map((g: Json) => g.name),
       genderRate: s.gender_rate,
       isBaby: s.is_baby,
+      isSpecial: Boolean(s.is_legendary || s.is_mythical),
     };
     await prisma.species.upsert({ where: { id: s.id }, update: data, create: { id: s.id, ...data } });
   }
@@ -133,6 +143,11 @@ async function main() {
         specialDefense: stat(p, 'special-defense'),
         speed: stat(p, 'speed'),
       },
+      evYield: Object.fromEntries(
+        p.stats
+          .filter((s: Json) => s.effort > 0)
+          .map((s: Json) => [STAT_KEY[s.stat.name], s.effort])
+      ),
       spriteUrl: p.sprites.front_default ?? p.sprites.other?.['official-artwork']?.front_default ?? null,
     };
     await prisma.form.upsert({ where: { id: p.id }, update: data, create: { id: p.id, ...data } });

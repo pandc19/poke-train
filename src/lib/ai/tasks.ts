@@ -4,6 +4,7 @@ import { prisma } from '../db';
 import type { GameConfig } from '../games';
 import { learnableMoves } from '../breeding/moves';
 import { evGap, evTotal, formatEvs } from '../import/evs';
+import { loadEvSources } from '../ev-catalog';
 import { describePlan, legalPlan, trainingItemsFor } from '../ev-plan';
 import type { Lang } from '../i18n';
 import { ivRating } from '../iv-ratings';
@@ -12,7 +13,7 @@ import type { RosterView } from '../roster';
 import { type BuildAudit, type BuildAuditRaw, BuildAuditNoEvSchema, BuildAuditRawSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 9;
+const PROMPT_VERSION = 10;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -41,7 +42,7 @@ async function cached<Raw, T = Raw>(
     webSearch: boolean;
     tier: ModelTier;
     /** Turns the model's answer into what is stored and shown, before it is saved. */
-    finish?: (raw: Raw) => T;
+    finish?: (raw: Raw) => T | Promise<T>;
   }
 ): Promise<T> {
   const model = provider.modelFor(request.tier);
@@ -60,7 +61,7 @@ async function cached<Raw, T = Raw>(
   }
   const { finish, ...ask } = request;
   const raw = await provider.generate(ask);
-  const result = finish ? finish(raw) : (raw as unknown as T);
+  const result = finish ? await finish(raw) : (raw as unknown as T);
   const data = {
     profileId: key.profileId,
     rosterPokemonId: key.rosterPokemonId,
@@ -173,27 +174,22 @@ export async function auditBuild(
     {
       system: system(game, lang),
       schema: hasEvs ? BuildAuditRawSchema : BuildAuditNoEvSchema,
-      finish: (raw) => {
+      finish: async (raw) => {
         if (!hasEvs) return raw as BuildAudit;
         // The spread is the model's proposal; what it means for this Pokémon is worked out here.
         const withPlan = raw as BuildAuditRaw;
-        const plan = legalPlan(
-          withPlan.evPlan.spread,
-          p.currentEvs,
-          !hasTarget,
-          withPlan.evPlan.training.map((x) => x.stat)
-        );
+        const plan = legalPlan(withPlan.evPlan.spread, p.currentEvs, !hasTarget);
         const { spread, toTrain } = describePlan(plan, p.currentEvs, lang === 'es' ? 'nada' : 'nothing');
         const gap = evGap(plan, p.currentEvs);
+        const missing = (Object.keys(gap) as (keyof typeof gap)[]).filter((k) => gap[k] > 0);
         return {
           heldItem: withPlan.heldItem,
           recommendedMoves: withPlan.recommendedMoves,
           evPlan: {
             spread,
             toTrain,
-            steps: withPlan.evPlan.training
-              .filter((x) => gap[x.stat] > 0)
-              .map((x) => `${STAT_NAMES[x.stat]}: ${x.battle}`),
+            // Who to battle comes from the games' own data, not from the model.
+            sources: (await loadEvSources(game.id, missing)).map((x) => ({ ...x, stat: STAT_NAMES[x.stat] })),
             items: trainingItemsFor(gap, lang === 'es'),
           },
         };
@@ -216,8 +212,7 @@ export async function auditBuild(
               : 'Its EVs are hard to change in this game, so every stat must stay at or above its currentEvs: only add to them with the evsLeftToTrain still free, and never start over. ') +
             'The EVs you add in total must not go over evsLeftToTrain, and it is fine to leave some unspent: ' +
             'put them only into the stats its role really needs (a physical attacker needs no Sp. Atk, and a slow bulky Pokémon rarely needs Speed). ' +
-            'training: for each stat that still needs EVs, which wild Pokémon give those EVs and where in ' +
-            `${game.name} to find them (real area names). Say if you are not sure of an area rather than guessing. Do not give vitamin counts or EV arithmetic: the app works those out.` +
+            'Do not say which Pokémon to battle, or give vitamin counts or EV arithmetic: the app works those out.' +
             (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
           : `${game.name} has no EV training, so there is no EV plan.`,
         'heldItem: the best held item for it as it is now. If the one it holds is already the best, name it and say to keep it.',
