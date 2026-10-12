@@ -24,7 +24,7 @@ const system = (game: GameConfig, lang: Lang) =>
  */
 async function cached<T>(
   provider: AiProvider,
-  key: { kind: string; profileId: string; rosterPokemonId?: string; refresh?: boolean },
+  key: { kind: string; profileId: string; rosterPokemonId?: string; refresh?: boolean; lang: Lang },
   input: unknown,
   request: {
     system: string;
@@ -43,13 +43,18 @@ async function cached<T>(
 
   if (!key.refresh) {
     const hit = await prisma.aiAudit.findUnique({ where });
-    if (hit) return hit.result as T;
+    if (hit) {
+      // Reusing a saved answer makes it the one the card shows, with no new request.
+      await prisma.aiAudit.update({ where: { id: hit.id }, data: { createdAt: new Date() } });
+      return hit.result as T;
+    }
   }
   const result = await provider.generate(request);
   const data = {
     profileId: key.profileId,
     rosterPokemonId: key.rosterPokemonId,
     model,
+    lang: key.lang,
     result: result as object,
     createdAt: new Date(),
   };
@@ -95,7 +100,7 @@ export function auditBuild(
 
   return cached(
     provider,
-    { kind: 'build', profileId, rosterPokemonId: p.id, refresh },
+    { kind: 'build', profileId, rosterPokemonId: p.id, refresh, lang },
     { build, pending, illegal, lang },
     {
       system: system(game, lang),
@@ -125,7 +130,7 @@ export function auditBuild(
 
 export function auditTeam(provider: AiProvider, game: GameConfig, lang: Lang, profileId: string, roster: RosterView[]) {
   const team = roster.map(describeBuild);
-  return cached(provider, { kind: 'team', profileId }, { team, lang }, {
+  return cached(provider, { kind: 'team', profileId, lang }, { team, lang }, {
     system: system(game, lang),
     schema: TeamAuditSchema,
     schemaName: 'team_audit',
@@ -140,7 +145,7 @@ export function auditTeam(provider: AiProvider, game: GameConfig, lang: Lang, pr
 
 /** Where to catch a Pokémon. PokéAPI has no encounter data for recent games, so this is researched. */
 export function researchLocation(provider: AiProvider, game: GameConfig, lang: Lang, profileId: string, pokemon: string) {
-  return cached(provider, { kind: 'location', profileId }, { game: game.id, pokemon, lang }, {
+  return cached(provider, { kind: 'location', profileId, lang }, { game: game.id, pokemon, lang }, {
     system: system(game, lang),
     schema: LocationSchema,
     schemaName: 'location',
@@ -161,7 +166,7 @@ export function adviseStarterTeam(
   owned: string[],
   refresh: boolean
 ) {
-  return cached(provider, { kind: 'starter-team', profileId, refresh }, { game: game.id, owned, lang }, {
+  return cached(provider, { kind: 'starter-team', profileId, refresh, lang }, { game: game.id, owned, lang }, {
     system: system(game, lang),
     schema: StarterAdviceSchema,
     schemaName: 'starter_advice',

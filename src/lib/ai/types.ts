@@ -27,5 +27,16 @@ export interface AiProvider {
   generate<T>(request: GenerateRequest<T>): Promise<T>;
 }
 
-/** A failure worth showing to the user as-is (refusal, empty answer, bad key). */
-export class AiError extends Error {}
+/**
+ * A failure worth showing to the user (refusal, empty answer, bad key). The
+ * message is the English text and doubles as its translation key; `vars`
+ * fills its {placeholders}.
+ */
+export class AiError extends Error {
+  constructor(
+    message: string,
+    readonly vars?: Record<string, string | number>
+  ) {
+    super(message);
+  }
+}

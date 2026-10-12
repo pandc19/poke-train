@@ -12,6 +12,7 @@ import { formatEvs } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
 import { POTENTIAL_LEVELS, potentialLevel } from '@/lib/potential';
 import { TYPE_COLORS } from '@/lib/pokemon-types';
+import { useT } from '@/lib/translate-client';
 import type { EditorOptions, RosterView } from '@/lib/roster';
 import { rosterProgress, type TaskKey, type TaskStatus } from '@/lib/roster-status';
 
@@ -20,13 +21,7 @@ type Filter = 'all' | 'pending' | 'done';
 type Gender = RosterView['gender'];
 type Sort = 'import' | 'dex' | 'national' | 'name' | 'progress';
 
-const SORT_LABELS: Record<Sort, string> = {
-  import: 'Spreadsheet order',
-  dex: 'Pokédex order (this game)',
-  national: 'National Dex number',
-  name: 'Name',
-  progress: 'Least finished first',
-};
+
 
 const progressOf = (p: RosterView) =>
   rosterProgress({
@@ -81,6 +76,7 @@ function TaskChip({
   title?: string;
   dense?: boolean;
 }) {
+  const { t } = useT();
   const done = status === 'DONE';
   return (
     <motion.button
@@ -88,7 +84,7 @@ function TaskChip({
       onClick={onToggle}
       whileTap={{ scale: 0.94 }}
       aria-pressed={done}
-      title={warning ?? title ?? (done ? 'Done. Click to mark pending' : 'Pending. Click to mark done')}
+      title={warning ?? title ?? (done ? t('Done. Click to mark pending') : t('Pending. Click to mark done'))}
       className={`inline-flex max-w-full items-center gap-1 rounded-md border text-left transition-colors ${
         dense ? 'px-1.5 py-0.5 text-xs' : 'px-2 py-1 text-xs'
       } ${
@@ -113,9 +109,10 @@ function TaskChip({
 
 /** ♂ / ♀ toggles; both on means "I have both". Hidden for species with one fixed gender. */
 function GenderControl({ p, onChange }: { p: RosterView; onChange: (g: Gender) => void }) {
-  if (p.genderRate === -1) return <span className="text-xs text-muted">Genderless</span>;
-  if (p.genderRate === 0) return <span className="text-xs text-sky-400">♂ always male</span>;
-  if (p.genderRate === 8) return <span className="text-xs text-pink-400">♀ always female</span>;
+  const { t } = useT();
+  if (p.genderRate === -1) return <span className="text-xs text-muted">{t('Genderless')}</span>;
+  if (p.genderRate === 0) return <span className="text-xs text-sky-400">♂ {t('always male')}</span>;
+  if (p.genderRate === 8) return <span className="text-xs text-pink-400">♀ {t('always female')}</span>;
 
   const male = p.gender === 'MALE' || p.gender === 'BOTH';
   const female = p.gender === 'FEMALE' || p.gender === 'BOTH';
@@ -127,7 +124,7 @@ function GenderControl({ p, onChange }: { p: RosterView; onChange: (g: Gender) =
         type="button"
         aria-pressed={male}
         onClick={() => set(!male, female)}
-        title={male ? 'You have a male. Click to remove' : 'Click if you have a male'}
+        title={male ? t('You have a male. Click to remove') : t('Click if you have a male')}
         className={`h-6 w-8 rounded text-sm font-bold ${
           male ? 'bg-sky-500 text-white' : 'border border-line text-muted hover:text-sky-400'
         }`}
@@ -138,7 +135,7 @@ function GenderControl({ p, onChange }: { p: RosterView; onChange: (g: Gender) =
         type="button"
         aria-pressed={female}
         onClick={() => set(male, !female)}
-        title={female ? 'You have a female. Click to remove' : 'Click if you have a female'}
+        title={female ? t('You have a female. Click to remove') : t('Click if you have a female')}
         className={`h-6 w-8 rounded text-sm font-bold ${
           female ? 'bg-pink-500 text-white' : 'border border-line text-muted hover:text-pink-400'
         }`}
@@ -146,7 +143,7 @@ function GenderControl({ p, onChange }: { p: RosterView; onChange: (g: Gender) =
         ♀
       </button>
       <span className="text-[11px] text-muted">
-        {male && female ? 'have both' : male ? 'male' : female ? 'female' : 'not set'}
+        {male && female ? t('have both') : male ? t('male') : female ? t('female') : t('not set')}
       </span>
     </div>
   );
@@ -201,6 +198,14 @@ export function RosterBoard({
   aiEnabled: boolean;
   aiProvider: string;
 }) {
+  const { t } = useT();
+  const sortLabels: Record<Sort, string> = {
+    import: t('Spreadsheet order'),
+    dex: t('Pokédex order (this game)'),
+    national: t('National Dex number'),
+    name: t('Name'),
+    progress: t('Least finished first'),
+  };
   const [roster, setRoster] = useState(initial);
   const [view, setView] = useState<View>('cards');
   const [filter, setFilter] = useState<Filter>('all');
@@ -227,7 +232,7 @@ export function RosterBoard({
       body: body ? JSON.stringify(body) : undefined,
     });
     const data = await res.json().catch(() => null);
-    if (!res.ok) throw new Error(data?.error ?? `Request failed (${res.status})`);
+    if (!res.ok) throw new Error(data?.error ?? t('Request failed ({status})', { status: res.status }));
     return data as T;
   }
 
@@ -239,7 +244,7 @@ export function RosterBoard({
       await api(`/api/roster/${p.id}`, 'PATCH', { task: { key, status } });
     } catch {
       replace(p);
-      setError('Could not save that change. It has been undone; try again.');
+      setError(t('Could not save that change. It has been undone; try again.'));
     }
   }
 
@@ -250,7 +255,7 @@ export function RosterBoard({
       await api(`/api/roster/${p.id}`, 'PATCH', { set: { gender } });
     } catch {
       replace(p);
-      setError('Could not save the gender. It has been undone; try again.');
+      setError(t('Could not save the gender. It has been undone; try again.'));
     }
   }
 
@@ -261,7 +266,7 @@ export function RosterBoard({
       await api(`/api/roster/${p.id}`, 'PATCH', { set: { potential } });
     } catch {
       replace(p);
-      setError('Could not save the potential. It has been undone; try again.');
+      setError(t('Could not save the potential. It has been undone; try again.'));
     }
   }
 
@@ -272,7 +277,7 @@ export function RosterBoard({
       setEditing(null);
       return null;
     } catch (e) {
-      return e instanceof Error ? e.message : 'Could not save';
+      return e instanceof Error ? e.message : t('Could not save');
     }
   }
 
@@ -282,7 +287,7 @@ export function RosterBoard({
       await api(`/api/roster/${p.id}`, 'DELETE');
       setRoster((prev) => prev.filter((x) => x.id !== p.id));
     } catch {
-      setError('Could not remove that Pokémon. Try again.');
+      setError(t('Could not remove that Pokémon. Try again.'));
     }
   }
 
@@ -290,7 +295,7 @@ export function RosterBoard({
     const wanted = adding.trim().toLowerCase();
     const species = options.species.find((s) => s.nameEn.toLowerCase() === wanted || s.nameEs.toLowerCase() === wanted);
     if (!species) {
-      setError(`"${adding}" is not a Pokémon you can get in this game. Pick one from the suggestions.`);
+      setError(t('"{name}" is not a Pokémon you can get in this game. Pick one from the suggestions.', { name: adding }));
       return;
     }
     setError(null);
@@ -300,7 +305,7 @@ export function RosterBoard({
       setAdding('');
       setEditing(data.pokemon.id);
     } catch {
-      setError('Could not add that Pokémon. Try again.');
+      setError(t('Could not add that Pokémon. Try again.'));
     }
   }
 
@@ -312,7 +317,7 @@ export function RosterBoard({
       const data = await api<{ pokemon: RosterView }>('/api/ai/audit', 'POST', { rosterPokemonId: p.id, refresh, deep });
       replace(data.pokemon);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'The audit failed.');
+      setError(e instanceof Error ? e.message : t('The audit failed.'));
     } finally {
       setAuditing(null);
     }
@@ -326,7 +331,7 @@ export function RosterBoard({
       setTeam({ busy: false, result: data.result });
     } catch (e) {
       setTeam({ busy: false, result: null });
-      setError(e instanceof Error ? e.message : 'The team audit failed.');
+      setError(e instanceof Error ? e.message : t('The roster audit failed.'));
     }
   }
 
@@ -380,10 +385,10 @@ export function RosterBoard({
       owned: (
         <TaskChip
           dense={dense}
-          label={p.owned ? 'Yes' : 'Not yet'}
+          label={p.owned ? t('Yes') : t('Not yet')}
           status={p.owned ? 'DONE' : 'PENDING'}
           onToggle={() => toggle(p, 'owned', p.owned ? 'DONE' : 'PENDING')}
-          title={p.owned ? 'You have this Pokémon. Click to undo' : 'Not obtained yet. Click when you have it'}
+          title={p.owned ? t('You have this Pokémon. Click to undo') : t('Not obtained yet. Click when you have it')}
         />
       ),
       nature: p.targetNature && (
@@ -395,7 +400,7 @@ export function RosterBoard({
           label={name(p.ability)}
           status={p.abilityStatus}
           onToggle={() => toggle(p, 'ability', p.abilityStatus)}
-          warning={p.abilityLegal === false ? `${name(p.species)} cannot have this ability` : undefined}
+          warning={p.abilityLegal === false ? t('{name} cannot have this ability', { name: name(p.species) }) : undefined}
         />
       ),
       item: (p.item || p.itemNote) && (
@@ -430,9 +435,9 @@ export function RosterBoard({
             onToggle={() => toggle(p, `move:${slot}`, m.status)}
             warning={
               m.move == null
-                ? 'This move name was not recognised. Edit the Pokémon to fix it'
+                ? t('This move name was not recognised. Edit the Pokémon to fix it')
                 : m.legal === false
-                  ? `${name(p.species)} cannot learn this move in this game`
+                  ? t('{name} cannot learn this move in this game', { name: name(p.species) })
                   : undefined
             }
           />
@@ -455,15 +460,16 @@ export function RosterBoard({
       />
       <ConfirmDialog
         open={removing != null}
-        title="Remove from the roster?"
-        confirmLabel="Remove"
+        title={t('Remove from the roster?')}
+        confirmLabel={t('Remove')}
         danger
         onConfirm={() => removing && remove(removing)}
         onCancel={() => setRemoving(null)}
       >
         <p>
-          <strong className="text-ink">{removing ? (removing.nickname ?? name(removing.species)) : ''}</strong> and its
-          checklist will be deleted. Your Pokédex is not changed.
+          {t('{name} and its checklist will be deleted. Your Pokédex is not changed.', {
+            name: removing ? (removing.nickname ?? name(removing.species)) : '',
+          })}
         </p>
       </ConfirmDialog>
       <datalist id="species-list">
@@ -477,11 +483,11 @@ export function RosterBoard({
   if (roster.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-line px-6 py-16 text-center">
-        <p className="text-lg font-semibold">Your roster is empty</p>
-        <p className="mt-1 text-sm text-muted">Import your training spreadsheet, or add a Pokémon by name.</p>
+        <p className="text-lg font-semibold">{t('Your roster is empty')}</p>
+        <p className="mt-1 text-sm text-muted">{t('Import your training spreadsheet, or add a Pokémon by name.')}</p>
         <div className="mt-5 flex flex-wrap justify-center gap-3">
           <Link href={`/${gameId}/import`} className="rounded-md bg-done px-4 py-2 text-sm font-semibold text-bg">
-            Import a spreadsheet
+            {t('Import a spreadsheet')}
           </Link>
           <AddBox value={adding} onChange={setAdding} onAdd={add} />
         </div>
@@ -496,16 +502,16 @@ export function RosterBoard({
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <p className="text-sm">
           <span className="font-semibold text-done">{stats.complete}</span>
-          <span className="text-muted"> of {stats.total} fully trained</span>
+          <span className="text-muted"> {t('of {total} fully trained', { total: stats.total })}</span>
         </p>
         <div className="flex rounded-md border border-line text-xs">
           {(['all', 'pending', 'done'] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 capitalize ${filter === f ? 'bg-surface-2 font-semibold' : 'text-muted'}`}
+              className={`px-3 py-1.5 ${filter === f ? 'bg-surface-2 font-semibold' : 'text-muted'}`}
             >
-              {f}
+              {f === 'all' ? t('All') : f === 'pending' ? t('Pending') : t('Done')}
             </button>
           ))}
         </div>
@@ -514,22 +520,22 @@ export function RosterBoard({
             <button
               key={v}
               onClick={() => setView(v)}
-              className={`px-3 py-1.5 capitalize ${view === v ? 'bg-surface-2 font-semibold' : 'text-muted'}`}
+              className={`px-3 py-1.5 ${view === v ? 'bg-surface-2 font-semibold' : 'text-muted'}`}
             >
-              {v === 'table' ? 'Overview table' : 'Cards'}
+              {v === 'table' ? t('Overview table') : t('Cards')}
             </button>
           ))}
         </div>
         <label className="flex items-center gap-2 text-xs text-muted">
-          Sort
+          {t('Sort')}
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as Sort)}
             className="rounded-md border border-line bg-surface px-2 py-1.5 text-ink"
           >
-            {(Object.keys(SORT_LABELS) as Sort[]).map((key) => (
+            {(Object.keys(sortLabels) as Sort[]).map((key) => (
               <option key={key} value={key}>
-                {SORT_LABELS[key]}
+                {sortLabels[key]}
               </option>
             ))}
           </select>
@@ -541,25 +547,26 @@ export function RosterBoard({
             disabled={!aiEnabled || team.busy}
             title={
               aiEnabled
-                ? `One request that reviews your whole roster together (${aiProvider})`
-                : 'Add an API key to .env.local to enable AI audits'
+                ? t('One request that reviews your whole roster together ({provider})', { provider: aiProvider })
+                : t('Add an API key to .env.local to enable AI audits')
             }
             className="rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
           >
-            {team.busy ? 'Auditing roster…' : 'AI roster audit'}
+            {team.busy ? t('Auditing roster…') : t('AI roster audit')}
           </button>
         </div>
       </div>
 
       <p className="mb-4 text-xs text-muted">
-        <span className="text-pending">Orange</span> = still to do, <span className="text-done">green</span> = done.
-        Click any chip to flip it.
+        <span className="text-pending">{t('Orange')}</span> = {t('still to do')},{' '}
+        <span className="text-done">{t('green')}</span> = {t('done')}. {t('Click any chip to flip it.')}
       </p>
 
       {!aiEnabled && (
         <p className="mb-3 text-xs text-muted">
-          AI audits are off: no API key is configured. Move legality checks still run, since they use game data
-          rather than AI.
+          {t(
+            'AI audits are off: no API key is configured. Move legality checks still run, since they use game data rather than AI.'
+          )}
         </p>
       )}
       {error && (
@@ -570,16 +577,16 @@ export function RosterBoard({
       {team.result && (
         <div className="mb-4 rounded-lg border border-line bg-surface p-4 text-sm">
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-semibold">Roster audit</h2>
+            <h2 className="font-semibold">{t('Roster audit')}</h2>
             <button onClick={() => setTeam({ busy: false, result: null })} className="text-xs text-muted">
-              Close
+              {t('Close')}
             </button>
           </div>
           <p>{team.result.summary}</p>
           <div className="mt-3 grid gap-4 md:grid-cols-3">
-            <AuditList title="Strengths" items={team.result.strengths} />
-            <AuditList title="Weaknesses" items={team.result.weaknesses} />
-            <AuditList title="Suggestions" items={team.result.suggestions.map((s) => `${s.change}: ${s.reason}`)} />
+            <AuditList title={t('Strengths')} items={team.result.strengths} />
+            <AuditList title={t('Weaknesses')} items={team.result.weaknesses} />
+            <AuditList title={t('Suggestions')} items={team.result.suggestions.map((s) => `${s.change}: ${s.reason}`)} />
           </div>
         </div>
       )}
@@ -611,21 +618,21 @@ export function RosterBoard({
                           <p className="truncate text-xs text-muted">
                             <span className="mr-1 font-mono">{numberLabel(p)}</span>
                             {p.nickname ? `${name(p.species)} · ` : ''}
-                            {p.baseSpecies ? `from ${name(p.baseSpecies)}` : ''}
-                            {p.origin !== 'UNKNOWN' ? ` · ${p.origin === 'BRED' ? 'bred' : 'caught'}` : ''}
+                            {p.baseSpecies ? t('from {name}', { name: name(p.baseSpecies) }) : ''}
+                            {p.origin !== 'UNKNOWN' ? ` · ${p.origin === 'BRED' ? t('bred') : t('caught')}` : ''}
                           </p>
                         </div>
                         <span className={`shrink-0 text-xs font-semibold ${prog.complete ? 'text-done' : 'text-pending'}`}>
-                          {prog.complete ? '★ Ready' : `${prog.done}/${prog.total}`}
+                          {prog.complete ? `★ ${t('Ready')}` : `${prog.done}/${prog.total}`}
                         </span>
                       </div>
                       <div className="mt-1 flex flex-wrap gap-1">
-                        {p.types.map((t) => (
-                          <TypeBadge key={t} type={t} lang={lang} small />
+                        {p.types.map((type) => (
+                          <TypeBadge key={type} type={type} lang={lang} small />
                         ))}
                         {p.teraType && (
                           <span className="rounded border border-line px-1 text-[9px] uppercase leading-4 text-muted">
-                            Tera {p.teraType}
+                            {t('Tera {type}', { type: p.teraType })}
                           </span>
                         )}
                       </div>
@@ -640,21 +647,21 @@ export function RosterBoard({
                   </div>
 
                   <div className="mt-3 space-y-2">
-                    <Row label="Gender">
+                    <Row label={t('Gender')}>
                       <GenderControl p={p} onChange={(g) => changeGender(p, g)} />
                     </Row>
                     {judge && (
-                      <Row label="Potential">
+                      <Row label={t('Potential')}>
                         <PotentialSelect p={p} onChange={(v) => changePotential(p, v)} />
                       </Row>
                     )}
-                    <Row label="Obtained">{c.owned}</Row>
-                    {c.nature && <Row label="Nature">{c.nature}</Row>}
-                    {c.ability && <Row label="Ability">{c.ability}</Row>}
-                    {c.item && <Row label="Item">{c.item}</Row>}
-                    {c.evs && <Row label="EVs">{c.evs}</Row>}
+                    <Row label={t('Obtained')}>{c.owned}</Row>
+                    {c.nature && <Row label={t('Nature')}>{c.nature}</Row>}
+                    {c.ability && <Row label={t('Ability')}>{c.ability}</Row>}
+                    {c.item && <Row label={t('Item')}>{c.item}</Row>}
+                    {c.evs && <Row label={t('EVs')}>{c.evs}</Row>}
                     {slots.length > 0 && (
-                      <Row label="Moves">
+                      <Row label={t('Moves')}>
                         <div className="grid w-full grid-cols-2 gap-1.5">
                           {slots.map((slot) => (
                             <div key={slot} className="min-w-0">
@@ -672,25 +679,33 @@ export function RosterBoard({
                     <button
                       onClick={() => (p.audit ? setOpenAudit(openAudit === p.id ? null : p.id) : audit(p))}
                       disabled={(!aiEnabled && !p.audit) || auditing === p.id}
-                      title={aiEnabled ? undefined : 'Add an API key to .env.local to enable AI audits'}
+                      title={aiEnabled ? undefined : t('Add an API key to .env.local to enable AI audits')}
                       className="rounded-md border border-line px-2 py-1 disabled:opacity-40"
                     >
-                      {auditing === p.id ? 'Auditing…' : p.audit ? (openAudit === p.id ? 'Hide audit' : 'Show audit') : 'AI audit'}
+                      {auditing === p.id
+                        ? t('Auditing…')
+                        : p.audit
+                          ? openAudit === p.id
+                            ? t('Hide audit')
+                            : t('Show audit')
+                          : t('AI audit')}
                     </button>
                     <button onClick={() => setEditing(p.id)} className="rounded-md border border-line px-2 py-1">
-                      Edit
+                      {t('Edit')}
                     </button>
                     <button onClick={() => setRemoving(p)} className="ml-auto text-muted hover:text-red-400">
-                      Remove
+                      {t('Remove')}
                     </button>
                   </div>
 
                   {openAudit === p.id && p.audit && (
                     <AuditPanel
                       audit={p.audit.result as BuildAudit}
+                      auditLang={p.audit.lang}
                       meta={`${p.audit.provider} · ${p.audit.model}`}
                       onRefresh={aiEnabled ? () => audit(p, true) : undefined}
                       onDeep={aiEnabled ? () => audit(p, false, true) : undefined}
+                      onChangeLanguage={aiEnabled ? () => audit(p, false) : undefined}
                       busy={auditing === p.id}
                     />
                   )}
@@ -704,7 +719,22 @@ export function RosterBoard({
           <table className="w-full min-w-[1150px] text-left text-xs">
             <thead className="bg-surface-2 uppercase text-muted">
               <tr>
-                {['Obtained', 'Pokémon', 'Gender', ...(judge ? ['Potential'] : []), 'Nature', 'Ability', 'Item', 'EVs', 'Move 1', 'Move 2', 'Move 3', 'Move 4', 'Progress', ''].map(
+                {[
+                  t('Obtained'),
+                  'Pokémon',
+                  t('Gender'),
+                  ...(judge ? [t('Potential')] : []),
+                  t('Nature'),
+                  t('Ability'),
+                  t('Item'),
+                  t('EVs'),
+                  t('Move {n}', { n: 1 }),
+                  t('Move {n}', { n: 2 }),
+                  t('Move {n}', { n: 3 }),
+                  t('Move {n}', { n: 4 }),
+                  t('Progress'),
+                  '',
+                ].map(
                   (h, i) => (
                     <th key={i} className="whitespace-nowrap px-2 py-2 font-medium">
                       {h}
@@ -749,11 +779,11 @@ export function RosterBoard({
                       </td>
                     ))}
                     <td className={`whitespace-nowrap px-2 py-1 font-semibold ${prog.complete ? 'text-done' : 'text-pending'}`}>
-                      {prog.complete ? '★ Ready' : `${prog.done}/${prog.total}`}
+                      {prog.complete ? `★ ${t('Ready')}` : `${prog.done}/${prog.total}`}
                     </td>
                     <td className="whitespace-nowrap px-2 py-1 text-right">
                       <button onClick={() => setEditing(p.id)} className="rounded border border-line px-2 py-0.5">
-                        Edit
+                        {t('Edit')}
                       </button>
                     </td>
                   </tr>
@@ -770,19 +800,20 @@ export function RosterBoard({
 
 /** The Judge's verdict as a coloured select, so the colour tells you the tier at a glance. */
 function PotentialSelect({ p, onChange }: { p: RosterView; onChange: (v: RosterView['potential']) => void }) {
+  const { t, lang } = useT();
   const level = potentialLevel(p.potential);
   return (
     <select
       value={p.potential ?? ''}
       onChange={(e) => onChange((e.target.value || null) as RosterView['potential'])}
-      aria-label="Potential from the in-game Judge"
-      title="What the in-game Judge (Juez) says about this Pokémon"
+      aria-label={t('Potential from the in-game Judge')}
+      title={t('What the in-game Judge (Juez) says about this Pokémon')}
       className={`rounded-md border bg-surface px-1.5 py-0.5 text-xs ${level?.className ?? 'border-line text-muted'}`}
     >
-      <option value="">Not judged</option>
+      <option value="">{t('Not judged')}</option>
       {POTENTIAL_LEVELS.map((l) => (
         <option key={l.value} value={l.value}>
-          {l.label}
+          {lang === 'en' ? l.label : l.labelEs}
         </option>
       ))}
     </select>
@@ -790,6 +821,7 @@ function PotentialSelect({ p, onChange }: { p: RosterView; onChange: (v: RosterV
 }
 
 function AddBox({ value, onChange, onAdd }: { value: string; onChange: (v: string) => void; onAdd: () => void }) {
+  const { t } = useT();
   return (
     <form
       onSubmit={(e) => {
@@ -802,12 +834,12 @@ function AddBox({ value, onChange, onAdd }: { value: string; onChange: (v: strin
         list="species-list"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Add Pokémon…"
-        aria-label="Add a Pokémon by name"
+        placeholder={t('Add Pokémon…')}
+        aria-label={t('Add a Pokémon by name')}
         className="w-40 rounded-md border border-line bg-surface px-2 py-1.5 text-xs placeholder:text-muted"
       />
       <button disabled={!value.trim()} className="rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40">
-        Add
+        {t('Add')}
       </button>
     </form>
   );

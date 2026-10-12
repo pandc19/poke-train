@@ -409,6 +409,9 @@ model AiAudit {
   provider        String
   model           String
   inputHash       String   @map("input_hash")
+  /// Language the answer is written in. Switching the app language does not translate it:
+  /// the saved answer stays until it is re-run.
+  lang            String   @default("es")
   result          Json
   createdAt       DateTime @default(now()) @map("created_at")
 

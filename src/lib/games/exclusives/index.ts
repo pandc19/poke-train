@@ -1,3 +1,4 @@
+import type { Localized } from '../../translate';
 import { SV_EXCLUSIVE_GROUPS, SV_EXCLUSIVE_SOURCE } from './scarlet-violet';
 import type { ExclusiveEntry } from './types';
 
@@ -11,10 +12,26 @@ export type { ExclusiveEntry } from './types';
 export type VersionExclusives = {
   ownName: string;
   otherName: string;
-  groups: { id: string; label: string; note?: string; own: ExclusiveEntry[]; other: ExclusiveEntry[] }[];
+  groups: { id: string; label: Localized; note?: Localized; own: ExclusiveEntry[]; other: ExclusiveEntry[] }[];
   /** How the player can still get the other version's Pokémon, per the source. */
-  howToGetOther: string;
+  howToGetOther: Localized;
   source: { name: string; retrieved: string };
+};
+
+const GROUP_TEXT: Record<string, { label: Localized; note?: Localized }> = {
+  base: { label: { en: 'Base game', es: 'Juego base' } },
+  event: {
+    label: { en: 'Event Tera Raids', es: 'Teraincursiones de evento' },
+    note: { en: 'Limited-time events. Not always available.', es: 'Eventos por tiempo limitado. No siempre están disponibles.' },
+  },
+  'teal-mask': {
+    label: { en: 'The Teal Mask', es: 'La Máscara Turquesa' },
+    note: { en: 'Kitakami DLC', es: 'DLC de Kitakami' },
+  },
+  'indigo-disk': {
+    label: { en: 'The Indigo Disk', es: 'El Disco Índigo' },
+    note: { en: 'Blueberry DLC', es: 'DLC de Arándano' },
+  },
 };
 
 export function scarletVioletExclusives(own: 'scarlet' | 'violet'): VersionExclusives {
@@ -25,14 +42,19 @@ export function scarletVioletExclusives(own: 'scarlet' | 'violet'): VersionExclu
     otherName: name(other),
     groups: SV_EXCLUSIVE_GROUPS.map((g) => ({
       id: g.id,
-      label: g.label,
-      note: g.note,
+      label: GROUP_TEXT[g.id]?.label ?? { en: g.label, es: g.label },
+      note: GROUP_TEXT[g.id]?.note,
       own: g[own],
       other: g[other],
     })),
-    howToGetOther:
-      "Most of these can be met in the other version through a Union Circle or a Tera Raid Battle with a player who has it. " +
-      'Koraidon and Miraidon have to be traded.',
+    howToGetOther: {
+      en:
+        'Most of these can be met in the other version through a Union Circle or a Tera Raid Battle with a player who has it. ' +
+        'Koraidon and Miraidon have to be traded.',
+      es:
+        'La mayoría se pueden encontrar en la otra versión mediante un Círculo de Unión o una Teraincursión con un jugador que la tenga. ' +
+        'Koraidon y Miraidon hay que intercambiarlos.',
+    },
     source: SV_EXCLUSIVE_SOURCE,
   };
 }

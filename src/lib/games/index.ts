@@ -1,3 +1,4 @@
+import type { Localized } from '../translate';
 import { scarletVioletExclusives, type VersionExclusives } from './exclusives';
 import { VIOLET_UTILITY_ROLES } from './utility-roles';
 
@@ -17,7 +18,7 @@ export type GameConfig = {
   /** Every version group whose learnsets count as legal (base game + DLC). */
   learnsetVersionGroups: string[];
   /** PokéAPI pokedex slugs, in display order. `note` says where the dex comes from. */
-  pokedexes: { slug: string; name: string; note: string }[];
+  pokedexes: { slug: string; name: string; note: Localized }[];
   features: {
     breeding: boolean;
     evs: boolean;
@@ -44,8 +45,8 @@ export type GameConfig = {
  */
 export type UtilityRole = {
   id: string;
-  title: string;
-  why: string;
+  title: Localized;
+  why: Localized;
   needs: {
     /** The Pokémon must learn every one of these. */
     allMoves?: string[];
@@ -54,7 +55,7 @@ export type UtilityRole = {
     /** Or, instead, have one of these abilities. */
     anyAbilities?: string[];
   };
-  tips: string[];
+  tips: Localized[];
 };
 
 export const GAMES: GameConfig[] = [
@@ -66,9 +67,9 @@ export const GAMES: GameConfig[] = [
     versionGroup: 'scarlet-violet',
     learnsetVersionGroups: ['scarlet-violet', 'the-teal-mask', 'the-indigo-disk'],
     pokedexes: [
-      { slug: 'paldea', name: 'Paldea', note: 'Base game' },
-      { slug: 'kitakami', name: 'Kitakami', note: 'DLC: The Teal Mask' },
-      { slug: 'blueberry', name: 'Blueberry', note: 'DLC: The Indigo Disk' },
+      { slug: 'paldea', name: 'Paldea', note: { en: 'Base game', es: 'Juego base' } },
+      { slug: 'kitakami', name: 'Kitakami', note: { en: 'DLC: The Teal Mask', es: 'DLC: La Máscara Turquesa' } },
+      { slug: 'blueberry', name: 'Blueberry', note: { en: 'DLC: The Indigo Disk', es: 'DLC: El Disco Índigo' } },
     ],
     features: {
       breeding: true,

@@ -7,16 +7,10 @@ import { PokemonInfoDialog } from './PokemonInfoDialog';
 import { Sprite } from './Sprite';
 import type { DexCell } from '@/lib/pokedex';
 import type { Lang } from '@/lib/i18n';
+import { useT } from '@/lib/translate-client';
 
 type Filter = 'all' | 'missing' | 'caught' | 'have' | 'registered';
 
-const FILTER_LABELS: Record<Filter, string> = {
-  all: 'All',
-  missing: 'Missing',
-  caught: 'Caught',
-  have: 'Have now',
-  registered: 'Not in my box',
-};
 type Genders = { male: boolean; female: boolean };
 
 /**
@@ -47,6 +41,14 @@ export function DexGrid({
   gameName?: string;
   accent?: string;
 }) {
+  const { t } = useT();
+  const filterLabels: Record<Filter, string> = {
+    all: t('All'),
+    missing: t('Missing'),
+    caught: t('Caught'),
+    have: t('Have now'),
+    registered: t('Not in my box'),
+  };
   const readOnly = gameId === null;
   const hasUnavailable = cells.some((c) => !c.inGame);
   const [onlyInGame, setOnlyInGame] = useState(true);
@@ -130,10 +132,10 @@ export function DexGrid({
         if (!res.ok) throw new Error(String(res.status));
       } catch {
         apply(ids, !mode);
-        setError('Could not save that change. It has been undone; try again.');
+        setError(t('Could not save that change. It has been undone; try again.'));
       }
     },
-    [apply, gameId, readOnly]
+    [apply, gameId, readOnly, t]
   );
 
   async function patch(body: Record<string, unknown>) {
@@ -159,7 +161,7 @@ export function DexGrid({
       await patch({ speciesId, owned: value });
     } catch {
       toggle(!value);
-      setError('Could not save that change. It has been undone; try again.');
+      setError(t('Could not save that change. It has been undone; try again.'));
     }
   }
 
@@ -171,7 +173,7 @@ export function DexGrid({
       await patch({ speciesId, [which === 'male' ? 'hasMale' : 'hasFemale']: value });
     } catch {
       setGenders((prev) => ({ ...prev, [speciesId]: before }));
-      setError('Could not save that gender. It has been undone; try again.');
+      setError(t('Could not save that gender. It has been undone; try again.'));
     }
   }
 
@@ -218,9 +220,9 @@ export function DexGrid({
         <div className="min-w-48 flex-1">
           <div className="mb-1 flex justify-between text-xs text-muted">
             <span>
-              <span className="font-semibold text-ink">{count}</span> / {total} caught
+              <span className="font-semibold text-ink">{count}</span> / {total} {t('caught')}
               <span className="ml-2">
-                · <span className="font-semibold text-done">{haveCount}</span> have now
+                · <span className="font-semibold text-done">{haveCount}</span> {t('have now')}
               </span>
             </span>
             <span>{pct}%</span>
@@ -238,8 +240,8 @@ export function DexGrid({
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search name or number"
-          aria-label="Search Pokémon"
+          placeholder={t('Search name or number')}
+          aria-label={t('Search Pokémon')}
           className="w-52 rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-muted"
         />
 
@@ -250,7 +252,7 @@ export function DexGrid({
               onClick={() => setFilter(f)}
               className={`px-3 py-1.5 ${filter === f ? 'bg-surface-2 font-semibold' : 'text-muted'}`}
             >
-              {FILTER_LABELS[f]}
+              {filterLabels[f]}
             </button>
           ))}
         </div>
@@ -258,7 +260,7 @@ export function DexGrid({
         {hasUnavailable && (
           <label className="flex items-center gap-2 text-xs text-muted">
             <input type="checkbox" checked={onlyInGame} onChange={(e) => setOnlyInGame(e.target.checked)} />
-            Only Pokémon in {gameName ?? 'this game'}
+            {t('Only Pokémon in {game}', { game: gameName ?? t('this game') })}
           </label>
         )}
 
@@ -269,21 +271,21 @@ export function DexGrid({
               aria-expanded={menuOpen}
               className="rounded-md border border-line px-3 py-1.5 text-xs text-muted hover:text-ink"
             >
-              Bulk actions ▾
+              {t('Bulk actions')} ▾
             </button>
             {menuOpen && (
               <div className="absolute right-0 z-10 mt-1 w-64 rounded-lg border border-line bg-surface p-1 text-xs shadow-xl">
                 <p className="px-3 py-2 text-muted">
-                  These act on the Pokémon currently shown, so search or filter first.
+                  {t('These act on the Pokémon currently shown, so search or filter first.')}
                 </p>
                 <button onClick={() => askBulk(true)} className="block w-full rounded px-3 py-2 text-left hover:bg-surface-2">
-                  Mark all shown as caught…
+                  {t('Mark all shown as caught…')}
                 </button>
                 <button
                   onClick={() => askBulk(false)}
                   className="block w-full rounded px-3 py-2 text-left text-red-400 hover:bg-surface-2"
                 >
-                  Remove all shown from caught…
+                  {t('Remove all shown from caught…')}
                 </button>
               </div>
             )}
@@ -298,7 +300,7 @@ export function DexGrid({
       )}
 
       {visible.length === 0 ? (
-        <p className="py-16 text-center text-sm text-muted">No Pokémon match this filter.</p>
+        <p className="py-16 text-center text-sm text-muted">{t('No Pokémon match this filter.')}</p>
       ) : (
         <ul className="grid grid-cols-[repeat(auto-fill,minmax(108px,1fr))] gap-2">
           {visible.map((c, i) => {
@@ -329,12 +331,16 @@ export function DexGrid({
                       type="button"
                       aria-pressed={isCaught}
                       onClick={(e) => toggleCaught(i, e.shiftKey)}
-                      title={isCaught ? 'Caught. Click to remove from your Pokédex' : 'Click to mark as caught (shift-click for a range)'}
+                      title={
+                        isCaught
+                          ? t('Caught. Click to remove from your Pokédex')
+                          : t('Click to mark as caught (shift-click for a range)')
+                      }
                       className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
                         isCaught ? 'bg-done text-bg' : 'border border-line text-muted hover:border-muted hover:text-ink'
                       }`}
                     >
-                      {isCaught ? '✓ Caught' : 'Catch'}
+                      {isCaught ? `✓ ${t('Caught')}` : t('Catch')}
                     </button>
                   )}
                   <span className="font-mono text-[10px] text-muted">#{String(c.entryNumber).padStart(3, '0')}</span>
@@ -353,7 +359,7 @@ export function DexGrid({
                 <button
                   type="button"
                   onClick={() => setOpenId(c.speciesId)}
-                  title={`${name}: open details`}
+                  title={t('{name}: open details', { name })}
                   className="mt-1 flex w-full flex-col items-center rounded-md pb-1 hover:bg-bg/40 focus-visible:outline-2 focus-visible:outline-star"
                 >
                   <motion.span
@@ -373,22 +379,24 @@ export function DexGrid({
                       }`}
                       title={
                         c.exclusive.own
-                          ? `Only in ${c.exclusive.versionName}, your version`
-                          : `Only in ${c.exclusive.versionName}: not in your game, so it needs a trade or a raid`
+                          ? t('Only in {version}, your version', { version: c.exclusive.versionName })
+                          : t('Only in {version}: not in your game, so it needs a trade or a raid', {
+                              version: c.exclusive.versionName,
+                            })
                       }
                     >
-                      {c.exclusive.versionName} only
+                      {t('{version} only', { version: c.exclusive.versionName })}
                     </span>
                   )}
                   {registeredOnly && (
                     <span className="w-full truncate text-center text-[10px] text-pending">
-                      {evo ? `evolved → ${evo}` : 'not in my box'}
+                      {evo ? t('evolved → {name}', { name: evo }) : t('not in my box')}
                     </span>
                   )}
                   {have && evo && (
                     <span
                       className="w-full truncate text-center text-[10px] font-semibold text-pending"
-                      title={`You also have ${evo}. If you evolved this one, un-tick Have.`}
+                      title={t('You also have {name}. If you evolved this one, un-tick Have.', { name: evo })}
                     >
                       ↗ {evo}
                     </span>
@@ -400,7 +408,7 @@ export function DexGrid({
                           key={game}
                           className="rounded bg-done/20 px-1 text-[9px] font-semibold leading-4 text-done"
                         >
-                          caught in {game}
+                          {t('caught in {game}', { game })}
                         </span>
                       ))}
                     </span>
@@ -415,24 +423,24 @@ export function DexGrid({
                       disabled={c.ownedViaRoster}
                       title={
                         c.ownedViaRoster
-                          ? 'You have this in your trained roster'
+                          ? t('You have this in your trained roster')
                           : have
-                            ? 'You have one right now. Click if it evolved or you released it'
-                            : 'Not in your box (it evolved or was released). Click if you have one again'
+                            ? t('You have one right now. Click if it evolved or you released it')
+                            : t('Not in your box (it evolved or was released). Click if you have one again')
                       }
                       onClick={() => setHave(c.speciesId, !have)}
                       className={`h-5 rounded px-1.5 text-[10px] font-bold ${
                         have ? 'bg-done text-bg' : 'border border-pending/60 text-pending hover:bg-pending/10'
                       } disabled:cursor-default`}
                     >
-                      Have
+                      {t('Have')}
                     </button>
                     {mixed && have && (
                       <>
                         <button
                           type="button"
                           aria-pressed={g.male}
-                          title={g.male ? 'You have a male. Click to remove' : 'Click if you have a male'}
+                          title={g.male ? t('You have a male. Click to remove') : t('Click if you have a male')}
                           onClick={() => setGender(c.speciesId, 'male', !g.male)}
                           className={`h-5 w-6 rounded text-xs font-bold ${
                             g.male ? 'bg-sky-500 text-white' : 'border border-line text-muted hover:text-sky-400'
@@ -443,7 +451,7 @@ export function DexGrid({
                         <button
                           type="button"
                           aria-pressed={g.female}
-                          title={g.female ? 'You have a female. Click to remove' : 'Click if you have a female'}
+                          title={g.female ? t('You have a female. Click to remove') : t('Click if you have a female')}
                           onClick={() => setGender(c.speciesId, 'female', !g.female)}
                           className={`h-5 w-6 rounded text-xs font-bold ${
                             g.female ? 'bg-pink-500 text-white' : 'border border-line text-muted hover:text-pink-400'
@@ -463,10 +471,7 @@ export function DexGrid({
 
       {!readOnly && (
         <p className="mt-4 text-xs text-muted">
-          Click a card to see that Pokémon&apos;s information. Use <strong className="text-ink">Catch</strong> to mark it in
-          your Pokédex (shift-click fills a range). <strong className="text-ink">Have</strong> means you have one right
-          now: un-tick it when it evolves or you release it, and it stays in the Pokédex as &quot;not in my box&quot;. ♂ and
-          ♀ record which genders you have; the breeding planner uses that to find parents.
+          {t('Click a card to see that Pokémon\'s information. Use Catch to mark it in your Pokédex (shift-click fills a range). Have means you have one right now: un-tick it when it evolves or you release it, and it stays in the Pokédex as "not in my box". ♂ and ♀ record which genders you have; the breeding planner uses that to find parents.')}
         </p>
       )}
 
@@ -481,9 +486,11 @@ export function DexGrid({
 
       <ConfirmDialog
         open={bulk != null}
-        title={bulk?.mode ? 'Mark shown Pokémon as caught?' : 'Remove shown Pokémon from caught?'}
+        title={bulk?.mode ? t('Mark shown Pokémon as caught?') : t('Remove shown Pokémon from caught?')}
         confirmLabel={
-          bulk?.mode ? `Mark ${bulk.ids.length} as caught` : `Remove ${bulk?.ids.length ?? 0} from caught`
+          bulk?.mode
+            ? t('Mark {count} as caught', { count: bulk.ids.length })
+            : t('Remove {count} from caught', { count: bulk?.ids.length ?? 0 })
         }
         danger={bulk?.mode === false}
         disabled={!bulk || bulk.ids.length === 0}
@@ -491,17 +498,27 @@ export function DexGrid({
         onCancel={() => setBulk(null)}
       >
         {bulk && bulk.ids.length === 0 ? (
-          <p>Nothing to change: every Pokémon currently shown is already {bulk.mode ? 'caught' : 'not caught'}.</p>
+          <p>
+            {bulk.mode
+              ? t('Nothing to change: every Pokémon currently shown is already caught.')
+              : t('Nothing to change: every Pokémon currently shown is already not caught.')}
+          </p>
         ) : (
           <>
             <p>
-              This will {bulk?.mode ? 'mark' : 'remove'} <strong className="text-ink">{bulk?.ids.length}</strong>{' '}
-              Pokémon {bulk?.mode ? 'as caught and as ones you have now' : 'from your caught list'}. Only the Pokémon
-              currently shown are affected (your search and filter apply).
+              {bulk?.mode
+                ? t(
+                    'This will mark {count} Pokémon as caught and as ones you have now. Only the Pokémon currently shown are affected (your search and filter apply).',
+                    { count: bulk?.ids.length ?? 0 }
+                  )
+                : t(
+                    'This will remove {count} Pokémon from your caught list. Only the Pokémon currently shown are affected (your search and filter apply).',
+                    { count: bulk?.ids.length ?? 0 }
+                  )}
             </p>
             {bulk?.mode === false && (
               <p className="mt-2 text-red-400">
-                This also forgets the Have mark and the ♂/♀ you recorded for them. There is no undo.
+                {t('This also forgets the Have mark and the ♂/♀ you recorded for them. There is no undo.')}
               </p>
             )}
           </>

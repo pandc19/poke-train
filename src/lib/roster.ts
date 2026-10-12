@@ -52,7 +52,7 @@ export type RosterView = {
   potential: 'NO_GOOD' | 'DECENT' | 'PRETTY_GOOD' | 'VERY_GOOD' | 'FANTASTIC' | 'BEST' | null;
   notes: string | null;
   moves: RosterMoveView[];
-  audit: { provider: string; model: string; createdAt: string; result: unknown } | null;
+  audit: { provider: string; model: string; lang: string; createdAt: string; result: unknown } | null;
 };
 
 const named = { id: true, nameEn: true, nameEs: true } as const;
@@ -148,7 +148,13 @@ export async function loadRoster(profileId: string, ids?: string[]): Promise<Ros
         legal: m.legal,
       })),
       audit: audit
-        ? { provider: audit.provider, model: audit.model, createdAt: audit.createdAt.toISOString(), result: audit.result }
+        ? {
+            provider: audit.provider,
+            model: audit.model,
+            lang: audit.lang,
+            createdAt: audit.createdAt.toISOString(),
+            result: audit.result,
+          }
         : null,
     };
   });

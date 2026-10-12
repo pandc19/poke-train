@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import { WORKSPACE_MESSAGE } from '../messages';
 import { claudeModels, claudeWebSearchTool } from '../models';
 import { AiError, type AiProvider, type GenerateRequest, type ModelTier } from '../types';
 
@@ -55,12 +56,9 @@ export class ClaudeProvider implements AiProvider {
         // The SDK's message is "400 {json}"; the readable part is nested inside.
         const detail = (error.error as { error?: { message?: string } } | undefined)?.error?.message ?? error.message;
         if (detail.includes('anthropic-workspace-id')) {
-          throw new AiError(
-            'This Anthropic API key is not scoped to a workspace. Set ANTHROPIC_WORKSPACE_ID in .env.local ' +
-              '(the same workspace id taxap uses) and restart the dev server.'
-          );
+          throw new AiError(WORKSPACE_MESSAGE);
         }
-        throw new AiError(`Claude error ${error.status ?? ''}: ${detail}`);
+        throw new AiError('Claude error {status}: {detail}', { status: error.status ?? '', detail });
       }
       throw error;
     }

@@ -4,7 +4,7 @@ import { TypeBadge } from '@/components/TypeBadge';
 import { getAiProvider } from '@/lib/ai';
 import { prisma } from '@/lib/db';
 import type { UtilityRole } from '@/lib/games';
-import { getLang, pickName } from '@/lib/i18n';
+import { getLang, getT, pick, pickName } from '@/lib/i18n';
 import { requireGameProfile } from '@/lib/profile';
 
 const SHOWN = 18;
@@ -12,7 +12,7 @@ const SHOWN = 18;
 export default async function StarterTeamPage({ params }: PageProps<'/[game]/starter-team'>) {
   const { game: gameId } = await params;
   const { game, profileId } = await requireGameProfile(gameId);
-  const lang = await getLang();
+  const [lang, t] = await Promise.all([getLang(), getT()]);
 
   const moveSlugs = [...new Set(game.utilityRoles.flatMap((r) => [...(r.needs.allMoves ?? []), ...(r.needs.anyMoves ?? [])]))];
   const abilitySlugs = [...new Set(game.utilityRoles.flatMap((r) => r.needs.anyAbilities ?? []))];
@@ -107,7 +107,7 @@ export default async function StarterTeamPage({ params }: PageProps<'/[game]/sta
       <span className="min-w-0 text-xs">
         <span className="block truncate font-semibold">{pickName(s, lang)}</span>
         <span className="flex gap-1">
-          {s.forms[0]?.types.map((t) => <TypeBadge key={t} type={t} lang={lang} small />)}
+          {s.forms[0]?.types.map((type) => <TypeBadge key={type} type={type} lang={lang} small />)}
         </span>
       </span>
     </li>
@@ -115,33 +115,34 @@ export default async function StarterTeamPage({ params }: PageProps<'/[game]/sta
 
   return (
     <div>
-      <h1 className="text-xl font-bold">{game.shortName} starter team</h1>
+      <h1 className="text-xl font-bold">{t('{game} starter team', { game: game.shortName })}</h1>
       <p className="mb-5 mt-1 max-w-3xl text-sm text-muted">
-        Some jobs are worth having covered early. For each one below, this page checks the real {game.shortName}{' '}
-        movesets and abilities, and tells you whether you already have a Pokémon that can do it, using your Pokédex
-        and roster.
+        {t(
+          'Some jobs are worth having covered early. For each one below, this page checks the real {game} movesets and abilities, and tells you whether you already have a Pokémon that can do it, using your Pokédex and roster.',
+          { game: game.shortName }
+        )}
       </p>
 
       <div className="space-y-5">
         {roles.map(({ role, eligible, have }) => (
           <section key={role.id} className="rounded-xl border border-line bg-surface p-4">
             <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-base font-semibold">{role.title}</h2>
+              <h2 className="text-base font-semibold">{pick(role.title, lang)}</h2>
               {have.length > 0 ? (
                 <span className="rounded bg-done/15 px-2 py-0.5 text-xs font-medium text-done">
-                  You already have {have.length === 1 ? 'one' : have.length}
+                  {have.length === 1 ? t('You already have one') : t('You already have {count}', { count: have.length })}
                 </span>
               ) : (
                 <span className="rounded bg-pending/15 px-2 py-0.5 text-xs font-medium text-pending">
-                  You do not have one yet
+                  {t('You do not have one yet')}
                 </span>
               )}
             </div>
-            <p className="mt-1 text-sm text-muted">{role.why}</p>
+            <p className="mt-1 text-sm text-muted">{pick(role.why, lang)}</p>
 
             {have.length > 0 && (
               <div className="mt-3">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-done">Yours</h3>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-done">{t('Yours')}</h3>
                 <ul className="flex flex-wrap gap-2">
                   {have.map((s) => (
                     <PokemonTile key={s.id} s={s} />
@@ -152,7 +153,7 @@ export default async function StarterTeamPage({ params }: PageProps<'/[game]/sta
 
             <div className="mt-3">
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                {have.length > 0 ? 'Other options' : 'Pokémon that can do this'} ({eligible.length - have.length})
+                {have.length > 0 ? t('Other options') : t('Pokémon that can do this')} ({eligible.length - have.length})
               </h3>
               <ul className="flex flex-wrap gap-2">
                 {eligible
@@ -165,7 +166,7 @@ export default async function StarterTeamPage({ params }: PageProps<'/[game]/sta
               {eligible.length - have.length > SHOWN && (
                 <details className="mt-2">
                   <summary className="cursor-pointer text-xs text-muted hover:text-ink">
-                    Show the other {eligible.length - have.length - SHOWN}
+                    {t('Show the other {count}', { count: eligible.length - have.length - SHOWN })}
                   </summary>
                   <ul className="mt-2 flex flex-wrap gap-2">
                     {eligible
@@ -178,14 +179,15 @@ export default async function StarterTeamPage({ params }: PageProps<'/[game]/sta
                 </details>
               )}
               <p className="mt-2 text-[11px] text-muted">
-                Listed with base-game Pokémon first. A Pokémon counts as yours if you have caught it or any
-                stage of its evolution line.
+                {t(
+                  'Listed with base-game Pokémon first. A Pokémon counts as yours if you have caught it or any stage of its evolution line.'
+                )}
               </p>
             </div>
 
             <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-muted">
               {role.tips.map((tip, i) => (
-                <li key={i}>{tip}</li>
+                <li key={i}>{pick(tip, lang)}</li>
               ))}
             </ul>
           </section>

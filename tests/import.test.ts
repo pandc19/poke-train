@@ -5,6 +5,7 @@ import { formatEvs, parseEvs } from '@/lib/import/evs';
 import { applyMapping, guessMapping } from '@/lib/import/fields';
 import { interpretRow, type Dictionaries } from '@/lib/import/interpret';
 import { ALIASES, createMatcher, type NamedEntry } from '@/lib/import/matcher';
+import { describeIssue } from '@/lib/import/issues';
 import { normalizeKey, splitAlternatives, splitList, stripParens } from '@/lib/import/text';
 
 const entry = (id: number, nameEn: string, nameEs: string): NamedEntry => ({
@@ -144,7 +145,7 @@ describe('interpretRow', () => {
     expect(r.owned).toBe(false);
     expect(r.natureStatus).toBe('PENDING');
     expect(r.moves.every((m) => m.status === 'PENDING')).toBe(true);
-    expect(r.issues).toContain('Read "Heydreigon" as Hydreigon');
+    expect(r.issues.map(describeIssue)).toContain('Read "Heydreigon" as Hydreigon');
   });
 
   it('keeps nature pending when the current one differs, and item alternatives as a note', () => {

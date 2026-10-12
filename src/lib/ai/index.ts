@@ -5,8 +5,7 @@ import type { AiProvider } from './types';
 export { AiError } from './types';
 export type { AiProvider } from './types';
 
-export const NO_AI_MESSAGE =
-  'AI is not configured. Add OPENAI_API_KEY (or ANTHROPIC_API_KEY with AI_PROVIDER="claude") to .env.local and restart.';
+export { NO_AI_MESSAGE } from './messages';
 
 export function configuredProviderName(): 'openai' | 'claude' {
   const provider = (process.env.AI_PROVIDER || 'openai').toLowerCase();

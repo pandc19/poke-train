@@ -4,6 +4,7 @@ import type { MappedRow } from './fields';
 import type { Match, Matcher } from './matcher';
 import { normalizeKey, splitAlternatives, splitList, stripParens } from './text';
 import { TYPE_NAMES_ES, TYPE_SLUGS } from '../pokemon-types';
+import type { Issue } from './issues';
 
 export type Dictionaries = {
   species: Matcher;
@@ -39,7 +40,7 @@ export type ResolvedRow = {
   moves: ResolvedMove[];
   notes: string | null;
   /** Things the user should look at. A row without a species cannot be imported. */
-  issues: string[];
+  issues: Issue[];
   importable: boolean;
 };
 
@@ -98,7 +99,11 @@ function parseMissing(status: string): string[] | null {
  * When "current" moves exist they are the build that gets tracked and the
  * recommended list is dropped: the AI audit proposes a recommended set on demand.
  */
+/** Labels for the lines kept in a Pokémon's notes. English unless the caller passes its own. */
+export type NoteLabels = { status: string; natureOptions: string; ability: string };
+
 export type InterpretOptions = {
+  noteLabels?: NoteLabels;
   /**
    * The sheet has a status column. When it does, a blank status means "I do
    * not have this one yet", and any status text means the Pokémon is in hand.
@@ -112,20 +117,20 @@ export function interpretRow(
   dict: Dictionaries,
   options: InterpretOptions = {}
 ): ResolvedRow {
-  const issues: string[] = [];
+  const issues: Issue[] = [];
 
   // --- species ---
   const dexNumber = Number((row.nationalDex ?? '').replace(/\D/g, '')) || null;
   const byNumber = dexNumber ? dict.speciesById(dexNumber) : null;
   let species = row.species ? dict.species(row.species) : null;
   let baseSpecies = row.baseSpecies ? dict.species(row.baseSpecies) : null;
-  if (row.species && !species) issues.push(`Unknown Pokémon "${row.species}"`);
-  if (row.baseSpecies && !baseSpecies) issues.push(`Unknown base Pokémon "${row.baseSpecies}"`);
+  if (row.species && !species) issues.push({ code: 'unknownSpecies', value: row.species });
+  if (row.baseSpecies && !baseSpecies) issues.push({ code: 'unknownBaseSpecies', value: row.baseSpecies });
   // The dex number backs up whichever name is missing or unreadable.
   if (!baseSpecies && byNumber && species?.id !== byNumber.id) baseSpecies = byNumber;
   if (!species) species = baseSpecies ?? byNumber;
   if (species && !species.exact && row.species) {
-    issues.push(`Read "${row.species}" as ${species.nameEn}`);
+    issues.push({ code: 'readSpeciesAs', value: row.species, name: species.nameEn });
   }
 
   // --- status text ---
@@ -140,28 +145,28 @@ export function interpretRow(
   const targetList = slotMoves.length ? slotMoves : row.targetMoves ? splitList(row.targetMoves) : [];
   const usingCurrent = currentList.length > 0;
   const moveNames = (usingCurrent ? currentList : targetList).slice(0, 4);
-  if ((usingCurrent ? currentList : targetList).length > 4) issues.push('More than 4 moves listed; kept the first 4');
+  if ((usingCurrent ? currentList : targetList).length > 4) issues.push({ code: 'tooManyMoves' });
 
   const missingKeys = (missing ?? []).map(normalizeKey);
   const missingMatches = (missing ?? []).map((m) => dict.moves(m)?.id).filter((id) => id != null);
   const moves: ResolvedMove[] = moveNames.map((raw, i) => {
     const match = dict.moves(raw);
-    if (!match) issues.push(`Unknown move "${raw}"`);
-    else if (!match.exact) issues.push(`Read move "${raw}" as ${match.nameEn}`);
+    if (!match) issues.push({ code: 'unknownMove', value: raw });
+    else if (!match.exact) issues.push({ code: 'readMoveAs', value: raw, name: match.nameEn });
     const isMissing = missingKeys.includes(normalizeKey(raw)) || (match != null && missingMatches.includes(match.id));
     const status: TaskStatus = allDone ? 'DONE' : isMissing ? 'PENDING' : usingCurrent ? 'DONE' : 'PENDING';
     return { slot: i + 1, raw, match, status };
   });
   if (missing && !moves.some((m) => m.status === 'PENDING')) {
-    issues.push(`Status "${row.status}" did not match any listed move`);
+    issues.push({ code: 'statusNoMove', value: row.status });
   }
 
   // --- nature ---
   const natureOptions = row.targetNature ? splitAlternatives(row.targetNature) : [];
   const targetNature = natureOptions.length ? dict.natures(natureOptions[0]) : null;
-  if (row.targetNature && !targetNature) issues.push(`Unknown nature "${row.targetNature}"`);
+  if (row.targetNature && !targetNature) issues.push({ code: 'unknownNature', value: row.targetNature });
   const currentNature = row.currentNature ? dict.natures(stripParens(row.currentNature)) : null;
-  if (row.currentNature && !currentNature) issues.push(`Unknown current nature "${row.currentNature}"`);
+  if (row.currentNature && !currentNature) issues.push({ code: 'unknownCurrentNature', value: row.currentNature });
   const natureMatches =
     currentNature != null && natureOptions.some((option) => dict.natures(option)?.id === currentNature.id);
   const natureStatus: TaskStatus = allDone || natureMatches ? 'DONE' : 'PENDING';
@@ -169,22 +174,22 @@ export function interpretRow(
   // --- ability ---
   const abilityRaw = row.ability && !NONE_WORDS.includes(normalizeKey(row.ability)) ? stripParens(row.ability) : '';
   const ability = abilityRaw ? dict.abilities(abilityRaw) : null;
-  if (abilityRaw && !ability) issues.push(`Unknown ability "${abilityRaw}"`);
+  if (abilityRaw && !ability) issues.push({ code: 'unknownAbility', value: abilityRaw });
 
   // --- item ---
   const itemRaw = row.item ?? row.berry ?? '';
   const itemOptions = itemRaw ? splitAlternatives(itemRaw) : [];
   const item = itemOptions.length ? dict.items(itemOptions[0]) : null;
-  if (itemOptions.length && !item) issues.push(`Unknown item "${itemOptions[0]}"`);
+  if (itemOptions.length && !item) issues.push({ code: 'unknownItem', value: itemOptions[0] });
   // Keep the cell's own wording when it says more than the matched item does.
   const itemNote = itemOptions.length > 1 || (itemRaw && !item) ? stripParens(itemRaw) : null;
 
   // --- EVs ---
   const evs = row.evs ? parseEvs(row.evs) : null;
-  if (row.evs && !evs) issues.push(`Could not read EV spread "${row.evs}"`);
+  if (row.evs && !evs) issues.push({ code: 'badEvs', value: row.evs });
 
   const teraType = parseTeraType(row.teraType);
-  if (row.teraType && !teraType) issues.push(`Unknown Tera type "${row.teraType}"`);
+  if (row.teraType && !teraType) issues.push({ code: 'unknownTera', value: row.teraType });
 
   const origin = parseOrigin(row.origin);
   // With a status column the sheet says it outright. Without one, fall back to
@@ -193,17 +198,18 @@ export function interpretRow(
     ? Boolean(row.status?.trim())
     : allDone || origin !== 'UNKNOWN' || usingCurrent || currentNature != null;
 
+  const labels = options.noteLabels ?? { status: 'Status', natureOptions: 'Nature options', ability: 'Ability' };
   const notes =
     [
       row.notes,
-      statusNote && `Status: ${statusNote}`,
-      natureOptions.length > 1 ? `Nature options: ${natureOptions.join(' / ')}` : null,
-      abilityRaw && !ability ? `Ability: ${abilityRaw}` : null,
+      statusNote && `${labels.status}: ${statusNote}`,
+      natureOptions.length > 1 ? `${labels.natureOptions}: ${natureOptions.join(' / ')}` : null,
+      abilityRaw && !ability ? `${labels.ability}: ${abilityRaw}` : null,
     ]
       .filter(Boolean)
       .join('\n') || null;
 
-  if (!species) issues.unshift('No Pokémon could be identified; this row will be skipped');
+  if (!species) issues.unshift({ code: 'noSpecies' });
 
   return {
     index,

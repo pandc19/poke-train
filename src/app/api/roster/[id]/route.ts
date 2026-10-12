@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { apiError } from '@/lib/api-error';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { LOCAL_USER_ID } from '@/lib/constants';
@@ -48,9 +49,9 @@ async function findOwned(rosterId: string) {
 export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id]'>) {
   const { id: rosterId } = await ctx.params;
   const parsed = Body.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return Response.json({ error: 'Invalid body' }, { status: 400 });
+  if (!parsed.success) return apiError('Invalid body', 400);
   const current = await findOwned(rosterId);
-  if (!current) return Response.json({ error: 'Not found' }, { status: 404 });
+  if (!current) return apiError('Not found', 404);
   const { task, set } = parsed.data;
 
   if (task) {
@@ -82,7 +83,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
     if (set.evs !== undefined) {
       evs = set.evs ? parseEvs(set.evs) : null;
       if (set.evs && !evs) {
-        return Response.json({ error: 'EV spread not recognised. Example: 252 Atk / 4 SpD / 252 Spe' }, { status: 422 });
+        return apiError('EV spread not recognised. Example: 252 Atk / 4 SpD / 252 Spe', 422);
       }
     }
     await prisma.$transaction(async (tx) => {
@@ -140,7 +141,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
 export async function DELETE(_request: Request, ctx: RouteContext<'/api/roster/[id]'>) {
   const { id: rosterId } = await ctx.params;
   const current = await findOwned(rosterId);
-  if (!current) return Response.json({ error: 'Not found' }, { status: 404 });
+  if (!current) return apiError('Not found', 404);
   await prisma.rosterPokemon.delete({ where: { id: rosterId } });
   return Response.json({ ok: true });
 }

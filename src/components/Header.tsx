@@ -5,7 +5,7 @@ import { useParams, usePathname } from 'next/navigation';
 import { useTransition } from 'react';
 import { motion } from 'motion/react';
 import { setLang } from '@/app/actions';
-import type { Lang } from '@/lib/i18n';
+import { useT } from '@/lib/translate-client';
 
 type GameLink = {
   id: string;
@@ -18,20 +18,21 @@ type GameLink = {
 // Planned modules, shown as empty cartridge slots.
 const COMING_SOON = ['Legends: Z-A'];
 
-export function Header({ games, lang }: { games: GameLink[]; lang: Lang }) {
+export function Header({ games }: { games: GameLink[] }) {
+  const { t, lang } = useT();
   const pathname = usePathname();
   const params = useParams<{ game?: string }>();
   const [pending, startTransition] = useTransition();
   const current = games.find((g) => g.id === params.game) ?? games[0];
 
   const tabs = [
-    { href: `/${current.id}/pokedex`, label: 'Pokédex' },
-    { href: `/${current.id}/national`, label: 'National Dex' },
-    { href: `/${current.id}/roster`, label: 'Roster' },
-    { href: `/${current.id}/import`, label: 'Import' },
-    ...(current.exclusives ? [{ href: `/${current.id}/exclusives`, label: 'Exclusives' }] : []),
-    ...(current.breeding ? [{ href: `/${current.id}/breeding`, label: 'Breeding' }] : []),
-    { href: `/${current.id}/starter-team`, label: 'Starter team' },
+    { href: `/${current.id}/pokedex`, label: t('Pokédex') },
+    { href: `/${current.id}/national`, label: t('National Dex') },
+    { href: `/${current.id}/roster`, label: t('Roster') },
+    { href: `/${current.id}/import`, label: t('Import') },
+    ...(current.exclusives ? [{ href: `/${current.id}/exclusives`, label: t('Exclusives') }] : []),
+    ...(current.breeding ? [{ href: `/${current.id}/breeding`, label: t('Breeding') }] : []),
+    { href: `/${current.id}/starter-team`, label: t('Starter team') },
   ];
 
   return (
@@ -41,7 +42,7 @@ export function Header({ games, lang }: { games: GameLink[]; lang: Lang }) {
           Poké<span className="text-star">Train</span>
         </Link>
 
-        <div className="flex items-center gap-2" aria-label="Game">
+        <div className="flex items-center gap-2" aria-label={t('Game')}>
           {games.map((g) => {
             const active = g.id === current.id;
             return (
@@ -67,7 +68,7 @@ export function Header({ games, lang }: { games: GameLink[]; lang: Lang }) {
           {COMING_SOON.map((name) => (
             <span
               key={name}
-              title="Coming soon"
+              title={t('Coming soon')}
               className="rounded-t-md rounded-b-sm border border-dashed border-line px-3 pb-1.5 pt-2.5 text-xs text-muted"
             >
               {name}
@@ -75,7 +76,7 @@ export function Header({ games, lang }: { games: GameLink[]; lang: Lang }) {
           ))}
         </div>
 
-        <div className="ml-auto flex items-center rounded-md border border-line text-xs" aria-label="Name language">
+        <div className="ml-auto flex items-center rounded-md border border-line text-xs" aria-label={t('Language')}>
           {(['es', 'en'] as const).map((l) => (
             <button
               key={l}
@@ -90,18 +91,18 @@ export function Header({ games, lang }: { games: GameLink[]; lang: Lang }) {
       </div>
 
       {(
-        <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4">
-          {tabs.map((t) => {
-            const active = pathname.startsWith(t.href);
+        <nav aria-label={t('Sections')} className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4">
+          {tabs.map((tab) => {
+            const active = pathname.startsWith(tab.href);
             return (
               <Link
-                key={t.href}
-                href={t.href}
+                key={tab.href}
+                href={tab.href}
                 className={`relative whitespace-nowrap px-3 py-2 text-sm ${
                   active ? 'text-ink' : 'text-muted hover:text-ink'
                 }`}
               >
-                {t.label}
+                {tab.label}
                 {active && (
                   <motion.span
                     layoutId="tab-underline"

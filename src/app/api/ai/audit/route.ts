@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { apiError } from '@/lib/api-error';
 import { AiError, NO_AI_MESSAGE, getAiProvider } from '@/lib/ai';
 import { auditBuild } from '@/lib/ai/tasks';
 import { LOCAL_USER_ID } from '@/lib/constants';
@@ -17,23 +18,23 @@ const Body = z.object({
 /** Runs (or returns the cached) AI audit of one roster build. */
 export async function POST(request: Request) {
   const parsed = Body.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return Response.json({ error: 'Invalid body' }, { status: 400 });
+  if (!parsed.success) return apiError('Invalid body', 400);
 
   const provider = getAiProvider();
-  if (!provider) return Response.json({ error: NO_AI_MESSAGE }, { status: 503 });
+  if (!provider) return apiError(NO_AI_MESSAGE, 503);
 
   const row = await prisma.rosterPokemon.findFirst({
     where: { id: parsed.data.rosterPokemonId, profile: { userId: LOCAL_USER_ID } },
     select: { profileId: true, profile: { select: { gameId: true } } },
   });
   const game = row && getGame(row.profile.gameId);
-  if (!row || !game) return Response.json({ error: 'Not found' }, { status: 404 });
+  if (!row || !game) return apiError('Not found', 404);
 
   const [pokemon] = await loadRoster(row.profileId, [parsed.data.rosterPokemonId]);
   try {
     await auditBuild(provider, game, await getLang(), row.profileId, pokemon, parsed.data.refresh, parsed.data.deep);
   } catch (error) {
-    if (error instanceof AiError) return Response.json({ error: error.message }, { status: 502 });
+    if (error instanceof AiError) return apiError(error.message, 502, error.vars);
     throw error;
   }
   const [updated] = await loadRoster(row.profileId, [parsed.data.rosterPokemonId]);

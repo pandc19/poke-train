@@ -6,6 +6,7 @@ import { Sprite } from './Sprite';
 import { TypeBadge } from './TypeBadge';
 import type { Lang } from '@/lib/i18n';
 import type { PokemonInfo } from '@/lib/pokeapi/info';
+import { useT } from '@/lib/translate-client';
 
 const STAT_LABELS: Record<string, { en: string; es: string }> = {
   hp: { en: 'HP', es: 'PS' },
@@ -67,6 +68,7 @@ export function PokemonInfoDialog({
   exclusive?: { versionName: string; own: boolean } | null;
   onClose: () => void;
 }) {
+  const { t } = useT();
   const key = speciesId == null ? null : `${gameId ?? ''}:${speciesId}`;
   const [loaded, setLoaded] = useState<{ key: string; info: PokemonInfo | null; error: string | null } | null>(null);
 
@@ -78,15 +80,15 @@ export function PokemonInfoDialog({
     })
       .then(async (res) => {
         const data = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(data?.error ?? `Request failed (${res.status})`);
+        if (!res.ok) throw new Error(data?.error ?? t('Request failed ({status})', { status: res.status }));
         cache.set(key, data as PokemonInfo);
         setLoaded({ key, info: data as PokemonInfo, error: null });
       })
       .catch((err) => {
-        if (err?.name !== 'AbortError') setLoaded({ key, info: null, error: err.message ?? 'Could not load this Pokémon.' });
+        if (err?.name !== 'AbortError') setLoaded({ key, info: null, error: err.message ?? t('Could not load this Pokémon.') });
       });
     return () => controller.abort();
-  }, [key, speciesId, gameId]);
+  }, [key, speciesId, gameId, t]);
 
   // A Pokémon already fetched this visit is shown straight from the cache.
   const cached = key ? cache.get(key) : undefined;
@@ -105,7 +107,7 @@ export function PokemonInfoDialog({
 
   return (
     <Dialog open={speciesId != null} onClose={onClose} wide title={info ? `#${String(info.id).padStart(3, '0')} ${name}` : 'Pokémon'}>
-      {!current && <p className="py-10 text-center text-sm text-muted">Loading…</p>}
+      {!current && <p className="py-10 text-center text-sm text-muted">{t('Loading…')}</p>}
       {current?.error && (
         <p role="alert" className="rounded-md border border-pending/40 bg-pending/10 px-3 py-2 text-sm text-pending">
           {current.error}
@@ -137,10 +139,10 @@ export function PokemonInfoDialog({
                     }`}
                   >
                     {status.caught && status.have
-                      ? 'In your Pokédex · you have one'
+                      ? t('In your Pokédex · you have one')
                       : status.caught
-                        ? 'In your Pokédex · not in your box'
-                        : 'Not caught yet'}
+                        ? t('In your Pokédex · not in your box')
+                        : t('Not caught yet')}
                   </span>
                 )}
                 {exclusive && (
@@ -149,17 +151,17 @@ export function PokemonInfoDialog({
                       exclusive.own ? 'border-line text-muted' : 'border-pending/50 bg-pending/10 text-pending'
                     }`}
                   >
-                    {exclusive.versionName} exclusive
+                    {t('{version} exclusive', { version: exclusive.versionName })}
                   </span>
                 )}
-                {info.isLegendary && <span className="rounded border border-star/50 px-1.5 py-0.5 text-star">Legendary</span>}
-                {info.isMythical && <span className="rounded border border-star/50 px-1.5 py-0.5 text-star">Mythical</span>}
-                {info.isBaby && <span className="rounded border border-line px-1.5 py-0.5 text-muted">Baby</span>}
+                {info.isLegendary && <span className="rounded border border-star/50 px-1.5 py-0.5 text-star">{t('Legendary')}</span>}
+                {info.isMythical && <span className="rounded border border-star/50 px-1.5 py-0.5 text-star">{t('Mythical')}</span>}
+                {info.isBaby && <span className="rounded border border-line px-1.5 py-0.5 text-muted">{t('Baby')}</span>}
               </div>
               {flavor && <p className="mt-3 text-sm leading-relaxed">{flavor}</p>}
               {info.dexEntries.length > 0 && (
                 <p className="mt-3 text-xs text-muted">
-                  In this game:{' '}
+                  {t('In this game:')}{' '}
                   {info.dexEntries.map((d, i) => (
                     <span key={d.dex}>
                       {i > 0 && ' · '}
@@ -171,14 +173,14 @@ export function PokemonInfoDialog({
                 </p>
               )}
               {gameId && info.dexEntries.length === 0 && (
-                <p className="mt-3 text-xs text-muted">Not in any Pokédex of this game.</p>
+                <p className="mt-3 text-xs text-muted">{t('Not in any Pokédex of this game.')}</p>
               )}
             </div>
           </div>
 
           <section>
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-              Base stats <span className="font-normal normal-case">(total {total})</span>
+              {t('Base stats')} <span className="font-normal normal-case">({t('total {total}', { total })})</span>
             </h3>
             <ul className="space-y-1">
               {info.stats.map((s) => (
@@ -197,35 +199,35 @@ export function PokemonInfoDialog({
           </section>
 
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-            <Fact label="Abilities">
+            <Fact label={t('Abilities')}>
               {info.abilities.map((a, i) => (
                 <span key={a.nameEn}>
                   {i > 0 && ', '}
                   {lang === 'en' ? a.nameEn : a.nameEs}
-                  {a.isHidden && <span className="text-xs text-muted"> (hidden)</span>}
+                  {a.isHidden && <span className="text-xs text-muted"> ({t('hidden')})</span>}
                 </span>
               ))}
             </Fact>
-            <Fact label="Egg groups">
+            <Fact label={t('Egg groups')}>
               {info.eggGroups.length
                 ? info.eggGroups.map((g) => pick(EGG_GROUPS[g] ?? { en: g, es: g })).join(', ')
                 : '—'}
             </Fact>
-            <Fact label="Gender">
+            <Fact label={t('Gender')}>
               {info.genderRate === -1
-                ? 'Genderless'
+                ? t('Genderless')
                 : `${((8 - info.genderRate) / 8) * 100}% ♂ · ${(info.genderRate / 8) * 100}% ♀`}
             </Fact>
-            <Fact label="Height">{info.heightM != null ? `${info.heightM} m` : '—'}</Fact>
-            <Fact label="Weight">{info.weightKg != null ? `${info.weightKg} kg` : '—'}</Fact>
-            <Fact label="Catch rate">{info.captureRate ?? '—'}</Fact>
-            <Fact label="Base friendship">{info.baseHappiness ?? '—'}</Fact>
-            <Fact label="Generation">{info.generation ? info.generation.replace('generation-', '').toUpperCase() : '—'}</Fact>
+            <Fact label={t('Height')}>{info.heightM != null ? `${info.heightM} m` : '—'}</Fact>
+            <Fact label={t('Weight')}>{info.weightKg != null ? `${info.weightKg} kg` : '—'}</Fact>
+            <Fact label={t('Catch rate')}>{info.captureRate ?? '—'}</Fact>
+            <Fact label={t('Base friendship')}>{info.baseHappiness ?? '—'}</Fact>
+            <Fact label={t('Generation')}>{info.generation ? info.generation.replace('generation-', '').toUpperCase() : '—'}</Fact>
           </dl>
 
           {info.evolutions.length > 1 && (
             <section>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Evolution line</h3>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t('Evolution line')}</h3>
               <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
                 {Array.from({ length: stages }, (_, stage) => (
                   <div key={stage} className="flex items-center gap-4">
@@ -251,7 +253,7 @@ export function PokemonInfoDialog({
             </section>
           )}
 
-          <p className="text-[10px] text-muted">Data from PokéAPI.</p>
+          <p className="text-[10px] text-muted">{t('Data from PokéAPI.')}</p>
         </div>
       )}
     </Dialog>

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { apiError } from '@/lib/api-error';
 import { AiError, NO_AI_MESSAGE, getAiProvider } from '@/lib/ai';
 import { adviseStarterTeam } from '@/lib/ai/tasks';
 import { prisma } from '@/lib/db';
@@ -11,13 +12,13 @@ const Body = z.object({ gameId: z.string(), refresh: z.boolean().default(false) 
 /** AI advice that adapts the utility core to what the player already owns. */
 export async function POST(request: Request) {
   const parsed = Body.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return Response.json({ error: 'Invalid body' }, { status: 400 });
+  if (!parsed.success) return apiError('Invalid body', 400);
   const game = getGame(parsed.data.gameId);
   const profileId = await findProfileId(parsed.data.gameId);
-  if (!game || !profileId) return Response.json({ error: 'Unknown game' }, { status: 404 });
+  if (!game || !profileId) return apiError('Unknown game', 404);
 
   const provider = getAiProvider();
-  if (!provider) return Response.json({ error: NO_AI_MESSAGE }, { status: 503 });
+  if (!provider) return apiError(NO_AI_MESSAGE, 503);
 
   const [roster, caught] = await Promise.all([
     prisma.rosterPokemon.findMany({ where: { profileId, owned: true }, select: { species: { select: { nameEn: true } } } }),
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     const result = await adviseStarterTeam(provider, game, await getLang(), profileId, owned, parsed.data.refresh);
     return Response.json({ result });
   } catch (error) {
-    if (error instanceof AiError) return Response.json({ error: error.message }, { status: 502 });
+    if (error instanceof AiError) return apiError(error.message, 502, error.vars);
     throw error;
   }
 }

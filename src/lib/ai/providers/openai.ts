@@ -27,7 +27,7 @@ export class OpenAiProvider implements AiProvider {
     } catch (error) {
       if (error instanceof OpenAI.AuthenticationError) throw new AiError('OPENAI_API_KEY was rejected. Check .env.local.');
       if (error instanceof OpenAI.RateLimitError) throw new AiError('OpenAI rate limit or quota reached. Try again later.');
-      if (error instanceof OpenAI.APIError) throw new AiError(`OpenAI error ${error.status ?? ''}: ${error.message}`);
+      if (error instanceof OpenAI.APIError) throw new AiError('OpenAI error {status}: {detail}', { status: error.status ?? '', detail: error.message });
       throw error;
     }
   }

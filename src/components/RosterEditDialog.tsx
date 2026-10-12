@@ -6,9 +6,19 @@ import { formatEvs } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
 import { POTENTIAL_LEVELS } from '@/lib/potential';
 import { TYPE_NAMES_ES, TYPE_SLUGS } from '@/lib/pokemon-types';
+import { useT } from '@/lib/translate-client';
 import type { EditorOptions, RosterView } from '@/lib/roster';
 
 type Named = { id: number; nameEn: string; nameEs: string };
+
+/** Short stat names for the +/− shown next to a nature. */
+const STAT_SHORT: Record<string, { en: string; es: string }> = {
+  attack: { en: 'Atk', es: 'Atq' },
+  defense: { en: 'Def', es: 'Def' },
+  'special-attack': { en: 'SpA', es: 'AtEsp' },
+  'special-defense': { en: 'SpD', es: 'DefEsp' },
+  speed: { en: 'Spe', es: 'Vel' },
+};
 
 const inputClass = 'w-full rounded-md border border-line bg-bg px-2 py-1.5 text-sm';
 
@@ -44,12 +54,13 @@ export function RosterEditDialog({
   onSave: (id: string, set: Record<string, unknown>) => Promise<string | null>;
   onClose: () => void;
 }) {
+  const { t } = useT();
   return (
     <Dialog
       open={pokemon != null}
       onClose={onClose}
       wide
-      title={pokemon ? `Edit ${lang === 'en' ? pokemon.species.nameEn : pokemon.species.nameEs}` : ''}
+      title={pokemon ? t('Edit {name}', { name: lang === 'en' ? pokemon.species.nameEn : pokemon.species.nameEs }) : ''}
     >
       {pokemon && (
         <EditForm key={pokemon.id} p={pokemon} options={options} lang={lang} judge={judge} onSave={onSave} onClose={onClose} />
@@ -73,7 +84,9 @@ function EditForm({
   onSave: (id: string, set: Record<string, unknown>) => Promise<string | null>;
   onClose: () => void;
 }) {
+  const { t } = useT();
   const label = (x: Named | null | undefined) => (x ? (lang === 'en' ? x.nameEn : x.nameEs) : '');
+  const stat = (slug: string) => (STAT_SHORT[slug] ? STAT_SHORT[slug][lang] : slug);
   const [nickname, setNickname] = useState(p.nickname ?? '');
   const [gender, setGender] = useState(p.gender);
   const [potential, setPotential] = useState(p.potential ?? '');
@@ -107,7 +120,7 @@ function EditForm({
       }
       const move = find(options.moves, text);
       if (!move) {
-        setError(`Move ${i + 1}: "${text}" is not a known move. Pick one from the suggestions.`);
+        setError(t('Move {n}: "{name}" is not a known move. Pick one from the suggestions.', { n: i + 1, name: text }));
         return;
       }
       moveSet.push({ slot: i + 1, moveId: move.id });
@@ -142,37 +155,37 @@ function EditForm({
 
   const genderChoices: { value: RosterView['gender']; label: string }[] =
     p.genderRate === -1
-      ? [{ value: 'GENDERLESS', label: 'Genderless' }]
+      ? [{ value: 'GENDERLESS', label: t('Genderless') }]
       : p.genderRate === 0
-        ? [{ value: 'MALE', label: '♂ Male (only gender)' }]
+        ? [{ value: 'MALE', label: t('♂ Male (only gender)') }]
         : p.genderRate === 8
-          ? [{ value: 'FEMALE', label: '♀ Female (only gender)' }]
+          ? [{ value: 'FEMALE', label: t('♀ Female (only gender)') }]
           : [
-              { value: 'UNKNOWN', label: 'Not set' },
-              { value: 'MALE', label: '♂ Male' },
-              { value: 'FEMALE', label: '♀ Female' },
-              { value: 'BOTH', label: '♂ ♀ I have both' },
+              { value: 'UNKNOWN', label: t('Not set') },
+              { value: 'MALE', label: t('♂ Male') },
+              { value: 'FEMALE', label: t('♀ Female') },
+              { value: 'BOTH', label: t('♂ ♀ I have both') },
             ];
 
   return (
     <form onSubmit={save} className="space-y-5">
       <section className="grid gap-3 sm:grid-cols-2">
-        <Field label="Nickname">
+        <Field label={t('Nickname')}>
           <input value={nickname} onChange={(e) => setNickname(e.target.value)} className={inputClass} />
         </Field>
         {judge && (
-          <Field label="Potential (Judge)" hint="What the in-game Judge (Juez) says about this Pokémon.">
+          <Field label={t('Potential (Judge)')} hint={t('What the in-game Judge (Juez) says about this Pokémon.')}>
             <select value={potential} onChange={(e) => setPotential(e.target.value as typeof potential)} className={inputClass}>
-              <option value="">Not judged yet</option>
+              <option value="">{t('Not judged yet')}</option>
               {POTENTIAL_LEVELS.map((l) => (
                 <option key={l.value} value={l.value}>
-                  {l.label}
+                  {lang === 'en' ? l.label : l.labelEs}
                 </option>
               ))}
             </select>
           </Field>
         )}
-        <Field label="Gender" hint="Used by the breeding planner to know which parents you have.">
+        <Field label={t('Gender')} hint={t('Used by the breeding planner to know which parents you have.')}>
           <select value={gender} onChange={(e) => setGender(e.target.value as RosterView['gender'])} className={inputClass}>
             {genderChoices.map((g) => (
               <option key={g.value} value={g.value}>
@@ -184,39 +197,39 @@ function EditForm({
       </section>
 
       <section>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Build</h3>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t('Build')}</h3>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Nature" hint="Changing it marks the nature as pending again.">
+          <Field label={t('Nature')} hint={t('Changing it marks the nature as pending again.')}>
             <select value={natureId} onChange={(e) => setNatureId(Number(e.target.value))} className={inputClass}>
-              <option value={0}>No nature planned</option>
+              <option value={0}>{t('No nature planned')}</option>
               {options.natures.map((n) => (
                 <option key={n.id} value={n.id}>
                   {label(n)}
-                  {n.increased ? ` (+${n.increased.replace('special-', 'sp. ')} −${n.decreased!.replace('special-', 'sp. ')})` : ''}
+                  {n.increased ? ` (+${stat(n.increased)} −${stat(n.decreased!)})` : ''}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="Ability">
+          <Field label={t('Ability')}>
             <select value={abilityId} onChange={(e) => setAbilityId(Number(e.target.value))} className={inputClass}>
-              <option value={0}>No ability planned</option>
+              <option value={0}>{t('No ability planned')}</option>
               {abilityChoices.map((a) => (
                 <option key={a.id} value={a.id}>
                   {label(a)}
-                  {a.isHidden ? ' (hidden)' : ''}
+                  {a.isHidden ? ` (${t('hidden')})` : ''}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="Held item" hint="Pick from the list, or type your own note such as “Vidasfera o Cinta Elegida”.">
+          <Field label={t('Held item')} hint={t('Pick from the list, or type your own note such as “Vidasfera o Cinta Elegida”.')}>
             <input list="items-list" value={item} onChange={(e) => setItem(e.target.value)} className={inputClass} />
           </Field>
-          <Field label="EV spread" hint="For example 252 Atk / 4 SpD / 252 Spe. English or Spanish stat names work.">
+          <Field label={t('EV spread')} hint={t('For example 252 Atk / 4 SpD / 252 Spe. English or Spanish stat names work.')}>
             <input value={evs} onChange={(e) => setEvs(e.target.value)} className={inputClass} />
           </Field>
-          <Field label="Tera type">
+          <Field label={t('Tera type')}>
             <select value={teraType} onChange={(e) => setTeraType(e.target.value)} className={inputClass}>
-              <option value="">Not planned</option>
+              <option value="">{t('Not planned')}</option>
               {TYPE_SLUGS.map((t) => (
                 <option key={t} value={t}>
                   {lang === 'es' ? TYPE_NAMES_ES[t] : t}
@@ -228,10 +241,10 @@ function EditForm({
       </section>
 
       <section>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Moves</h3>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t('Moves')}</h3>
         <div className="grid gap-3 sm:grid-cols-2">
           {moves.map((value, i) => (
-            <Field key={i} label={`Move ${i + 1}`}>
+            <Field key={i} label={t('Move {n}', { n: i + 1 })}>
               <input
                 list="moves-list"
                 value={value}
@@ -241,10 +254,10 @@ function EditForm({
             </Field>
           ))}
         </div>
-        <p className="mt-2 text-[11px] text-muted">A move you change is marked pending until you tick it as learned.</p>
+        <p className="mt-2 text-[11px] text-muted">{t('A move you change is marked pending until you tick it as learned.')}</p>
       </section>
 
-      <Field label="Notes">
+      <Field label={t('Notes')}>
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={inputClass} />
       </Field>
 
@@ -267,10 +280,10 @@ function EditForm({
 
       <div className="flex justify-end gap-2">
         <button type="button" onClick={onClose} className="rounded-md border border-line px-4 py-2 text-sm">
-          Cancel
+          {t('Cancel')}
         </button>
         <button disabled={busy} className="rounded-md bg-done px-4 py-2 text-sm font-semibold text-bg disabled:opacity-40">
-          {busy ? 'Saving…' : 'Save'}
+          {busy ? t('Saving…') : t('Save')}
         </button>
       </div>
     </form>

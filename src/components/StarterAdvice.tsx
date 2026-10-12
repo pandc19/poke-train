@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import type { StarterAdvice as Advice } from '@/lib/ai/schema';
+import { useT } from '@/lib/translate-client';
 
 /** On-demand AI advice for the starter-team page. */
 export function StarterAdvice({ gameId, aiEnabled }: { gameId: string; aiEnabled: boolean }) {
+  const { t } = useT();
   const [state, setState] = useState<{ busy: boolean; result?: Advice; error?: string }>({ busy: false });
 
   async function run(refresh: boolean) {
@@ -16,25 +18,25 @@ export function StarterAdvice({ gameId, aiEnabled }: { gameId: string; aiEnabled
         body: JSON.stringify({ gameId, refresh }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error ?? `Request failed (${res.status})`);
+      if (!res.ok) throw new Error(data?.error ?? t('Request failed ({status})', { status: res.status }));
       setState({ busy: false, result: data.result });
     } catch (error) {
-      setState((prev) => ({ ...prev, busy: false, error: error instanceof Error ? error.message : 'Request failed.' }));
+      setState((prev) => ({ ...prev, busy: false, error: error instanceof Error ? error.message : t('Request failed.') }));
     }
   }
 
   return (
     <section className="mt-6 rounded-xl border border-line bg-surface p-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="font-semibold">Adapt this to what I own</h2>
+        <h2 className="font-semibold">{t('Adapt this to what I own')}</h2>
         <button
           onClick={() => run(state.result != null)}
           disabled={!aiEnabled || state.busy}
           className="rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
         >
-          {state.busy ? 'Thinking…' : state.result ? 'Ask again' : 'Ask AI'}
+          {state.busy ? t('Thinking…') : state.result ? t('Ask again') : t('Ask AI')}
         </button>
-        {!aiEnabled && <span className="text-xs text-muted">Add an API key to .env.local to enable this.</span>}
+        {!aiEnabled && <span className="text-xs text-muted">{t('Add an API key to .env.local to enable this.')}</span>}
       </div>
       {state.error && (
         <p role="alert" className="mt-2 text-sm text-pending">
@@ -54,7 +56,7 @@ export function StarterAdvice({ gameId, aiEnabled }: { gameId: string; aiEnabled
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-[10px] text-muted">AI-generated. Check locations in game before relying on them.</p>
+          <p className="mt-2 text-[10px] text-muted">{t('AI-generated. Check locations in game before relying on them.')}</p>
         </div>
       )}
     </section>

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { apiError } from '@/lib/api-error';
 import { learnableMoves } from '@/lib/breeding/moves';
 import { getGame } from '@/lib/games';
 
@@ -11,8 +12,8 @@ export async function GET(request: Request) {
     gameId: url.searchParams.get('gameId'),
     speciesId: url.searchParams.get('speciesId'),
   });
-  if (!parsed.success) return Response.json({ error: 'Invalid query' }, { status: 400 });
+  if (!parsed.success) return apiError('Invalid query', 400);
   const game = getGame(parsed.data.gameId);
-  if (!game) return Response.json({ error: 'Unknown game' }, { status: 404 });
+  if (!game) return apiError('Unknown game', 404);
   return Response.json(await learnableMoves(game, parsed.data.speciesId));
 }

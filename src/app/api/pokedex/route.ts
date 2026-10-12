@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { apiError } from '@/lib/api-error';
 import { prisma } from '@/lib/db';
 import { findProfileId } from '@/lib/profile';
 
@@ -11,11 +12,11 @@ const Body = z.object({
 /** Batch-sets caught state for a profile. Idempotent in both directions. */
 export async function POST(request: Request) {
   const parsed = Body.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return Response.json({ error: 'Invalid body' }, { status: 400 });
+  if (!parsed.success) return apiError('Invalid body', 400);
   const { gameId, speciesIds, caught } = parsed.data;
 
   const profileId = await findProfileId(gameId);
-  if (!profileId) return Response.json({ error: 'Unknown game' }, { status: 404 });
+  if (!profileId) return apiError('Unknown game', 404);
 
   if (caught) {
     await prisma.pokedexEntry.createMany({
@@ -40,11 +41,11 @@ const GenderBody = z.object({
 /** Records whether you have a species now and which genders (also marks it caught). */
 export async function PATCH(request: Request) {
   const parsed = GenderBody.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return Response.json({ error: 'Invalid body' }, { status: 400 });
+  if (!parsed.success) return apiError('Invalid body', 400);
   const { gameId, speciesId, hasMale, hasFemale, owned } = parsed.data;
 
   const profileId = await findProfileId(gameId);
-  if (!profileId) return Response.json({ error: 'Unknown game' }, { status: 404 });
+  if (!profileId) return apiError('Unknown game', 404);
 
   const data = { hasMale, hasFemale, owned };
   await prisma.pokedexEntry.upsert({

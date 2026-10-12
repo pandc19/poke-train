@@ -1,6 +1,8 @@
 import { z } from 'zod';
+import { apiError } from '@/lib/api-error';
 import { prisma } from '@/lib/db';
 import { getGame } from '@/lib/games';
+import { getT } from '@/lib/i18n';
 import { FIELDS, type MappedRow } from '@/lib/import/fields';
 import { loadDictionaries } from '@/lib/import/dictionaries';
 import { interpretRow } from '@/lib/import/interpret';
@@ -24,19 +26,21 @@ const Body = z.object({
  */
 export async function POST(request: Request) {
   const parsed = Body.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return Response.json({ error: 'Invalid body' }, { status: 400 });
+  if (!parsed.success) return apiError('Invalid body', 400);
   const { gameId, fileName, mapping, rows, markCaught } = parsed.data;
 
   const game = getGame(gameId);
   const profileId = await findProfileId(gameId);
-  if (!game || !profileId) return Response.json({ error: 'Unknown game' }, { status: 404 });
+  if (!game || !profileId) return apiError('Unknown game', 404);
 
   const dict = await loadDictionaries();
   const statusColumn = Object.values(mapping).includes('status');
+  const t = await getT();
+  const noteLabels = { status: t('Status'), natureOptions: t('Nature options'), ability: t('Ability') };
   const resolved = rows
-    .map((row, i) => interpretRow(row as MappedRow, i, dict, { statusColumn }))
+    .map((row, i) => interpretRow(row as MappedRow, i, dict, { statusColumn, noteLabels }))
     .filter((r) => r.importable);
-  if (!resolved.length) return Response.json({ error: 'No importable rows' }, { status: 422 });
+  if (!resolved.length) return Response.json({ error: t('No importable rows') }, { status: 422 });
 
   const legal = await legalMoves(
     [...new Set(resolved.map((r) => r.species!.id))],

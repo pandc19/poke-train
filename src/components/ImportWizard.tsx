@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { FIELDS, applyMapping, guessMapping, type ColumnMapping, type FieldKey } from '@/lib/import/fields';
+import { ISSUE_TEXT } from '@/lib/import/issues';
 import type { ResolvedRow } from '@/lib/import/interpret';
+import { useT } from '@/lib/translate-client';
 import type { Lang } from '@/lib/i18n';
 
 type Sheet = { name: string; rows: string[][] };
@@ -30,6 +32,7 @@ const statusClass = (status: 'PENDING' | 'DONE') =>
   status === 'DONE' ? 'border-done/40 bg-done/10 text-done' : 'border-pending/40 bg-pending/10 text-pending';
 
 export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameName: string; lang: Lang }) {
+  const { t } = useT();
   const [step, setStep] = useState<Step>('upload');
   const [fileName, setFileName] = useState('');
   const [sheets, setSheets] = useState<Sheet[]>([]);
@@ -45,8 +48,8 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
   const rows = useMemo(() => sheets[sheetIndex]?.rows ?? [], [sheets, sheetIndex]);
   const width = Math.max(0, ...rows.slice(0, 50).map((r) => r.length));
   const headers = useMemo(
-    () => Array.from({ length: width }, (_, i) => (hasHeader ? rows[0]?.[i]?.trim() : '') || `Column ${i + 1}`),
-    [rows, width, hasHeader]
+    () => Array.from({ length: width }, (_, i) => (hasHeader ? rows[0]?.[i]?.trim() : '') || t('Column {n}', { n: i + 1 })),
+    [rows, width, hasHeader, t]
   );
   const dataRows = hasHeader ? rows.slice(1) : rows;
   const mappedFields = new Set(Object.values(mapping));
@@ -68,7 +71,7 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
       setMapping(guessMapping(parsed[0].rows[0] ?? []));
       setStep('map');
     } catch {
-      setError('That file could not be read. Use a .csv or .xlsx file with one Pokémon per row.');
+      setError(t('That file could not be read. Use a .csv or .xlsx file with one Pokémon per row.'));
     } finally {
       setBusy(false);
     }
@@ -109,7 +112,7 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
       setPreview(data.rows);
       setStep('preview');
     } catch {
-      setError('The preview failed. Check the column mapping and try again.');
+      setError(t('The preview failed. Check the column mapping and try again.'));
     } finally {
       setBusy(false);
     }
@@ -129,7 +132,7 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
       setResult(data);
       setStep('done');
     } catch {
-      setError('The import failed and nothing was saved. Try again.');
+      setError(t('The import failed and nothing was saved. Try again.'));
     } finally {
       setBusy(false);
     }
@@ -144,11 +147,11 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
         {(['upload', 'map', 'preview', 'done'] as const).map((s, i) => (
           <li
             key={s}
-            className={`rounded-full px-3 py-1 capitalize ${
+            className={`rounded-full px-3 py-1 ${
               s === step ? 'bg-ink font-semibold text-bg' : 'bg-surface-2 text-muted'
             }`}
           >
-            {i + 1}. {s === 'map' ? 'Map columns' : s}
+            {i + 1}. {{ upload: t('Upload'), map: t('Map columns'), preview: t('Preview'), done: t('Done') }[s]}
           </li>
         ))}
       </ol>
@@ -176,11 +179,11 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
               }}
               className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-line bg-surface px-6 py-16 text-center hover:border-muted"
             >
-              <span className="text-lg font-semibold">{busy ? 'Reading…' : 'Drop a spreadsheet here'}</span>
+              <span className="text-lg font-semibold">{busy ? t('Reading…') : t('Drop a spreadsheet here')}</span>
               <span className="text-sm text-muted">
-                .csv or .xlsx, one Pokémon per row. Names can be in English or Spanish.
+                {t('.csv or .xlsx, one Pokémon per row. Names can be in English or Spanish.')}
               </span>
-              <span className="mt-2 rounded-md bg-surface-2 px-4 py-2 text-sm">Choose file</span>
+              <span className="mt-2 rounded-md bg-surface-2 px-4 py-2 text-sm">{t('Choose file')}</span>
               <input
                 type="file"
                 accept=".csv,.tsv,.txt,.xlsx,.xls,.ods"
@@ -196,7 +199,7 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
                 <span className="font-semibold">{fileName}</span>
                 {sheets.length > 1 && (
                   <label className="flex items-center gap-2 text-muted">
-                    Sheet
+                    {t('Sheet')}
                     <select
                       value={sheetIndex}
                       onChange={(e) => {
@@ -216,18 +219,18 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
                 )}
                 <label className="flex items-center gap-2 text-muted">
                   <input type="checkbox" checked={hasHeader} onChange={(e) => setHasHeader(e.target.checked)} />
-                  First row is a header
+                  {t('First row is a header')}
                 </label>
-                <span className="text-muted">{dataRows.length} rows</span>
+                <span className="text-muted">{t('Rows: {count}', { count: dataRows.length })}</span>
               </div>
 
               <div className="overflow-x-auto rounded-lg border border-line">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-surface-2 text-xs uppercase text-muted">
                     <tr>
-                      <th className="px-3 py-2">Column in your file</th>
-                      <th className="px-3 py-2">Sample values</th>
-                      <th className="px-3 py-2">Import as</th>
+                      <th className="px-3 py-2">{t('Column in your file')}</th>
+                      <th className="px-3 py-2">{t('Sample values')}</th>
+                      <th className="px-3 py-2">{t('Import as')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -249,15 +252,15 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
                           <select
                             value={mapping[i] ?? ''}
                             onChange={(e) => setField(i, e.target.value as FieldKey | '')}
-                            aria-label={`Import "${header}" as`}
+                            aria-label={t('Import "{header}" as', { header })}
                             className={`w-full rounded-md border bg-surface px-2 py-1 ${
                               mapping[i] ? 'border-done/50 text-ink' : 'border-line text-muted'
                             }`}
                           >
-                            <option value="">Ignore this column</option>
+                            <option value="">{t('Ignore this column')}</option>
                             {FIELDS.map((f) => (
                               <option key={f.key} value={f.key}>
-                                {f.label}
+                                {t(f.label)}
                               </option>
                             ))}
                           </select>
@@ -270,21 +273,22 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
 
               <div className="mt-4 flex items-center gap-3">
                 <button onClick={() => setStep('upload')} className="rounded-md border border-line px-4 py-2 text-sm">
-                  Back
+                  {t('Back')}
                 </button>
                 <button
                   onClick={runPreview}
                   disabled={!canPreview || busy}
                   className="rounded-md bg-done px-4 py-2 text-sm font-semibold text-bg disabled:opacity-40"
                 >
-                  {busy ? 'Checking…' : 'Preview import'}
+                  {busy ? t('Checking…') : t('Preview import')}
                 </button>
-                {!canPreview && <span className="text-sm text-muted">Map a Pokémon column to continue.</span>}
+                {!canPreview && <span className="text-sm text-muted">{t('Map a Pokémon column to continue.')}</span>}
               </div>
               {mappedFields.has('status') && (
                 <p className="mt-3 text-xs text-muted">
-                  Because a status column is mapped, a row with an <strong className="text-ink">empty status</strong> is
-                  imported as <strong className="text-ink">not obtained yet</strong>, and any status text means you have it.
+                  {t(
+                    'Because a status column is mapped, a row with an empty status is imported as not obtained yet, and any status text means you have it.'
+                  )}
                 </p>
               )}
             </div>
@@ -293,15 +297,18 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
           {step === 'preview' && (
             <div>
               <p className="mb-4 text-sm">
-                <span className="font-semibold">{importable.length}</span> Pokémon ready to import
+                <span className="font-semibold">{importable.length}</span> {t('Pokémon ready to import')}
                 {withIssues.length > 0 && (
                   <>
-                    , <span className="text-pending">{withIssues.length} with notes to review</span>
+                    , <span className="text-pending">{t('{count} with notes to review', { count: withIssues.length })}</span>
                   </>
                 )}
                 {preview.length > importable.length && (
                   <>
-                    , <span className="text-pending">{preview.length - importable.length} will be skipped</span>
+                    ,{' '}
+                    <span className="text-pending">
+                      {t('{count} will be skipped', { count: preview.length - importable.length })}
+                    </span>
                   </>
                 )}
                 .
@@ -312,11 +319,11 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
                   <thead className="bg-surface-2 text-xs uppercase text-muted">
                     <tr>
                       <th className="px-3 py-2">Pokémon</th>
-                      <th className="px-3 py-2">Nature</th>
-                      <th className="px-3 py-2">Ability</th>
-                      <th className="px-3 py-2">Item</th>
-                      <th className="px-3 py-2">Moves</th>
-                      <th className="px-3 py-2">Notes</th>
+                      <th className="px-3 py-2">{t('Nature')}</th>
+                      <th className="px-3 py-2">{t('Ability')}</th>
+                      <th className="px-3 py-2">{t('Item')}</th>
+                      <th className="px-3 py-2">{t('Moves')}</th>
+                      <th className="px-3 py-2">{t('Notes')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -324,8 +331,8 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
                       <tr key={r.index} className={`border-t border-line align-top ${r.importable ? '' : 'opacity-50'}`}>
                         <td className="px-3 py-2">
                           <div className="font-medium">{name(r.species)}</div>
-                          {r.baseSpecies && <div className="text-xs text-muted">from {name(r.baseSpecies)}</div>}
-                          {!r.owned && r.importable && <div className="text-xs text-pending">not obtained yet</div>}
+                          {r.baseSpecies && <div className="text-xs text-muted">{t('from {name}', { name: name(r.baseSpecies) })}</div>}
+                          {!r.owned && r.importable && <div className="text-xs text-pending">{t('not obtained yet')}</div>}
                         </td>
                         <td className="px-3 py-2">
                           {r.targetNature || r.currentNature ? (
@@ -370,7 +377,9 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
                         </td>
                         <td className="px-3 py-2 text-xs text-pending">
                           {r.issues.map((issue, k) => (
-                            <div key={k}>{issue}</div>
+                            <div key={k}>
+                              {t(ISSUE_TEXT[issue.code], { value: issue.value ?? '', name: issue.name ?? '' })}
+                            </div>
                           ))}
                         </td>
                       </tr>
@@ -379,26 +388,28 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
                 </table>
               </div>
               <p className="mt-2 text-xs text-muted">
-                <span className="text-done">Green</span> is already done, <span className="text-pending">orange</span>{' '}
-                is still pending. Names that could not be matched are kept as typed (dotted underline) and can be
-                fixed in the roster afterwards.
+                <span className="text-done">{t('Green')}</span> {t('is already done,')}{' '}
+                <span className="text-pending">{t('orange')}</span> {t('is still pending.')}{' '}
+                {t(
+                  'Names that could not be matched are kept as typed (dotted underline) and can be fixed in the roster afterwards.'
+                )}
               </p>
 
               <label className="mt-4 flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={markCaught} onChange={(e) => setMarkCaught(e.target.checked)} />
-                Also mark the Pokémon I already have as caught in the {gameName} Pokédex
+                {t('Also mark the Pokémon I already have as caught in the {game} Pokédex', { game: gameName })}
               </label>
 
               <div className="mt-4 flex gap-3">
                 <button onClick={() => setStep('map')} className="rounded-md border border-line px-4 py-2 text-sm">
-                  Back
+                  {t('Back')}
                 </button>
                 <button
                   onClick={runImport}
                   disabled={busy || importable.length === 0}
                   className="rounded-md bg-done px-4 py-2 text-sm font-semibold text-bg disabled:opacity-40"
                 >
-                  {busy ? 'Importing…' : `Import ${importable.length} Pokémon`}
+                  {busy ? t('Importing…') : t('Import {count} Pokémon', { count: importable.length })}
                 </button>
               </div>
             </div>
@@ -406,13 +417,13 @@ export function ImportWizard({ gameId, gameName, lang }: { gameId: string; gameN
 
           {step === 'done' && result && (
             <div className="rounded-xl border border-done/40 bg-done/10 px-6 py-10 text-center">
-              <p className="text-lg font-semibold text-done">Imported {result.imported} Pokémon</p>
-              {result.skipped > 0 && <p className="mt-1 text-sm text-muted">{result.skipped} rows were skipped.</p>}
+              <p className="text-lg font-semibold text-done">{t('Imported {count} Pokémon', { count: result.imported })}</p>
+              {result.skipped > 0 && <p className="mt-1 text-sm text-muted">{t('{count} rows were skipped.', { count: result.skipped })}</p>}
               <Link
                 href={`/${gameId}/roster`}
                 className="mt-5 inline-block rounded-md bg-done px-4 py-2 text-sm font-semibold text-bg"
               >
-                Open the roster
+                {t('Open the roster')}
               </Link>
             </div>
           )}

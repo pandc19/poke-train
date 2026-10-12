@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { ExclusivesBoard, type ExclusiveGroupView, type ExclusiveTile } from '@/components/ExclusivesBoard';
 import { prisma } from '@/lib/db';
-import { getLang } from '@/lib/i18n';
+import { getLang, getT } from '@/lib/i18n';
 import { requireGameProfile } from '@/lib/profile';
 
 export default async function ExclusivesPage({ params }: PageProps<'/[game]/exclusives'>) {
@@ -11,7 +11,7 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
   if (!ve) notFound();
 
   const dexNumbers = [...new Set(ve.groups.flatMap((g) => [...g.own, ...g.other].map((e) => e.dex)))];
-  const [species, entries, roster, lang] = await Promise.all([
+  const [species, entries, roster, lang, t] = await Promise.all([
     prisma.species.findMany({
       where: { id: { in: dexNumbers } },
       select: {
@@ -24,6 +24,7 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
     prisma.pokedexEntry.findMany({ where: { profileId, speciesId: { in: dexNumbers } }, select: { speciesId: true, owned: true } }),
     prisma.rosterPokemon.findMany({ where: { profileId, owned: true, speciesId: { in: dexNumbers } }, select: { speciesId: true } }),
     getLang(),
+    getT(),
   ]);
   const byId = new Map(species.map((s) => [s.id, s]));
   const caught = new Map(entries.map((e) => [e.speciesId, e.owned]));
@@ -54,11 +55,13 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
   return (
     <div>
       <h1 className="text-xl font-bold">
-        {ve.ownName} and {ve.otherName} exclusives
+        {t('{own} and {other} exclusives', { own: ve.ownName, other: ve.otherName })}
       </h1>
       <p className="mb-5 mt-1 max-w-3xl text-sm text-muted">
-        Some Pokémon can only be caught in one of the two versions. You are playing {ve.ownName}, so these are the
-        ones you will never find in the wild here, and the ones that are yours alone. Click one for its details.
+        {t(
+          'Some Pokémon can only be caught in one of the two versions. You are playing {own}, so these are the ones you will never find in the wild here, and the ones that are yours alone. Click one for its details.',
+          { own: ve.ownName }
+        )}
       </p>
       <ExclusivesBoard
         gameId={game.id}
@@ -69,9 +72,10 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
         lang={lang}
       />
       <p className="mt-6 text-[11px] text-muted">
-        Source: {ve.source.name}, retrieved {ve.source.retrieved}. This list is kept by hand because PokéAPI has no
-        encounter data for these games, so check it if an update changes availability. Pokémon with a form label
-        (Tauros, Alolan Sandshrew and the like) exist in both versions; only that form is exclusive.
+        {t(
+          'Source: {source}, retrieved {date}. This list is kept by hand because PokéAPI has no encounter data for these games, so check it if an update changes availability. Pokémon with a form label (Tauros, Alolan Sandshrew and the like) exist in both versions; only that form is exclusive.',
+          { source: ve.source.name, date: ve.source.retrieved }
+        )}
       </p>
     </div>
   );

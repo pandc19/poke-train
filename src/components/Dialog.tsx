@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useT } from '@/lib/translate-client';
 
 /**
  * A modal built on the native <dialog>: focus is trapped, Escape closes it,
@@ -20,6 +21,7 @@ export function Dialog({
   wide?: boolean;
   children: React.ReactNode;
 }) {
+  const { t } = useT();
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -44,7 +46,7 @@ export function Dialog({
         <div className="p-5">
           <div className="mb-4 flex items-start justify-between gap-4">
             <h2 className="text-lg font-semibold">{title}</h2>
-            <button type="button" onClick={onClose} aria-label="Close" className="text-muted hover:text-ink">
+            <button type="button" onClick={onClose} aria-label={t('Close')} className="text-muted hover:text-ink">
               ✕
             </button>
           </div>
@@ -74,12 +76,13 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   return (
     <Dialog open={open} onClose={onCancel} title={title}>
       <div className="text-sm text-muted">{children}</div>
       <div className="mt-5 flex justify-end gap-2">
         <button type="button" onClick={onCancel} className="rounded-md border border-line px-4 py-2 text-sm">
-          Cancel
+          {t('Cancel')}
         </button>
         <button
           type="button"
