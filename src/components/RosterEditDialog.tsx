@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Dialog } from './Dialog';
 import { formatEvs, type EvSpread } from '@/lib/import/evs';
-import { evsAreValid } from './EvInputs';
 import { StatsEvsEditor, type EvEstimateInfo } from './StatsEvs';
 import type { Lang } from '@/lib/i18n';
 import { POTENTIAL_LEVELS } from '@/lib/potential';
@@ -108,8 +107,6 @@ function EditForm({
   const [evs, setEvs] = useState(p.evs ? formatEvs(p.evs) : '');
   const [stats, setStats] = useState<EvSpread | null>(p.currentStats);
   const [level, setLevel] = useState(p.level);
-  // Exact EVs typed by hand replace the estimate from the stats.
-  const [exactEvs, setExactEvs] = useState<{ evs: EvSpread | null } | null>(null);
   // The nature it really has (or, failing that, the one planned) decides the stats-to-EVs maths.
   const natureForEvs = options.natures.find((n) => n.id === (p.currentNature?.id ?? natureId)) ?? null;
   const estimateInfo: EvEstimateInfo | undefined = p.baseStats
@@ -165,16 +162,8 @@ function EditForm({
       itemNote: item.trim() && !matchedItem ? item.trim() : null,
       ...(hasEvs
         ? {
-            ...(exactEvs
-              ? {
-                  currentEvs: exactEvs.evs && formatEvs(exactEvs.evs) ? formatEvs(exactEvs.evs) : null,
-                  currentEvsEstimated: false,
-                  currentStats: null,
-                }
-              : {
-                  currentStats: stats && Object.values(stats).some((n) => n > 0) ? stats : null,
-                  level,
-                }),
+            currentStats: stats && Object.values(stats).some((n) => n > 0) ? stats : null,
+            level,
             ...(evTarget ? { evs: evs.trim() || null } : {}),
           }
         : {}),
@@ -277,16 +266,11 @@ function EditForm({
                 onChange={(nextStats, nextLevel) => {
                   setStats(nextStats);
                   setLevel(nextLevel);
-                  setExactEvs(null);
                 }}
                 info={estimateInfo}
                 potential={potential || null}
                 savedEvs={p.currentEvs}
                 savedEstimated={p.currentEvsEstimated}
-                onExactEvs={(evs) => {
-                  if (evs && !evsAreValid(evs)) return;
-                  setExactEvs({ evs });
-                }}
               />
               <span className="mt-1 block text-[11px] text-muted">
                 {t('What it has right now. The AI audit uses it to suggest how to finish the training.')}

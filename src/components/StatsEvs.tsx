@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { EvInputs, NO_EVS, STAT_LABELS, STAT_ORDER, StatInputs, cleanNumber, evsAreValid } from './EvInputs';
+import { STAT_LABELS, STAT_ORDER, StatInputs, cleanNumber } from './EvInputs';
 import { estimateEvRange, type NatureEffect } from '@/lib/ev-estimate';
 import { ivAssumption, potentialLevel } from '@/lib/potential';
 import { evTotal, type EvSpread } from '@/lib/import/evs';
@@ -60,8 +59,7 @@ export function EvGraph({ evs }: { evs: EvSpread }) {
 /**
  * Where a Pokémon's training is recorded. The game shows its stats as numbers
  * (the blue graph) and its EVs only as a shape, so the stats and level are what
- * you type, and the EVs are worked out and drawn. Exact EVs can still be typed
- * for the rare case they are known.
+ * you type, and the EVs are worked out and drawn.
  *
  * Controlled: the parent keeps the stats and level and decides when to save.
  */
@@ -74,7 +72,6 @@ export function StatsEvsEditor({
   potential,
   savedEvs,
   savedEstimated,
-  onExactEvs,
 }: {
   stats: EvSpread | null;
   level: number;
@@ -87,12 +84,8 @@ export function StatsEvsEditor({
   /** The EVs on record, shown when no stats are typed. */
   savedEvs: EvSpread | null;
   savedEstimated: boolean;
-  /** Exact EVs were typed. They replace the stats-based estimate. */
-  onExactEvs?: (evs: EvSpread | null) => void;
 }) {
   const { t, lang } = useT();
-  const [exact, setExact] = useState<EvSpread | null>(savedEstimated ? null : savedEvs);
-
   const hasStats = stats != null && evTotal(stats) > 0;
   const iv = ivAssumption(potential);
   const range =
@@ -163,23 +156,6 @@ export function StatsEvsEditor({
         <p className="text-[11px] text-muted">{t('Fill in the stats to see the EVs.')}</p>
       )}
 
-      {onExactEvs && (
-        <details className="text-[11px]">
-          <summary className="cursor-pointer text-muted hover:text-ink">{t('I know the exact EVs')}</summary>
-          <div className="mt-1.5">
-            <EvInputs
-              value={exact}
-              onChange={setExact}
-              onCommit={() => {
-                const spread = exact ?? NO_EVS;
-                if (!evsAreValid(spread)) return;
-                onExactEvs(evTotal(spread) === 0 ? null : spread);
-              }}
-            />
-            <p className="mt-1 text-[10px] text-muted">{t('Exact EVs replace the estimate from the stats.')}</p>
-          </div>
-        </details>
-      )}
     </div>
   );
 }

@@ -304,19 +304,6 @@ export function RosterBoard({
     }
   }
 
-  /** Exact EVs typed by hand: they replace the estimate, so the stats are cleared. */
-  async function saveExactEvs(p: RosterView, evs: EvSpread | null) {
-    setError(null);
-    try {
-      const data = await api<{ pokemon: RosterView }>(`/api/roster/${p.id}`, 'PATCH', {
-        set: { currentEvs: evs ? formatEvs(evs) : null, currentEvsEstimated: false, currentStats: null },
-      });
-      replace(data.pokemon);
-    } catch {
-      setError(t('Could not save that change. It has been undone; try again.'));
-    }
-  }
-
   async function saveEdit(id: string, set: Record<string, unknown>): Promise<string | null> {
     try {
       const data = await api<{ pokemon: RosterView }>(`/api/roster/${id}`, 'PATCH', { set });
@@ -729,7 +716,6 @@ export function RosterBoard({
                             p={p}
                             info={estimateFor(p)}
                             onSaveStats={(stats, level) => saveStats(p, stats, level)}
-                            onSaveExact={(evs) => saveExactEvs(p, evs)}
                           />
                           {evTarget && p.evs && p.currentEvs && (
                             <p className="mt-1 text-[11px] text-muted">
@@ -886,12 +872,10 @@ function CardStatsEvs({
   p,
   info,
   onSaveStats,
-  onSaveExact,
 }: {
   p: RosterView;
   info?: EvEstimateInfo;
   onSaveStats: (stats: EvSpread | null, level: number) => void;
-  onSaveExact: (evs: EvSpread | null) => void;
 }) {
   const [stats, setStats] = useState<EvSpread | null>(p.currentStats);
   const [level, setLevel] = useState(p.level);
@@ -912,7 +896,6 @@ function CardStatsEvs({
       potential={p.potential}
       savedEvs={p.currentEvs}
       savedEstimated={p.currentEvsEstimated}
-      onExactEvs={onSaveExact}
     />
   );
 }

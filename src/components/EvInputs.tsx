@@ -26,7 +26,7 @@ export const cleanNumber = (raw: string): number => Math.max(0, Math.floor(Numbe
 /**
  * Six number boxes, one per stat, in the order the game lists them.
  * `onCommit` fires when focus leaves the whole group (not between boxes).
- * Used for exact EVs and for the stats the game shows.
+ * Used for the stats the game shows.
  */
 export function StatInputs({
   value,
@@ -37,7 +37,7 @@ export function StatInputs({
   value: EvSpread | null;
   onChange: (next: EvSpread) => void;
   onCommit?: () => void;
-  /** Highest number a box accepts (252 for EVs). Not enforced as typed, only flagged. */
+  /** A number above this is flagged. */
   max?: number;
 }) {
   const { lang } = useT();
@@ -69,30 +69,6 @@ export function StatInputs({
           />
         </label>
       ))}
-    </div>
-  );
-}
-
-/** Exact EVs: six boxes plus the running total and a warning when it cannot be real. */
-export function EvInputs({
-  value,
-  onChange,
-  onCommit,
-}: {
-  value: EvSpread | null;
-  onChange: (next: EvSpread) => void;
-  onCommit?: () => void;
-}) {
-  const { t } = useT();
-  const total = evTotal(value ?? NO_EVS);
-  const valid = evsAreValid(value ?? NO_EVS);
-  return (
-    <div>
-      <StatInputs value={value} onChange={onChange} onCommit={onCommit} max={252} />
-      <p className={`mt-1 text-[11px] ${valid ? 'text-muted' : 'text-pending'}`}>
-        {t('Total {total} / 510', { total })}
-        {!valid && ` · ${t('Max 252 per stat and 510 in total.')}`}
-      </p>
     </div>
   );
 }
