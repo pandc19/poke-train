@@ -36,6 +36,20 @@ export const SCARLET_VIOLET_CATALOG: CatalogSection[] = [
       { name: { en: 'Tamato Berry', es: 'Baya Tamate' }, effect: { en: 'Lowers Speed', es: 'Reduce Velocidad' }, sprite: 'tamato-berry' },
     ],
   },
+  {
+    id: 'ev-reset',
+    title: { en: 'Reset all EVs', es: 'Reiniciar todos los EVs' },
+    entries: [
+      {
+        name: { en: 'Fresh-Start Mochi', es: 'Mochi Reinicio' },
+        effect: {
+          en: 'Resets all of a Pokémon’s EVs to zero at once. Used up on use. DLC: The Teal Mask.',
+          es: 'Restablece a cero todos los EVs de un Pokémon de una sola vez. Se consume al usarlo. DLC: La Máscara Turquesa.',
+        },
+        sprite: 'fresh-start-mochi',
+      },
+    ],
+  },
 ];
 
 export const itemSpriteUrl = (slug: string) =>
