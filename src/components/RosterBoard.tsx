@@ -710,7 +710,7 @@ export function RosterBoard({
                     {c.item && <Row label={t('Item')}>{c.item}</Row>}
                     {evs && evTarget && c.evs && <Row label={t('Target EVs')}>{c.evs}</Row>}
                     {evs && (
-                      <Row label={t('Current EVs')}>
+                      <Row label={t('Stats')}>
                         <div className="min-w-0 flex-1">
                           <CardStatsEvs
                             p={p}

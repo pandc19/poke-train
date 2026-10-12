@@ -259,7 +259,7 @@ function EditForm({
           )}
           {hasEvs && (
             <div className="sm:col-span-2">
-              <span className="mb-1 block text-xs font-medium text-muted">{t('Current training')}</span>
+              <span className="mb-1 block text-xs font-medium text-muted">{t('Stats')}</span>
               <StatsEvsEditor
                 stats={stats}
                 level={level}

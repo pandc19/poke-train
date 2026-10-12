@@ -101,7 +101,6 @@ export function StatsEvsEditor({
   return (
     <div className="space-y-2">
       <div>
-        <p className="mb-1 text-[11px] text-muted">{t('Stats (the numbers on the blue graph)')}</p>
         <div
           onBlur={(e) => {
             if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onCommit?.();
@@ -128,6 +127,7 @@ export function StatsEvsEditor({
 
       {evs && total > 0 ? (
         <div>
+          <p className="text-center text-xs font-semibold">{t('Current EVs')}</p>
           <EvGraph evs={evs} />
           <p className="text-center text-[11px] text-muted">
             {t('Total {total} / 510', { total })} · {t('{n} EVs still to spend', { n: Math.max(0, 510 - total) })}
