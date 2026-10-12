@@ -30,7 +30,7 @@ const Body = z.object({
       itemNote: z.string().max(200).nullable(),
       evs: z.string().max(200).nullable(),
       teraType: z.enum(TYPE_SLUGS as [string, ...string[]]).nullable(),
-      potential: z.enum(['NO_GOOD', 'DECENT', 'PRETTY_GOOD', 'VERY_GOOD', 'FANTASTIC', 'BEST']).nullable(),
+      potential: z.enum(['DECENT', 'ABOVE_AVERAGE', 'RELATIVELY_SUPERIOR', 'OUTSTANDING']).nullable(),
       notes: z.string().max(4000).nullable(),
       moves: z.array(z.object({ slot: z.number().int().min(1).max(4), moveId: id })).max(4),
     })

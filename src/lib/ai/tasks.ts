@@ -4,6 +4,7 @@ import { prisma } from '../db';
 import type { GameConfig } from '../games';
 import { formatEvs } from '../import/evs';
 import type { Lang } from '../i18n';
+import { potentialLevel } from '../potential';
 import type { RosterView } from '../roster';
 import { BuildAuditSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
@@ -77,7 +78,7 @@ function describeBuild(p: RosterView) {
     evs: p.evs ? formatEvs(p.evs) : null,
     teraType: p.teraType,
     // What the in-game Judge said about its IVs, when the player has had it judged.
-    judgePotential: p.potential,
+    judgePotential: potentialLevel(p.potential)?.label ?? null,
     moves: p.moves.map((m) => m.move?.nameEn ?? m.rawName),
   };
 }

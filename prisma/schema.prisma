@@ -268,14 +268,13 @@ enum Gender {
   UNKNOWN
 }
 
-/// The in-game Judge's verdict on a Pokémon's overall potential (its IVs).
+/// The in-game Judge's overall verdict on a Pokémon's potential (its IVs), lowest first.
+/// In Spanish: aceptable, superior a la media, notable, extraordinario.
 enum Potential {
-  NO_GOOD
   DECENT
-  PRETTY_GOOD
-  VERY_GOOD
-  FANTASTIC
-  BEST
+  ABOVE_AVERAGE
+  RELATIVELY_SUPERIOR
+  OUTSTANDING
 }
 
 enum Origin {

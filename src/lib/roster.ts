@@ -49,7 +49,7 @@ export type RosterView = {
   evStatus: TaskStatus;
   teraType: string | null;
   /** The Judge's verdict, or null when not judged. */
-  potential: 'NO_GOOD' | 'DECENT' | 'PRETTY_GOOD' | 'VERY_GOOD' | 'FANTASTIC' | 'BEST' | null;
+  potential: 'DECENT' | 'ABOVE_AVERAGE' | 'RELATIVELY_SUPERIOR' | 'OUTSTANDING' | null;
   notes: string | null;
   moves: RosterMoveView[];
   audit: { provider: string; model: string; lang: string; createdAt: string; result: unknown } | null;
