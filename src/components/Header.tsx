@@ -80,7 +80,6 @@ export function Header({ games }: { games: GameLink[] }) {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          {current.catalog.length > 0 && <CatalogButton sections={current.catalog} />}
           <div className="flex items-center rounded-md border border-line text-xs" aria-label={t('Language')}>
             {(['es', 'en'] as const).map((l) => (
               <button
@@ -119,6 +118,7 @@ export function Header({ games }: { games: GameLink[] }) {
               </Link>
             );
           })}
+          {current.catalog.length > 0 && <CatalogButton sections={current.catalog} />}
         </nav>
       )}
     </header>

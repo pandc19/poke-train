@@ -6,7 +6,7 @@ import { Sprite } from './Sprite';
 import { type CatalogSection, itemSpriteUrl } from '@/lib/games/catalog';
 import { useT } from '@/lib/translate-client';
 
-/** A header button that opens the current game's quick-reference catalog (EV berries and the like). */
+/** A tab beside the game's other sections that opens the current game's quick-reference catalog (EV berries and the like). */
 export function CatalogButton({ sections }: { sections: CatalogSection[] }) {
   const { t, lang } = useT();
   const [open, setOpen] = useState(false);
@@ -14,7 +14,7 @@ export function CatalogButton({ sections }: { sections: CatalogSection[] }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="rounded-md border border-line px-2 py-1 text-xs text-muted hover:text-ink"
+        className="whitespace-nowrap px-3 py-2 text-sm text-muted hover:text-ink"
       >
         {t('Catalog')}
       </button>
