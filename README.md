@@ -4,7 +4,7 @@ Track Pokédex progress and a trained competitive roster across Pokémon games. 
 
 - **Pokédex grid** per regional dex with click, shift-click range and drag-to-paint toggling. Each game also has its own **National Dex** tab: the same caught list as its regional dexes, with a badge on Pokémon you caught in your other games.
 - **Spreadsheet importer** (.csv / .xlsx) with a column-mapping step. Reads Spanish or English names and tolerates typos.
-- **Trained roster** as cards or a dense table. Every nature, ability, item, EV spread and move is a checklist item: orange while pending, green when done.
+- **Trained roster**: small cards with paging on the left, and everything about the selected Pokémon on the right, editable in place. Every nature, ability, item, EV spread and move is a checklist item: orange while pending, green when done.
 - **Spanish and English.** The ES/EN switch in the header changes the whole app: menus, buttons, messages and Pokémon, move, item and ability names. AI answers are written in the language selected when you ask. A saved AI answer is never translated: switching language keeps it, and the card says which language it is in until you re-run it in the new one (a copy you already have in that language is reused for free).
 - **Pokémon details.** Click any Pokédex card for its information from PokéAPI: description, stats, abilities, egg groups, gender, size, evolution line and where it sits in the game's Pokédexes. Marking uses the **Catch** button on the card (shift-click fills a range).
 - **Version exclusives.** For paired games (Scarlet/Violet) the **Exclusives** tab is a small Pokédex of what only your version has and what only the other version has, with a "Scarlet only" / "Violet only" tag on Pokédex cards. The list comes from Bulbapedia and is kept in `src/lib/games/exclusives/`.
@@ -102,7 +102,7 @@ How rows are read:
 - **Recommended vs. current columns.** When a row has current moves, those are the build that is tracked and counted as known; the recommended list is kept in the notes. With only recommended moves, everything starts pending.
 - **Nature** is done when the current nature matches the recommended one.
 - **Alternatives** such as "Vidasfera o Cinta Elegida" keep the first as the item and the full text as a note.
-- **Unrecognised names** are kept as typed and flagged, so nothing from the sheet is lost. Fix them with **Edit** in the roster table.
+- **Unrecognised names** are kept as typed and flagged, so nothing from the sheet is lost. Fix them in the detail panel of the roster.
 
 ## How it is put together
 
