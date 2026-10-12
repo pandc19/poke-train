@@ -5,16 +5,16 @@ import type { GameConfig } from '../games';
 import { learnableMoves } from '../breeding/moves';
 import { evGap, evTotal, formatEvs } from '../import/evs';
 import { withFixedMoves } from '../audit-locks';
-import { loadEvSources } from '../ev-catalog';
+import { STAT_NAMES, loadEvSources } from '../ev-catalog';
 import { describePlan, legalPlan, trainingItemsFor } from '../ev-plan';
 import type { Lang } from '../i18n';
 import { ivRating } from '../iv-ratings';
 import { potentialLevel } from '../potential';
 import type { RosterView } from '../roster';
-import { type BuildAudit, type BuildAuditRaw, BuildAuditNoEvSchema, BuildAuditRawSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
+import { type BuildAudit, type BuildAuditRaw, LocationSchema, buildAuditSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 12;
+const PROMPT_VERSION = 13;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -96,15 +96,6 @@ function describeIvRatings(p: RosterView): Record<string, string> | null {
   return Object.keys(out).length ? out : null;
 }
 
-const STAT_NAMES = {
-  hp: 'HP',
-  attack: 'Attack',
-  defense: 'Defense',
-  specialAttack: 'Sp. Atk',
-  specialDefense: 'Sp. Def',
-  speed: 'Speed',
-} as const;
-
 /** All six values with their stat names, so a stat can never be read as an EV or the other way round. */
 const statLine = (v: Record<keyof typeof STAT_NAMES, number>) =>
   Object.fromEntries(Object.entries(STAT_NAMES).map(([k, name]) => [name, v[k as keyof typeof STAT_NAMES]]));
@@ -176,7 +167,10 @@ export async function auditBuild(
   build.moves = build.moves.map((m) => ({ ...m, name: details.get(m.name ?? '') ?? m.name }));
 
   const locks = p.auditLocks;
-  const allFixed = Boolean(locks?.heldItem && (locks.moves?.length ?? 0) >= 4 && (!hasEvs || p.evs));
+  const hasTera = game.features.teraType;
+  const allFixed = Boolean(
+    locks?.heldItem && (locks.moves?.length ?? 0) >= 4 && (!hasEvs || p.evs) && (!hasTera || locks.teraType)
+  );
 
   return cached(
     provider,
@@ -184,13 +178,18 @@ export async function auditBuild(
     { build, illegal, legalMovePool, lang, locks: p.auditLocks },
     {
       system: system(game, lang),
-      schema: hasEvs ? BuildAuditRawSchema : BuildAuditNoEvSchema,
+      schema: buildAuditSchema(hasEvs, hasTera),
       finish: async (raw) => {
         const locks = p.auditLocks;
         // What the player fixed is kept as it is; the model only fills the rest.
-        const fixed = (r: { heldItem: BuildAudit['heldItem']; recommendedMoves: BuildAudit['recommendedMoves'] }) => ({
+        const fixed = (r: {
+          heldItem: BuildAudit['heldItem'];
+          recommendedMoves: BuildAudit['recommendedMoves'];
+          teraType?: BuildAudit['teraType'];
+        }) => ({
           heldItem: locks?.heldItem ?? r.heldItem,
           recommendedMoves: withFixedMoves(locks?.moves, r.recommendedMoves),
+          ...(hasTera ? { teraType: locks?.teraType ?? r.teraType } : {}),
         });
         if (!hasEvs) return { ...(raw as BuildAudit), ...fixed(raw as BuildAudit) };
         // The spread is the model's proposal; what it means for this Pokémon is worked out here.
@@ -217,6 +216,7 @@ export async function auditBuild(
         ? ({
             heldItem: p.auditLocks!.heldItem,
             recommendedMoves: p.auditLocks!.moves,
+            ...(hasTera ? { teraType: p.auditLocks!.teraType } : {}),
             ...(hasEvs ? { evPlan: { spread: p.evs } } : {}),
           } as never)
         : undefined,
@@ -256,6 +256,12 @@ export async function auditBuild(
           'Do not recommend moves that use a stat it is not investing in: no special attacks when its Sp. Atk gets no EVs and its nature does not raise it, ' +
           'and no physical attacks when its Attack gets none. Status and setup moves are fine. ' +
           'Use the type, category and power given; do not invent move effects. Keep each reason to one short sentence.',
+        hasTera
+          ? p.auditLocks?.teraType
+            ? `teraType: the player has fixed ${p.auditLocks.teraType.type}. Return exactly that type with a one-sentence reason.`
+            : 'teraType: the best Tera type for it, given its ability, held item and moves: one that covers a weakness or powers up its main attacks. ' +
+              'teraType in the data is the one the player has now; if it is already the best, return it and say to keep it. Give the type as its English lowercase name and a one-sentence reason.'
+          : '',
         illegal.length
           ? `Game data says this Pokémon cannot learn: ${illegal.join(', ')}. Replace each with a move from legalMovePool.`
           : '',

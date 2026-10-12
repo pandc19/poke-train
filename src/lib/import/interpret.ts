@@ -38,6 +38,7 @@ export type ResolvedRow = {
   currentEvs: EvSpread | null;
   evStatus: TaskStatus;
   teraType: string | null;
+  teraStatus: TaskStatus;
   moves: ResolvedMove[];
   notes: string | null;
   /** Things the user should look at. A row without a species cannot be imported. */
@@ -234,6 +235,7 @@ export function interpretRow(
     currentEvs,
     evStatus: allDone ? 'DONE' : 'PENDING',
     teraType,
+    teraStatus: allDone ? 'DONE' : 'PENDING',
     moves,
     notes,
     issues,

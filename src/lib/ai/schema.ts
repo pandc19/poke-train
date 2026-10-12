@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TYPE_SLUGS } from '../pokemon-types';
 
 /** Shapes every AI provider must return. Kept small: each field is shown in the UI. */
 
@@ -34,6 +35,9 @@ export const BuildAuditSchema = z.object({
   recommendedMoves: z
     .array(z.object({ move: z.string(), reason: z.string() }))
     .describe('The best set of up to four moves for it, chosen only from the moves it can learn in this game'),
+  teraType: z
+    .object({ type: z.enum(TYPE_SLUGS as [string, ...string[]]), reason: z.string() })
+    .describe('The best Tera type for it. If the one it has is already the best, name it'),
 });
 export type BuildAudit = z.infer<typeof BuildAuditSchema>;
 
@@ -62,6 +66,12 @@ export const BuildAuditRawSchema = BuildAuditSchema.omit({ evPlan: true }).exten
     .describe('How to finish its EV training'),
 });
 export type BuildAuditRaw = z.infer<typeof BuildAuditRawSchema>;
+
+/** The answer to ask for, for a game with or without EV training and a Tera type. */
+export function buildAuditSchema(hasEvs: boolean, hasTera: boolean) {
+  const schema = hasEvs ? BuildAuditRawSchema : BuildAuditNoEvSchema;
+  return (hasTera ? schema : schema.omit({ teraType: true })) as typeof schema;
+}
 
 export const TeamAuditSchema = z.object({
   summary: z.string(),

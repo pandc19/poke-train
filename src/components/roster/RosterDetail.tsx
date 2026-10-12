@@ -376,7 +376,12 @@ export function RosterDetail({
                 />
               </div>
             </Field>
-            <Field label={t('Tera type')}>
+            <Field
+              label={t('Tera type')}
+              action={
+                p.teraType && <TaskToggle status={p.teraStatus} onToggle={() => onToggle('tera', p.teraStatus)} />
+              }
+            >
               <select
                 value={p.teraType ?? ''}
                 onChange={(e) => save({ teraType: e.target.value || null })}
@@ -482,6 +487,7 @@ export function RosterDetail({
           aiEnabled={aiEnabled}
           locks={p.auditLocks}
           onLocksChange={(locks) => void save({ auditLocks: locks })}
+          currentTera={p.teraType}
           lockedPlan={p.evs ? formatEvs(p.evs) : null}
           onLockPlan={(spread) => void save({ evs: spread })}
           onUnlockPlan={() => void save({ evs: null })}

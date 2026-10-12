@@ -19,7 +19,7 @@ const Body = z.object({
   /** Flip one micro-task. */
   task: z
     .object({
-      key: z.union([z.enum(['owned', 'nature', 'ability', 'item', 'evs']), z.string().regex(/^move:[1-4]$/)]),
+      key: z.union([z.enum(['owned', 'nature', 'ability', 'item', 'tera', 'evs']), z.string().regex(/^move:[1-4]$/)]),
       status: Status,
     })
     .optional(),
@@ -103,7 +103,9 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
                 ? { abilityStatus: status }
                 : key === 'item'
                   ? { itemStatus: status }
-                  : { evStatus: status },
+                  : key === 'tera'
+                    ? { teraStatus: status }
+                    : { evStatus: status },
       });
       // A Pokémon you have is caught and in your box, so the Pokédex says so too.
       if (key === 'owned' && status === 'DONE') {
@@ -161,6 +163,9 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
           gender: set.gender,
           notes: set.notes,
           teraType: set.teraType,
+          ...(set.teraType !== undefined && set.teraType !== current.teraType
+            ? { teraStatus: set.teraType != null ? 'PENDING' : 'DONE' }
+            : {}),
           potential: set.potential,
           itemNote: set.itemNote,
           ...(set.targetNatureId !== undefined && set.targetNatureId !== current.targetNatureId

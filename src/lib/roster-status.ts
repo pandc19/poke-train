@@ -5,7 +5,7 @@
  */
 export type TaskStatus = 'PENDING' | 'DONE';
 
-export type TaskKey = 'owned' | 'nature' | 'ability' | 'item' | 'evs' | `move:${number}`;
+export type TaskKey = 'owned' | 'nature' | 'ability' | 'item' | 'tera' | 'evs' | `move:${number}`;
 
 export type RosterTaskSource = {
   owned: boolean;
@@ -16,6 +16,8 @@ export type RosterTaskSource = {
   itemId: number | null;
   itemNote: string | null;
   itemStatus: TaskStatus;
+  teraType: string | null;
+  teraStatus: TaskStatus;
   evs: unknown;
   evStatus: TaskStatus;
   moves: { slot: number; moveId: number | null; rawName: string | null; status: TaskStatus }[];
@@ -29,6 +31,7 @@ export function rosterTasks(p: RosterTaskSource): RosterTask[] {
   if (p.targetNatureId != null) tasks.push({ key: 'nature', status: p.natureStatus });
   if (p.abilityId != null) tasks.push({ key: 'ability', status: p.abilityStatus });
   if (p.itemId != null || p.itemNote) tasks.push({ key: 'item', status: p.itemStatus });
+  if (p.teraType) tasks.push({ key: 'tera', status: p.teraStatus });
   if (p.evs != null) tasks.push({ key: 'evs', status: p.evStatus });
   for (const m of [...p.moves].sort((a, b) => a.slot - b.slot)) {
     if (m.moveId != null || m.rawName) tasks.push({ key: `move:${m.slot}`, status: m.status });

@@ -332,7 +332,8 @@ model RosterPokemon {
   /// Parts of the AI audit the player has fixed: { heldItem?, moves? }. Re-running the audit keeps them.
   auditLocks Json? @map("audit_locks")
 
-  teraType String? @map("tera_type")
+  teraType   String?    @map("tera_type")
+  teraStatus TaskStatus @default(PENDING) @map("tera_status")
   /// What the Judge said, for games that have one. Null = not judged yet.
   potential Potential?
   notes    String?

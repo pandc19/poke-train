@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TYPE_SLUGS } from './pokemon-types';
 
 const Pick = z.object({ item: z.string().min(1).max(100), reason: z.string().max(1000) });
 const MovePick = z.object({ move: z.string().min(1).max(100), reason: z.string().max(1000) });
@@ -7,6 +8,8 @@ const MovePick = z.object({ move: z.string().min(1).max(100), reason: z.string()
 export const AuditLocksSchema = z.object({
   heldItem: Pick.optional(),
   moves: z.array(MovePick).max(4).optional(),
+  /** The Tera type: the AI's suggestion the player fixed, or one they chose themselves (no reason). */
+  teraType: z.object({ type: z.enum(TYPE_SLUGS as [string, ...string[]]), reason: z.string().max(1000) }).optional(),
 });
 export type AuditLocks = z.infer<typeof AuditLocksSchema>;
 

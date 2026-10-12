@@ -49,6 +49,7 @@ export type RosterView = {
   itemStatus: TaskStatus;
   evs: EvSpread | null;
   evStatus: TaskStatus;
+  teraStatus: TaskStatus;
   /** The EVs it has right now, when recorded. */
   currentEvs: EvSpread | null;
   /** The current EVs were calculated from the stats, so they are approximate. */
@@ -161,6 +162,7 @@ export async function loadRoster(profileId: string, ids?: string[]): Promise<Ros
       baseStats: (form?.baseStats ?? null) as EvSpread | null,
       evStatus: r.evStatus,
       teraType: r.teraType,
+      teraStatus: r.teraStatus,
       potential: r.potential,
       notes: r.notes,
       moves: r.moves.map((m) => ({

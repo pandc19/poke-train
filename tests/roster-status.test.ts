@@ -10,6 +10,8 @@ const base: RosterTaskSource = {
   itemId: 1,
   itemNote: null,
   itemStatus: 'DONE',
+  teraType: null,
+  teraStatus: 'PENDING',
   evs: null,
   evStatus: 'PENDING',
   moves: [

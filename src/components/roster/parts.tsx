@@ -19,6 +19,8 @@ export const progressOf = (p: RosterView) =>
     itemId: p.item?.id ?? null,
     itemNote: p.itemNote,
     itemStatus: p.itemStatus,
+    teraType: p.teraType,
+    teraStatus: p.teraStatus,
     evs: p.evs,
     evStatus: p.evStatus,
     moves: p.moves.map((m) => ({ slot: m.slot, moveId: m.move?.id ?? null, rawName: m.rawName, status: m.status })),
@@ -39,6 +41,8 @@ export function withTask(p: RosterView, key: TaskKey, status: TaskStatus): Roste
       return { ...p, abilityStatus: status };
     case 'item':
       return { ...p, itemStatus: status };
+    case 'tera':
+      return { ...p, teraStatus: status };
     default:
       return { ...p, evStatus: status };
   }

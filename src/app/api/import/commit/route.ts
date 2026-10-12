@@ -80,6 +80,7 @@ export async function POST(request: Request) {
           currentEvs: r.currentEvs ?? undefined,
           evStatus: r.evStatus,
           teraType: r.teraType,
+          teraStatus: r.teraStatus,
           notes: r.notes,
           moves: {
             create: r.moves.map((m) => ({

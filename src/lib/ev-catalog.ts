@@ -2,7 +2,17 @@ import { prisma } from './db';
 import type { EvSpread } from './import/evs';
 import { NATIONAL_DEX_SLUG } from './games';
 
-export type EvSource = { id: number; nameEn: string; nameEs: string; amount: number };
+/** The stat names the audit shows next to the Pokémon to battle. */
+export const STAT_NAMES = {
+  hp: 'HP',
+  attack: 'Attack',
+  defense: 'Defense',
+  specialAttack: 'Sp. Atk',
+  specialDefense: 'Sp. Def',
+  speed: 'Speed',
+} as const;
+
+export type EvSource = { id: number; nameEn: string; nameEs: string; amount: number; spriteUrl?: string | null };
 export type EvSources = { stat: keyof EvSpread; species: EvSource[] };
 
 type Candidate = EvSource & {
@@ -34,14 +44,14 @@ export function bestSources(candidates: Candidate[], stat: keyof EvSpread, limit
       );
     })
     .slice(0, limit)
-    .map((c) => ({ id: c.id, nameEn: c.nameEn, nameEs: c.nameEs, amount: c.yields[stat] ?? 0 }));
+    .map((c) => ({ id: c.id, nameEn: c.nameEn, nameEs: c.nameEs, amount: c.yields[stat] ?? 0, spriteUrl: c.spriteUrl }));
 }
 
 /**
  * For each stat still to train, the Pokémon of this game's regional Pokédexes
  * that give those EVs. Legendaries are left out: they are not for farming.
  */
-export async function loadEvSources(gameId: string, stats: (keyof EvSpread)[]): Promise<EvSources[]> {
+export async function loadEvSources(gameId: string, stats: (keyof EvSpread)[], limit = 4): Promise<EvSources[]> {
   if (stats.length === 0) return [];
   const slots = await prisma.pokedexSlot.findMany({
     where: { pokedex: { gameId, slug: { not: NATIONAL_DEX_SLUG } }, species: { isSpecial: false } },
@@ -51,7 +61,7 @@ export async function loadEvSources(gameId: string, stats: (keyof EvSpread)[]): 
           id: true,
           nameEn: true,
           nameEs: true,
-          forms: { where: { isDefault: true }, select: { evYield: true }, take: 1 },
+          forms: { where: { isDefault: true }, select: { evYield: true, spriteUrl: true }, take: 1 },
         },
       },
     },
@@ -76,10 +86,11 @@ export async function loadEvSources(gameId: string, stats: (keyof EvSpread)[]): 
       nameEn: species.nameEn,
       nameEs: species.nameEs,
       amount: 0,
+      spriteUrl: species.forms[0]?.spriteUrl ?? null,
       yields,
       national: species.id,
       stage: stageOf(species.id),
     });
   }
-  return stats.map((stat) => ({ stat, species: bestSources(candidates, stat) }));
+  return stats.map((stat) => ({ stat, species: bestSources(candidates, stat, limit) }));
 }
