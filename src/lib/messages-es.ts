@@ -148,7 +148,7 @@ export const ES: Record<string, string> = {
   'Invalid query': 'Consulta no válida',
   'It has {current} now; you are aiming for {target}.': 'Ahora tiene {current}; el objetivo es {target}.',
   'Item': 'Objeto',
-  'Item and moves fixed. Unfix': 'Objeto y movimientos fijados. Quitar',
+  'Item and moves fixed': 'Objeto y movimientos fijados',
   'Its nature is not set, so none is applied.': 'No tiene naturaleza indicada, así que no se aplica ninguna.',
   'Language': 'Idioma',
   'Learned normally': 'Se aprenden con normalidad',

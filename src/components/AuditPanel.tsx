@@ -264,15 +264,28 @@ export function AuditPanel({
 
       {onLocksChange && (audit.heldItem || recommended.length > 0) && (
         <p className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={toggleFixed}
-            title={t('Fixed parts stay the same when you run the audit again.')}
-            className={`rounded border px-2 py-0.5 text-[11px] font-medium ${
-              anyFixed ? 'border-done/50 text-done' : 'border-line text-muted hover:text-ink'
-            }`}
-          >
-            {anyFixed ? `✓ ${t('Item and moves fixed. Unfix')}` : t('Fix item and moves')}
-          </button>
+          {anyFixed ? (
+            <>
+              <span className="rounded border border-done/50 px-2 py-0.5 text-[11px] font-medium text-done">
+                ✓ {t('Item and moves fixed')}
+              </span>
+              <button
+                onClick={toggleFixed}
+                title={t('Fixed parts stay the same when you run the audit again.')}
+                className="rounded border border-line px-2 py-0.5 text-[11px] text-muted hover:text-ink"
+              >
+                {t('Unfix')}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={toggleFixed}
+              title={t('Fixed parts stay the same when you run the audit again.')}
+              className="rounded border border-line px-2 py-0.5 text-[11px] font-medium text-muted hover:text-ink"
+            >
+              {t('Fix item and moves')}
+            </button>
+          )}
         </p>
       )}
 
