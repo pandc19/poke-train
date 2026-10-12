@@ -302,11 +302,6 @@ export function RosterDetail({
             <Field label={t('Gender')} hint={t('Used by the breeding planner to know which parents you have.')}>
               <GenderControl p={p} onChange={onGender} />
             </Field>
-            {judge && (
-              <Field label={t('Potential')}>
-                <PotentialSelect p={p} onChange={onPotential} />
-              </Field>
-            )}
           </Section>
 
           <Section title={t('Build')}>
@@ -452,9 +447,9 @@ export function RosterDetail({
             <p className="text-[11px] text-muted">{t('A move you change is marked pending until you tick it as learned.')}</p>
           </Section>
 
-          {evs && (
-            <Section title={t('Stats and IVs')}>
-              {evTarget && (
+          {(evs || judge) && (
+            <Section title={evs ? t('Stats and IVs') : t('Potential')}>
+              {evs && evTarget && (
                 <Field
                   label={t('Target EV spread')}
                   hint={t('For example 252 Atk / 4 SpD / 252 Spe. English or Spanish stat names work.')}
@@ -473,7 +468,12 @@ export function RosterDetail({
                   />
                 </Field>
               )}
-              <StatsSection p={p} info={estimate} onSave={onSaveStats} />
+              {evs && <StatsSection p={p} info={estimate} onSave={onSaveStats} />}
+              {judge && (
+                <Field label={t('Potential')}>
+                  <PotentialSelect p={p} onChange={onPotential} />
+                </Field>
+              )}
             </Section>
           )}
 
