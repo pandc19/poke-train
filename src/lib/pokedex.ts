@@ -19,7 +19,7 @@ export type DexCell = {
   exclusive: { versionName: string; own: boolean } | null;
   /** You have one right now. False on a caught Pokémon means it evolved or was released. */
   owned: boolean;
-  /** Owned only because it is in your trained roster, so the Pokédex tick cannot turn it off. */
+  /** In your trained roster as obtained. The roster decides, so the Pokédex Have button is locked on. */
   ownedViaRoster: boolean;
   /** The nearest later evolution you have right now, if any: this one probably evolved. */
   evolvedInto: { nameEn: string; nameEs: string } | null;
@@ -152,7 +152,7 @@ export async function loadDex(
       roster: rosterState.get(s.species.id) ?? 'none',
       exclusive: side && versions ? { versionName: side === 'own' ? versions.ownName : versions.otherName, own: side === 'own' } : null,
       owned: holding(s.species.id),
-      ownedViaRoster: !ownedHere.has(s.species.id) && rosterOwned.has(s.species.id),
+      ownedViaRoster: rosterOwned.has(s.species.id),
       evolvedInto: evo ? { nameEn: evo.nameEn, nameEs: evo.nameEs } : null,
     };
   });
