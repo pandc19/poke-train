@@ -73,7 +73,15 @@ export function RosterBoard({
   );
   const [removing, setRemoving] = useState<RosterView | null>(null);
   const [auditing, setAuditing] = useState<string | null>(null);
-  const [openAudit, setOpenAudit] = useState<string | null>(null);
+  // A saved audit is shown by default; these are the ones the player hid.
+  const [hiddenAudits, setHiddenAudits] = useState<Set<string>>(new Set());
+  const setAuditShown = (id: string, shown: boolean) =>
+    setHiddenAudits((prev) => {
+      const next = new Set(prev);
+      if (shown) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const [team, setTeam] = useState<{ busy: boolean; result: TeamAudit | null }>({ busy: false, result: null });
   const [adding, setAdding] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -222,7 +230,7 @@ export function RosterBoard({
 
   async function audit(p: RosterView, refresh = false, deep = false) {
     setAuditing(p.id);
-    setOpenAudit(p.id);
+    setAuditShown(p.id, true);
     setError(null);
     try {
       const data = await api<{ pokemon: RosterView }>('/api/ai/audit', 'POST', { rosterPokemonId: p.id, refresh, deep });
@@ -488,14 +496,14 @@ export function RosterBoard({
               numberLabel={numberLabel(selected)}
               aiEnabled={aiEnabled}
               auditing={auditing === selected.id}
-              auditOpen={openAudit === selected.id}
+              auditOpen={!hiddenAudits.has(selected.id)}
               onToggle={(key, current) => toggle(selected, key, current)}
               onSet={(set) => saveSet(selected, set)}
               onGender={(g) => changeGender(selected, g)}
               onPotential={(v) => changePotential(selected, v)}
               onSaveStats={(stats, level, ratings) => saveStats(selected, stats, level, ratings)}
               onAudit={(refresh, deep) => audit(selected, refresh, deep)}
-              onToggleAudit={() => setOpenAudit(openAudit === selected.id ? null : selected.id)}
+              onToggleAudit={() => setAuditShown(selected.id, hiddenAudits.has(selected.id))}
               onRemove={() => setRemoving(selected)}
             />
           ) : (
