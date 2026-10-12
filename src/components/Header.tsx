@@ -78,7 +78,7 @@ export function Header({ games }: { games: GameLink[] }) {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-        <CatalogButton />
+          <CatalogButton />
           <div className="flex items-center rounded-md border border-line text-xs" aria-label={t('Language')}>
             {(['es', 'en'] as const).map((l) => (
               <button
