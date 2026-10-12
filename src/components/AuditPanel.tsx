@@ -65,6 +65,9 @@ function SourceRow({ s, gameId, aiEnabled }: { s: EvSource; gameId?: string; aiE
 export function AuditPanel({
   gameId,
   aiEnabled,
+  lockedPlan,
+  onLockPlan,
+  onUnlockPlan,
   audit,
   auditLang,
   meta,
@@ -76,6 +79,10 @@ export function AuditPanel({
   /** Lets the Pokémon to battle be looked up. */
   gameId?: string;
   aiEnabled?: boolean;
+  /** The EV spread the player has fixed as the plan, if any. */
+  lockedPlan?: string | null;
+  onLockPlan?: (spread: string) => void;
+  onUnlockPlan?: () => void;
   audit: StoredAudit;
   /** The language the saved answer is written in. */
   auditLang?: string;
@@ -128,6 +135,28 @@ export function AuditPanel({
               <dd className="inline">{audit.evPlan.toTrain === 'nothing' || audit.evPlan.toTrain === 'nada' ? t('Nothing') : audit.evPlan.toTrain}</dd>
             </div>
           </dl>
+          {lockedPlan ? (
+            <p className="mt-1 flex flex-wrap items-center gap-2 text-done">
+              <span>{t('Plan fixed: it will not change when you run the audit again.')}</span>
+              {onUnlockPlan && (
+                <button onClick={onUnlockPlan} className="rounded border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-ink">
+                  {t('Unfix')}
+                </button>
+              )}
+            </p>
+          ) : (
+            onLockPlan &&
+            audit.evPlan.spread !== 'nothing' &&
+            audit.evPlan.spread !== 'nada' && (
+              <button
+                onClick={() => onLockPlan(audit.evPlan!.spread)}
+                title={t('Saves this spread as your plan. The checklist marks it done once the Pokémon reaches it.')}
+                className="mt-1 rounded border border-done/50 px-2 py-0.5 text-[11px] font-medium text-done"
+              >
+                {t('Fix this plan')}
+              </button>
+            )
+          )}
           {audit.evPlan.items && audit.evPlan.items.length > 0 && (
             <ul className="mt-1 list-disc space-y-1 pl-4">
               {audit.evPlan.items.map((it, i) => (

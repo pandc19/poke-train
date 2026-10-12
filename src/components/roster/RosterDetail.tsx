@@ -443,7 +443,7 @@ export function RosterDetail({
 
           {(evs || judge) && (
             <Section title={evs ? t('Stats and IVs') : t('Potential')}>
-              {evs && evTarget && (
+              {evs && (evTarget || p.evs) && (
                 <Field
                   label={t('Target EV spread')}
                   hint={t('For example 252 Atk / 4 SpD / 252 Spe. English or Spanish stat names work.')}
@@ -488,6 +488,9 @@ export function RosterDetail({
         <AuditPanel
           gameId={gameId}
           aiEnabled={aiEnabled}
+          lockedPlan={p.evs ? formatEvs(p.evs) : null}
+          onLockPlan={(spread) => void save({ evs: spread })}
+          onUnlockPlan={() => void save({ evs: null })}
           audit={p.audit.result as Parameters<typeof AuditPanel>[0]['audit']}
           auditLang={p.audit.lang}
           meta={`${p.audit.provider} · ${p.audit.model}`}

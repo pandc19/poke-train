@@ -13,7 +13,7 @@ import type { RosterView } from '../roster';
 import { type BuildAudit, type BuildAuditRaw, BuildAuditNoEvSchema, BuildAuditRawSchema, LocationSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 11;
+const PROMPT_VERSION = 12;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -103,8 +103,8 @@ const statLine = (v: Record<keyof typeof STAT_NAMES, number>) =>
   Object.fromEntries(Object.entries(STAT_NAMES).map(([k, name]) => [name, v[k as keyof typeof STAT_NAMES]]));
 
 /** A compact, language-neutral description of a Pokémon as it is now, used both as prompt and cache key. */
-function describeBuild(p: RosterView, hasEvs = true, hasTarget = true) {
-  const gap = hasEvs && hasTarget && p.evs && p.currentEvs ? evGap(p.evs, p.currentEvs) : null;
+function describeBuild(p: RosterView, hasEvs = true) {
+  const gap = hasEvs && p.evs && p.currentEvs ? evGap(p.evs, p.currentEvs) : null;
   return {
     pokemon: p.species.nameEn,
     types: p.types,
@@ -124,9 +124,10 @@ function describeBuild(p: RosterView, hasEvs = true, hasTarget = true) {
           evsLeftToTrain: p.currentEvs ? Math.max(0, 510 - evTotal(p.currentEvs)) : null,
           // Worked out from the stats and IV ratings, so they may be a little low.
           currentEvsAreEstimated: p.currentEvs ? p.currentEvsEstimated : null,
-          ...(hasTarget
+          // The spread the player is training towards, when there is one. The plan is then fixed.
+          ...(p.evs
             ? {
-                targetEvs: p.evs ? statLine(p.evs) : null,
+                targetEvs: statLine(p.evs),
                 evsStillMissing: gap && evTotal(gap) > 0 ? formatEvs(gap) : null,
               }
             : {}),
@@ -152,7 +153,7 @@ export async function auditBuild(
   const hasEvs = game.features.evs;
   // Where EVs are easy to reset, a target spread makes sense; elsewhere work from what it has.
   const hasTarget = hasEvs && game.features.evTarget;
-  const build = describeBuild(p, hasEvs, hasTarget);
+  const build = describeBuild(p, hasEvs);
   const illegal = p.moves.filter((m) => m.legal === false).map((m) => m.move!.nameEn);
 
   // Everything it can legally have in this game, so suggestions come from real options.
@@ -178,7 +179,8 @@ export async function auditBuild(
         if (!hasEvs) return raw as BuildAudit;
         // The spread is the model's proposal; what it means for this Pokémon is worked out here.
         const withPlan = raw as BuildAuditRaw;
-        const plan = legalPlan(withPlan.evPlan.spread, p.currentEvs, !hasTarget);
+        // A plan the player has fixed is kept as it is; otherwise it is the model's proposal made legal.
+        const plan = p.evs ?? legalPlan(withPlan.evPlan.spread, p.currentEvs, !hasTarget);
         const { spread, toTrain } = describePlan(plan, p.currentEvs, lang === 'es' ? 'nada' : 'nothing');
         const gap = evGap(plan, p.currentEvs);
         const missing = (Object.keys(gap) as (keyof typeof gap)[]).filter((k) => gap[k] > 0);
@@ -207,6 +209,10 @@ export async function auditBuild(
           ? 'evPlan: currentStats are the numbers the game shows (HP 331, Attack 328…). They are NOT EVs, so never use them for the plan. ' +
             'currentEvs are the EVs it has trained, per stat, and evsLeftToTrain is how many of the 510 are still free. ' +
             'spread is the EVs it should finish with, as numbers per stat (at most 252 each and 510 in total). ' +
+            (p.evs
+              ? 'The player has fixed the EV plan: targetEvs is the spread it finishes with, so use it exactly as spread. ' +
+                'Choose the held item and the moves for those EVs. '
+              : '') +
             (hasTarget
               ? 'EVs are easy to retrain in this game, so choose the best spread for its role, nature, base stats and moves; currentEvs only says where it starts. '
               : 'Its EVs are hard to change in this game, so every stat must stay at or above its currentEvs: only add to them with the evsLeftToTrain still free, and never start over. ') +
@@ -232,7 +238,7 @@ export async function auditBuild(
 }
 
 export function auditTeam(provider: AiProvider, game: GameConfig, lang: Lang, profileId: string, roster: RosterView[]) {
-  const team = roster.map((p) => describeBuild(p, game.features.evs, game.features.evTarget));
+  const team = roster.map((p) => describeBuild(p, game.features.evs));
   return cached(provider, { kind: 'team', profileId, lang }, { team, lang }, {
     system: system(game, lang),
     schema: TeamAuditSchema,

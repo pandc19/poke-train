@@ -82,3 +82,8 @@ export function trainingItemsFor(gap: EvSpread, es: boolean) {
   });
   return [...vitamins, ...power];
 }
+
+/** Every stat has at least the EVs the plan asks for. */
+export function planReached(target: EvSpread, current: EvSpread): boolean {
+  return KEYS.every((key) => current[key] >= target[key]);
+}

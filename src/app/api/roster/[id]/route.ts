@@ -3,7 +3,7 @@ import { apiError } from '@/lib/api-error';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { LOCAL_USER_ID } from '@/lib/constants';
-import { recomputeEvsFromStats } from '@/lib/ev-sync';
+import { recomputeEvsFromStats, syncEvStatus } from '@/lib/ev-sync';
 import { rosterGenderToPokedex } from '@/lib/gender-sync';
 import { getGame } from '@/lib/games';
 import { parseEvs } from '@/lib/import/evs';
@@ -226,6 +226,8 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
         await recomputeEvsFromStats(prisma, rosterId);
       }
     }
+
+    await syncEvStatus(prisma, rosterId);
 
     const game = getGame(current.profile.gameId);
     if (set.moves && game) await refreshLegality(rosterId, game);

@@ -89,3 +89,12 @@ describe('bestSources', () => {
     expect(out.map((x) => x.id)).toEqual([2, 4, 1, 3]);
   });
 });
+
+describe('planReached', () => {
+  it('is true once every stat has at least the planned EVs', async () => {
+    const { planReached } = await import('@/lib/ev-plan');
+    expect(planReached(evs(120, 252, 138), evs(120, 252, 138))).toBe(true);
+    expect(planReached(evs(120, 252, 138), evs(120, 252, 140, 0, 4))).toBe(true);
+    expect(planReached(evs(120, 252, 138), evs(120, 200, 138))).toBe(false);
+  });
+});

@@ -3,6 +3,7 @@ import { estimateEvRange } from './ev-estimate';
 import { ivAssumption } from './potential';
 import type { IvRatings } from './iv-ratings';
 import type { EvSpread } from './import/evs';
+import { planReached } from './ev-plan';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -52,4 +53,21 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
     where: { id: rosterId },
     data: { currentEvs: evs, currentEvsEstimated: true },
   });
+}
+
+/**
+ * The EV task follows the training: done once the current EVs reach the
+ * planned spread, pending again if they fall short (for example after a reset).
+ * Does nothing without a plan or without known current EVs.
+ */
+export async function syncEvStatus(db: Db, rosterId: string): Promise<void> {
+  const row = await db.rosterPokemon.findUnique({
+    where: { id: rosterId },
+    select: { evs: true, currentEvs: true, evStatus: true },
+  });
+  if (!row?.evs || !row.currentEvs) return;
+  const status = planReached(row.evs as unknown as EvSpread, row.currentEvs as unknown as EvSpread) ? 'DONE' : 'PENDING';
+  if (status !== row.evStatus) {
+    await db.rosterPokemon.update({ where: { id: rosterId }, data: { evStatus: status } });
+  }
 }
