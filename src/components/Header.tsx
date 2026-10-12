@@ -6,6 +6,7 @@ import { useTransition } from 'react';
 import { motion } from 'motion/react';
 import { setLang } from '@/app/actions';
 import { CatalogButton } from './CatalogDialog';
+import type { CatalogSection } from '@/lib/games/catalog';
 import { useT } from '@/lib/translate-client';
 
 type GameLink = {
@@ -14,6 +15,7 @@ type GameLink = {
   theme: { from: string; to: string; accent: string };
   breeding: boolean;
   exclusives: boolean;
+  catalog: CatalogSection[];
 };
 
 // Planned modules, shown as empty cartridge slots.
@@ -78,7 +80,7 @@ export function Header({ games }: { games: GameLink[] }) {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <CatalogButton />
+          {current.catalog.length > 0 && <CatalogButton sections={current.catalog} />}
           <div className="flex items-center rounded-md border border-line text-xs" aria-label={t('Language')}>
             {(['es', 'en'] as const).map((l) => (
               <button

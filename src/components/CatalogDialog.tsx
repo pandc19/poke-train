@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { Dialog } from './Dialog';
 import { Sprite } from './Sprite';
-import { CATALOG, itemSpriteUrl } from '@/lib/catalog';
+import { type CatalogSection, itemSpriteUrl } from '@/lib/games/catalog';
 import { useT } from '@/lib/translate-client';
 
-/** A header button that opens the quick-reference catalog (EV berries and the like). */
-export function CatalogButton() {
+/** A header button that opens the current game's quick-reference catalog (EV berries and the like). */
+export function CatalogButton({ sections }: { sections: CatalogSection[] }) {
   const { t, lang } = useT();
   const [open, setOpen] = useState(false);
   return (
@@ -20,7 +20,7 @@ export function CatalogButton() {
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} title={t('Catalog')} wide>
         <div className="space-y-5">
-          {CATALOG.map((section) => (
+          {sections.map((section) => (
             <section key={section.id}>
               <h3 className="text-sm font-semibold">{section.title[lang]}</h3>
               {section.note && <p className="mb-2 text-xs text-muted">{section.note[lang]}</p>}

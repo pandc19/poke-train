@@ -1,4 +1,4 @@
-import type { Localized } from './translate';
+import type { Localized } from '../translate';
 
 /** One thing in a catalog: its name, what it does, and its sprite (a PokéAPI item slug). */
 export type CatalogEntry = {
@@ -15,10 +15,11 @@ export type CatalogSection = {
 };
 
 /**
- * Quick reference shown from the header on every page. To add more, add a
- * section here (or entries to one); the dialog lists whatever is in it.
+ * Quick reference for a game, shown from the header. A game lists its own
+ * (`catalog` in its config); to add more, add a section or entries here and
+ * the dialog lists whatever is there.
  */
-export const CATALOG: CatalogSection[] = [
+export const SCARLET_VIOLET_CATALOG: CatalogSection[] = [
   {
     id: 'ev-berries',
     title: { en: 'EV-reducing berries', es: 'Bayas que reducen EVs' },

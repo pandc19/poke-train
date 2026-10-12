@@ -1,4 +1,5 @@
 import type { Localized } from '../translate';
+import { type CatalogSection, SCARLET_VIOLET_CATALOG } from './catalog';
 import { scarletVioletExclusives, type VersionExclusives } from './exclusives';
 import { VIOLET_UTILITY_ROLES } from './utility-roles';
 
@@ -36,6 +37,8 @@ export type GameConfig = {
     /** Has a Judge ("Juez") that rates a Pokémon's potential. */
     judge: boolean;
   };
+  /** Quick-reference sections for this game (berries, items...), shown from the header. */
+  catalog: CatalogSection[];
   /** Cartridge colours for the game selector. */
   theme: { from: string; to: string; accent: string };
   utilityRoles: UtilityRole[];
@@ -94,6 +97,7 @@ export const GAMES: GameConfig[] = [
     },
     theme: { from: '#7c3aed', to: '#4c1d95', accent: '#c4b5fd' },
     utilityRoles: VIOLET_UTILITY_ROLES,
+    catalog: SCARLET_VIOLET_CATALOG,
     versionExclusives: scarletVioletExclusives('violet'),
   },
 ];

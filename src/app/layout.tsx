@@ -40,6 +40,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               theme: g.theme,
               breeding: g.features.breeding,
               exclusives: g.versionExclusives != null,
+              catalog: g.catalog,
             }))}
           />
           <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">{children}</main>
