@@ -274,10 +274,16 @@ export function AuditPanel({
             </div>
           </dl>
           {lockedPlan ? (
-            <p className="mt-1 flex flex-wrap items-center gap-2 text-done">
-              <span>{t('Plan fixed: it will not change when you run the audit again.')}</span>
+            <p className="mt-1 flex flex-wrap items-center gap-2">
+              <span className="rounded border border-done/50 px-2 py-0.5 text-[11px] font-medium text-done">
+                ✓ {t('Plan fixed')}
+              </span>
               {onUnlockPlan && (
-                <button onClick={onUnlockPlan} className="rounded border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-ink">
+                <button
+                  onClick={onUnlockPlan}
+                  title={t('Fixed parts stay the same when you run the audit again.')}
+                  className="rounded border border-line px-2 py-0.5 text-[11px] text-muted hover:text-ink"
+                >
                   {t('Unfix')}
                 </button>
               )}

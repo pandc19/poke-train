@@ -246,7 +246,7 @@ export const ES: Record<string, string> = {
   'Pending. Click to mark done': 'Pendiente. Haz clic para marcarlo como hecho',
   'Pick a Pokémon first': 'Elige primero un Pokémon',
   'Pick from the list, or type your own note such as “Vidasfera o Cinta Elegida”.': 'Elige de la lista o escribe tu propia nota, por ejemplo “Vidasfera o Cinta Elegida”.',
-  'Plan fixed: it will not change when you run the audit again.': 'Plan fijado: no cambiará al volver a ejecutar la auditoría.',
+  'Plan fixed': 'Plan fijado',
   'Plan status': 'Estado del plan',
   'Planned': 'Planeado',
   'Planning…': 'Planificando…',
