@@ -45,3 +45,7 @@ next-env.d.ts
 
 # PokéAPI response cache (scripts/sync-pokeapi.ts)
 /.cache/
+
+# Database dumps (see docs/database-transfer.md)
+*.dump
+poke_train*.sql
