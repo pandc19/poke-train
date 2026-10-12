@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useCachedLocations } from './useCachedLocations';
+import type { AuditLocks } from '@/lib/audit-locks';
 import type { BuildAudit, LocationResult } from '@/lib/ai/schema';
 import { useT } from '@/lib/translate-client';
 
@@ -79,6 +80,8 @@ function SourceRow({
 export function AuditPanel({
   gameId,
   aiEnabled,
+  locks,
+  onLocksChange,
   lockedPlan,
   onLockPlan,
   onUnlockPlan,
@@ -93,6 +96,9 @@ export function AuditPanel({
   /** Lets the Pokémon to battle be looked up. */
   gameId?: string;
   aiEnabled?: boolean;
+  /** The held item and moves the player has fixed. */
+  locks?: AuditLocks | null;
+  onLocksChange?: (locks: AuditLocks | null) => void;
   /** The EV spread the player has fixed as the plan, if any. */
   lockedPlan?: string | null;
   onLockPlan?: (spread: string) => void;
@@ -113,6 +119,21 @@ export function AuditPanel({
     gameId,
     (audit.evPlan?.sources ?? []).flatMap((g) => g.species.map((x) => x.id))
   );
+  const setLocks = (next: AuditLocks) => {
+    const empty = !next.heldItem && !(next.moves ?? []).length;
+    onLocksChange?.(empty ? null : next);
+  };
+  const itemFixed = Boolean(locks?.heldItem);
+  const movesFixed = locks?.moves ?? [];
+  const toggleMove = (m: { move: string; reason: string }) => {
+    const isFixed = movesFixed.some((x) => x.move === m.move);
+    setLocks({
+      ...locks,
+      moves: isFixed ? movesFixed.filter((x) => x.move !== m.move) : [...movesFixed, m].slice(0, 4),
+    });
+  };
+  const fixButton =
+    'ml-2 rounded border px-1.5 py-0.5 text-[10px] disabled:opacity-40';
   const languageName = (code: string) => (code === 'en' ? t('English') : t('Spanish'));
   // The saved answer is never translated: switching language keeps it until it is re-run.
   const otherLanguage = auditLang != null && auditLang !== lang;
@@ -211,6 +232,16 @@ export function AuditPanel({
           <p>
             <span className="font-medium">{audit.heldItem.item}</span>
             <span className="text-muted"> · {audit.heldItem.reason}</span>
+            {onLocksChange && (
+              <button
+                onClick={() =>
+                  setLocks({ ...locks, heldItem: itemFixed ? undefined : { item: audit.heldItem!.item, reason: audit.heldItem!.reason } })
+                }
+                className={`${fixButton} ${itemFixed ? 'border-done/50 text-done' : 'border-line text-muted hover:text-ink'}`}
+              >
+                {itemFixed ? `✓ ${t('Fixed')}` : t('Fix')}
+              </button>
+            )}
           </p>
         </div>
       )}
@@ -223,9 +254,23 @@ export function AuditPanel({
               <li key={i}>
                 <span className="font-medium">{m.move}</span>
                 <span className="text-muted"> · {m.reason}</span>
+                {onLocksChange && (
+                  <button
+                    onClick={() => toggleMove(m)}
+                    disabled={!movesFixed.some((x) => x.move === m.move) && movesFixed.length >= 4}
+                    className={`${fixButton} ${
+                      movesFixed.some((x) => x.move === m.move) ? 'border-done/50 text-done' : 'border-line text-muted hover:text-ink'
+                    }`}
+                  >
+                    {movesFixed.some((x) => x.move === m.move) ? `✓ ${t('Fixed')}` : t('Fix')}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
+          {(movesFixed.length > 0 || itemFixed) && (
+            <p className="mt-1 text-[10px] text-muted">{t('Fixed parts stay the same when you run the audit again.')}</p>
+          )}
         </div>
       )}
 

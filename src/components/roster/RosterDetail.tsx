@@ -488,6 +488,8 @@ export function RosterDetail({
         <AuditPanel
           gameId={gameId}
           aiEnabled={aiEnabled}
+          locks={p.auditLocks}
+          onLocksChange={(locks) => void save({ auditLocks: locks })}
           lockedPlan={p.evs ? formatEvs(p.evs) : null}
           onLockPlan={(spread) => void save({ evs: spread })}
           onUnlockPlan={() => void save({ evs: null })}

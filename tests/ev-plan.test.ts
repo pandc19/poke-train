@@ -98,3 +98,12 @@ describe('planReached', () => {
     expect(planReached(evs(120, 252, 138), evs(120, 200, 138))).toBe(false);
   });
 });
+
+describe('withFixedMoves', () => {
+  it('keeps the fixed moves first and fills the rest without repeats', async () => {
+    const { withFixedMoves } = await import('@/lib/audit-locks');
+    const m = (move: string) => ({ move, reason: '' });
+    const out = withFixedMoves([m('Stone Edge')], [m('Earthquake'), m('stone edge'), m('Stealth Rock'), m('Explosion'), m('Rock Slide')]);
+    expect(out.map((x) => x.move)).toEqual(['Stone Edge', 'Earthquake', 'Stealth Rock', 'Explosion']);
+  });
+});

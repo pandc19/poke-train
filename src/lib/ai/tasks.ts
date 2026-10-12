@@ -4,6 +4,7 @@ import { prisma } from '../db';
 import type { GameConfig } from '../games';
 import { learnableMoves } from '../breeding/moves';
 import { evGap, evTotal, formatEvs } from '../import/evs';
+import { withFixedMoves } from '../audit-locks';
 import { loadEvSources } from '../ev-catalog';
 import { describePlan, legalPlan, trainingItemsFor } from '../ev-plan';
 import type { Lang } from '../i18n';
@@ -175,12 +176,18 @@ export async function auditBuild(
   return cached(
     provider,
     { kind: 'build', profileId, rosterPokemonId: p.id, refresh, lang },
-    { build, illegal, legalMovePool, lang },
+    { build, illegal, legalMovePool, lang, locks: p.auditLocks },
     {
       system: system(game, lang),
       schema: hasEvs ? BuildAuditRawSchema : BuildAuditNoEvSchema,
       finish: async (raw) => {
-        if (!hasEvs) return raw as BuildAudit;
+        const locks = p.auditLocks;
+        // What the player fixed is kept as it is; the model only fills the rest.
+        const fixed = (r: { heldItem: BuildAudit['heldItem']; recommendedMoves: BuildAudit['recommendedMoves'] }) => ({
+          heldItem: locks?.heldItem ?? r.heldItem,
+          recommendedMoves: withFixedMoves(locks?.moves, r.recommendedMoves),
+        });
+        if (!hasEvs) return { ...(raw as BuildAudit), ...fixed(raw as BuildAudit) };
         // The spread is the model's proposal; what it means for this Pokémon is worked out here.
         const withPlan = raw as BuildAuditRaw;
         // A plan the player has fixed is kept as it is; otherwise it is the model's proposal made legal.
@@ -189,8 +196,7 @@ export async function auditBuild(
         const gap = evGap(plan, p.currentEvs);
         const missing = (Object.keys(gap) as (keyof typeof gap)[]).filter((k) => gap[k] > 0);
         return {
-          heldItem: withPlan.heldItem,
-          recommendedMoves: withPlan.recommendedMoves,
+          ...fixed(withPlan),
           evPlan: {
             spread,
             toTrain,
@@ -225,7 +231,13 @@ export async function auditBuild(
             'Do not say which Pokémon to battle, or give vitamin counts or EV arithmetic: the app works those out.' +
             (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
           : `${game.name} has no EV training, so there is no EV plan.`,
-        'heldItem: the best held item for it as it is now. If the one it holds is already the best, name it and say to keep it.',
+        p.auditLocks?.heldItem
+          ? `heldItem: the player has fixed ${p.auditLocks.heldItem.item}. Return exactly that item with its reason.`
+          : 'heldItem: the best held item for it as it is now. If the one it holds is already the best, name it and say to keep it.',
+        p.auditLocks?.moves?.length
+          ? `The player has fixed these moves, so they stay: ${p.auditLocks.moves.map((m) => m.move).join(', ')}. ` +
+            `recommendedMoves lists only the other ${4 - p.auditLocks.moves.length} to add, chosen to work with the fixed ones (no duplicated role).`
+          : '',
         `recommendedMoves: the best four moves for it given its nature${hasEvs ? ' and the EVs it will finish with' : ''}, chosen ONLY from legalMovePool. ` +
           'Prefer moves it already knows over ones it would have to get. ' +
           'Do not recommend moves that use a stat it is not investing in: no special attacks when its Sp. Atk gets no EVs and its nature does not raise it, ' +
@@ -258,15 +270,22 @@ export function auditTeam(provider: AiProvider, game: GameConfig, lang: Lang, pr
 
 /** A location already researched for this Pokémon, or null. Never makes a request to the model. */
 export async function savedLocation(provider: AiProvider, game: GameConfig, lang: Lang, pokemon: string) {
-  const inputHash = hashOf(provider.modelFor('bulk'), { game: game.id, pokemon, lang }, LOCATION_PROMPT_VERSION);
-  const hit = await prisma.aiAudit.findUnique({
-    where: { kind_provider_inputHash: { kind: 'location', provider: provider.name, inputHash } },
-  });
-  return (hit?.result as z.infer<typeof LocationSchema> | undefined) ?? null;
+  // Whichever language it was researched in: like the other answers, it stays until it is run again.
+  const other: Lang = lang === 'es' ? 'en' : 'es';
+  for (const l of [lang, other]) {
+    const inputHash = hashOf(provider.modelFor('bulk'), { game: game.id, pokemon, lang: l }, LOCATION_PROMPT_VERSION);
+    const hit = await prisma.aiAudit.findUnique({
+      where: { kind_provider_inputHash: { kind: 'location', provider: provider.name, inputHash } },
+    });
+    if (hit) return hit.result as z.infer<typeof LocationSchema>;
+  }
+  return null;
 }
 
 /** Where to catch a Pokémon. PokéAPI has no encounter data for recent games, so this is researched. */
-export function researchLocation(provider: AiProvider, game: GameConfig, lang: Lang, profileId: string, pokemon: string) {
+export async function researchLocation(provider: AiProvider, game: GameConfig, lang: Lang, profileId: string, pokemon: string) {
+  const saved = await savedLocation(provider, game, lang, pokemon);
+  if (saved) return saved;
   return cached(provider, { kind: 'location', profileId, lang, version: LOCATION_PROMPT_VERSION }, { game: game.id, pokemon, lang }, {
     system: system(game, lang),
     schema: LocationSchema,

@@ -329,6 +329,8 @@ model RosterPokemon {
   level Int @default(100)
   /// What the Judge said about each stat's IV: { hp: "PERFECT", attack: "LOW", ... }. Missing = not judged.
   ivRatings Json? @map("iv_ratings")
+  /// Parts of the AI audit the player has fixed: { heldItem?, moves? }. Re-running the audit keeps them.
+  auditLocks Json? @map("audit_locks")
 
   teraType String? @map("tera_type")
   /// What the Judge said, for games that have one. Null = not judged yet.

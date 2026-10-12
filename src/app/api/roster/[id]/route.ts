@@ -1,3 +1,4 @@
+import { AuditLocksSchema } from '@/lib/audit-locks';
 import { Prisma } from '@prisma/client';
 import { apiError } from '@/lib/api-error';
 import { z } from 'zod';
@@ -47,6 +48,7 @@ const Body = z.object({
         .nullable(),
       level: z.number().int().min(1).max(100),
       /** What the Judge said about each stat's IV. */
+      auditLocks: AuditLocksSchema.nullable(),
       ivRatings: z
         .object({
           hp: z.enum(IV_RATING_VALUES).nullable().optional(),
@@ -176,6 +178,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
           ...(set.currentStats !== undefined ? { currentStats: set.currentStats ?? Prisma.DbNull } : {}),
           ...(set.level !== undefined ? { level: set.level } : {}),
           ...(set.ivRatings !== undefined ? { ivRatings: set.ivRatings ?? Prisma.DbNull } : {}),
+          ...(set.auditLocks !== undefined ? { auditLocks: set.auditLocks ?? Prisma.DbNull } : {}),
           ...(currentEvs !== undefined
             ? { currentEvs: currentEvs ?? Prisma.DbNull, currentEvsEstimated: currentEvs ? (set.currentEvsEstimated ?? false) : false }
             : {}),

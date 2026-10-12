@@ -1,3 +1,4 @@
+import type { AuditLocks } from './audit-locks';
 import { prisma } from './db';
 import type { GameConfig } from './games';
 import type { EvSpread } from './import/evs';
@@ -57,6 +58,8 @@ export type RosterView = {
   level: number;
   /** The Judge's word for each stat's IV, for the stats that have been judged. */
   ivRatings: IvRatings | null;
+  /** AI audit sections the player has fixed. */
+  auditLocks: AuditLocks | null;
   /** Base stats of its form, so a build can be judged against what it is. */
   baseStats: EvSpread | null;
   teraType: string | null;
@@ -154,6 +157,7 @@ export async function loadRoster(profileId: string, ids?: string[]): Promise<Ros
       currentStats: r.currentStats as EvSpread | null,
       level: r.level,
       ivRatings: r.ivRatings as IvRatings | null,
+      auditLocks: r.auditLocks as AuditLocks | null,
       baseStats: (form?.baseStats ?? null) as EvSpread | null,
       evStatus: r.evStatus,
       teraType: r.teraType,
