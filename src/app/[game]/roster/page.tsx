@@ -18,6 +18,7 @@ export default async function RosterPage({ params }: PageProps<'/[game]/roster'>
         initial={roster}
         options={options}
         lang={lang}
+        judge={game.features.judge}
         aiEnabled={provider != null}
         aiProvider={
           provider

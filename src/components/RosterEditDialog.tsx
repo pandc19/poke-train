@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Dialog } from './Dialog';
 import { formatEvs } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
+import { POTENTIAL_LEVELS } from '@/lib/potential';
 import { TYPE_NAMES_ES, TYPE_SLUGS } from '@/lib/pokemon-types';
 import type { EditorOptions, RosterView } from '@/lib/roster';
 
@@ -30,12 +31,15 @@ export function RosterEditDialog({
   pokemon,
   options,
   lang,
+  judge,
   onSave,
   onClose,
 }: {
   pokemon: RosterView | null;
   options: EditorOptions;
   lang: Lang;
+  /** The game has a Judge, so the potential can be set. */
+  judge: boolean;
   /** Resolves to an error message, or null on success. */
   onSave: (id: string, set: Record<string, unknown>) => Promise<string | null>;
   onClose: () => void;
@@ -47,7 +51,9 @@ export function RosterEditDialog({
       wide
       title={pokemon ? `Edit ${lang === 'en' ? pokemon.species.nameEn : pokemon.species.nameEs}` : ''}
     >
-      {pokemon && <EditForm key={pokemon.id} p={pokemon} options={options} lang={lang} onSave={onSave} onClose={onClose} />}
+      {pokemon && (
+        <EditForm key={pokemon.id} p={pokemon} options={options} lang={lang} judge={judge} onSave={onSave} onClose={onClose} />
+      )}
     </Dialog>
   );
 }
@@ -56,18 +62,21 @@ function EditForm({
   p,
   options,
   lang,
+  judge,
   onSave,
   onClose,
 }: {
   p: RosterView;
   options: EditorOptions;
   lang: Lang;
+  judge: boolean;
   onSave: (id: string, set: Record<string, unknown>) => Promise<string | null>;
   onClose: () => void;
 }) {
   const label = (x: Named | null | undefined) => (x ? (lang === 'en' ? x.nameEn : x.nameEs) : '');
   const [nickname, setNickname] = useState(p.nickname ?? '');
   const [gender, setGender] = useState(p.gender);
+  const [potential, setPotential] = useState(p.potential ?? '');
   const [natureId, setNatureId] = useState(p.targetNature?.id ?? 0);
   const [abilityId, setAbilityId] = useState(p.ability?.id ?? 0);
   const [item, setItem] = useState(p.item ? label(p.item) : (p.itemNote ?? ''));
@@ -110,6 +119,7 @@ function EditForm({
     const message = await onSave(p.id, {
       nickname: nickname.trim() || null,
       gender,
+      ...(judge ? { potential: potential || null } : {}),
       targetNatureId: natureId || null,
       abilityId: abilityId || null,
       itemId: matchedItem?.id ?? null,
@@ -150,6 +160,18 @@ function EditForm({
         <Field label="Nickname">
           <input value={nickname} onChange={(e) => setNickname(e.target.value)} className={inputClass} />
         </Field>
+        {judge && (
+          <Field label="Potential (Judge)" hint="What the in-game Judge (Juez) says about this Pokémon.">
+            <select value={potential} onChange={(e) => setPotential(e.target.value as typeof potential)} className={inputClass}>
+              <option value="">Not judged yet</option>
+              {POTENTIAL_LEVELS.map((l) => (
+                <option key={l.value} value={l.value}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
         <Field label="Gender" hint="Used by the breeding planner to know which parents you have.">
           <select value={gender} onChange={(e) => setGender(e.target.value as RosterView['gender'])} className={inputClass}>
             {genderChoices.map((g) => (

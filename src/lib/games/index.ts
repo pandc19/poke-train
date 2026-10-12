@@ -1,4 +1,7 @@
+import { scarletVioletExclusives, type VersionExclusives } from './exclusives';
 import { VIOLET_UTILITY_ROLES } from './utility-roles';
+
+export type { VersionExclusives } from './exclusives';
 
 /**
  * Per-game configuration: the single extension point for adding a game.
@@ -23,10 +26,14 @@ export type GameConfig = {
     teraType: boolean;
     /** Egg moves can be copied at a picnic with a Mirror Herb (Scarlet/Violet). */
     mirrorHerb: boolean;
+    /** Has a Judge ("Juez") that rates a Pokémon's potential. */
+    judge: boolean;
   };
   /** Cartridge colours for the game selector. */
   theme: { from: string; to: string; accent: string };
   utilityRoles: UtilityRole[];
+  /** For games sold as a pair: what only this version and only the other version have. */
+  versionExclusives?: VersionExclusives;
 };
 
 /**
@@ -70,9 +77,11 @@ export const GAMES: GameConfig[] = [
       abilities: true,
       teraType: true,
       mirrorHerb: true,
+      judge: true,
     },
     theme: { from: '#7c3aed', to: '#4c1d95', accent: '#c4b5fd' },
     utilityRoles: VIOLET_UTILITY_ROLES,
+    versionExclusives: scarletVioletExclusives('violet'),
   },
 ];
 

@@ -71,6 +71,8 @@ function describeBuild(p: RosterView) {
     item: p.item?.nameEn ?? p.itemNote,
     evs: p.evs ? formatEvs(p.evs) : null,
     teraType: p.teraType,
+    // What the in-game Judge said about its IVs, when the player has had it judged.
+    judgePotential: p.potential,
     moves: p.moves.map((m) => m.move?.nameEn ?? m.rawName),
   };
 }

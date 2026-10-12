@@ -12,6 +12,7 @@ type GameLink = {
   shortName: string;
   theme: { from: string; to: string; accent: string };
   breeding: boolean;
+  exclusives: boolean;
 };
 
 // Planned modules, shown as empty cartridge slots.
@@ -28,6 +29,7 @@ export function Header({ games, lang }: { games: GameLink[]; lang: Lang }) {
     { href: `/${current.id}/national`, label: 'National Dex' },
     { href: `/${current.id}/roster`, label: 'Roster' },
     { href: `/${current.id}/import`, label: 'Import' },
+    ...(current.exclusives ? [{ href: `/${current.id}/exclusives`, label: 'Exclusives' }] : []),
     ...(current.breeding ? [{ href: `/${current.id}/breeding`, label: 'Breeding' }] : []),
     { href: `/${current.id}/starter-team`, label: 'Starter team' },
   ];

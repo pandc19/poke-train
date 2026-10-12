@@ -10,6 +10,7 @@ import { TypeBadge } from './TypeBadge';
 import type { BuildAudit, TeamAudit } from '@/lib/ai/schema';
 import { formatEvs } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
+import { POTENTIAL_LEVELS, potentialLevel } from '@/lib/potential';
 import { TYPE_COLORS } from '@/lib/pokemon-types';
 import type { EditorOptions, RosterView } from '@/lib/roster';
 import { rosterProgress, type TaskKey, type TaskStatus } from '@/lib/roster-status';
@@ -187,6 +188,7 @@ export function RosterBoard({
   initial,
   options,
   lang,
+  judge,
   aiEnabled,
   aiProvider,
 }: {
@@ -194,6 +196,8 @@ export function RosterBoard({
   initial: RosterView[];
   options: EditorOptions;
   lang: Lang;
+  /** The game has a Judge ("Juez"), so each Pokémon can carry its Potential. */
+  judge: boolean;
   aiEnabled: boolean;
   aiProvider: string;
 }) {
@@ -247,6 +251,17 @@ export function RosterBoard({
     } catch {
       replace(p);
       setError('Could not save the gender. It has been undone; try again.');
+    }
+  }
+
+  async function changePotential(p: RosterView, potential: RosterView['potential']) {
+    setError(null);
+    replace({ ...p, potential });
+    try {
+      await api(`/api/roster/${p.id}`, 'PATCH', { set: { potential } });
+    } catch {
+      replace(p);
+      setError('Could not save the potential. It has been undone; try again.');
     }
   }
 
@@ -434,6 +449,7 @@ export function RosterBoard({
         pokemon={editingPokemon}
         options={options}
         lang={lang}
+        judge={judge}
         onSave={saveEdit}
         onClose={() => setEditing(null)}
       />
@@ -627,6 +643,11 @@ export function RosterBoard({
                     <Row label="Gender">
                       <GenderControl p={p} onChange={(g) => changeGender(p, g)} />
                     </Row>
+                    {judge && (
+                      <Row label="Potential">
+                        <PotentialSelect p={p} onChange={(v) => changePotential(p, v)} />
+                      </Row>
+                    )}
                     <Row label="Obtained">{c.owned}</Row>
                     {c.nature && <Row label="Nature">{c.nature}</Row>}
                     {c.ability && <Row label="Ability">{c.ability}</Row>}
@@ -683,7 +704,7 @@ export function RosterBoard({
           <table className="w-full min-w-[1150px] text-left text-xs">
             <thead className="bg-surface-2 uppercase text-muted">
               <tr>
-                {['Obtained', 'Pokémon', 'Gender', 'Nature', 'Ability', 'Item', 'EVs', 'Move 1', 'Move 2', 'Move 3', 'Move 4', 'Progress', ''].map(
+                {['Obtained', 'Pokémon', 'Gender', ...(judge ? ['Potential'] : []), 'Nature', 'Ability', 'Item', 'EVs', 'Move 1', 'Move 2', 'Move 3', 'Move 4', 'Progress', ''].map(
                   (h, i) => (
                     <th key={i} className="whitespace-nowrap px-2 py-2 font-medium">
                       {h}
@@ -713,6 +734,11 @@ export function RosterBoard({
                     <td className="px-2 py-1">
                       <GenderControl p={p} onChange={(g) => changeGender(p, g)} />
                     </td>
+                    {judge && (
+                      <td className="px-2 py-1">
+                        <PotentialSelect p={p} onChange={(v) => changePotential(p, v)} />
+                      </td>
+                    )}
                     <td className="px-2 py-1">{c.nature}</td>
                     <td className="px-2 py-1">{c.ability}</td>
                     <td className="max-w-40 px-2 py-1">{c.item}</td>
@@ -739,6 +765,27 @@ export function RosterBoard({
       )}
       {dialogs}
     </div>
+  );
+}
+
+/** The Judge's verdict as a coloured select, so the colour tells you the tier at a glance. */
+function PotentialSelect({ p, onChange }: { p: RosterView; onChange: (v: RosterView['potential']) => void }) {
+  const level = potentialLevel(p.potential);
+  return (
+    <select
+      value={p.potential ?? ''}
+      onChange={(e) => onChange((e.target.value || null) as RosterView['potential'])}
+      aria-label="Potential from the in-game Judge"
+      title="What the in-game Judge (Juez) says about this Pokémon"
+      className={`rounded-md border bg-surface px-1.5 py-0.5 text-xs ${level?.className ?? 'border-line text-muted'}`}
+    >
+      <option value="">Not judged</option>
+      {POTENTIAL_LEVELS.map((l) => (
+        <option key={l.value} value={l.value}>
+          {l.label}
+        </option>
+      ))}
+    </select>
   );
 }
 

@@ -29,6 +29,7 @@ const Body = z.object({
       itemNote: z.string().max(200).nullable(),
       evs: z.string().max(200).nullable(),
       teraType: z.enum(TYPE_SLUGS as [string, ...string[]]).nullable(),
+      potential: z.enum(['NO_GOOD', 'DECENT', 'PRETTY_GOOD', 'VERY_GOOD', 'FANTASTIC', 'BEST']).nullable(),
       notes: z.string().max(4000).nullable(),
       moves: z.array(z.object({ slot: z.number().int().min(1).max(4), moveId: id })).max(4),
     })
@@ -92,6 +93,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
           gender: set.gender,
           notes: set.notes,
           teraType: set.teraType,
+          potential: set.potential,
           itemNote: set.itemNote,
           ...(set.targetNatureId !== undefined && set.targetNatureId !== current.targetNatureId
             ? {

@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { ConfirmDialog } from './Dialog';
+import { PokemonInfoDialog } from './PokemonInfoDialog';
 import { Sprite } from './Sprite';
 import type { DexCell } from '@/lib/pokedex';
 import type { Lang } from '@/lib/i18n';
@@ -19,13 +20,15 @@ const FILTER_LABELS: Record<Filter, string> = {
 type Genders = { male: boolean; female: boolean };
 
 /**
- * Ordered Pokédex grid. Click toggles one Pokémon, shift-click fills the
- * range since the last click, and dragging with the mouse paints every cell
- * it passes over. Changes are applied optimistically and sent as one batch.
- * Caught means the Pokédex lists it; ✓ means you have one right now. A
- * caught Pokémon without ✓ evolved or was released. On a caught Pokémon that
- * has both genders, the ♂/♀ buttons record which ones you have, which is what
- * the breeding planner uses.
+ * Ordered Pokédex grid.
+ *
+ *  - Click a card to open that Pokémon's information (from PokéAPI).
+ *  - The "Caught" button on a card marks it in your Pokédex. Shift-click it
+ *    to fill the range since the last one.
+ *  - "Have" says you have one right now; a caught Pokémon without it evolved
+ *    or was released. ♂/♀ record which genders you have, for breeding.
+ *
+ * Changes are applied optimistically and sent as one batch.
  *
  * A game's National Dex lists every species. Those the game does not have
  * (`inGame` false) are dimmed and hidden by default, so progress counts only
@@ -62,11 +65,10 @@ export function DexGrid({
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [bulk, setBulk] = useState<{ mode: boolean; ids: number[] } | null>(null);
-
-  // Drag-paint state lives in refs: it changes on every pointer move and must not re-render.
-  const paint = useRef<{ mode: boolean; ids: Set<number> } | null>(null);
+  const [openId, setOpenId] = useState<number | null>(null);
   const lastIndex = useRef<number | null>(null);
-  const pointerHandled = useRef(false);
+
+  const haveNow = (c: DexCell) => caught.has(c.speciesId) && (!notOwned.has(c.speciesId) || c.ownedViaRoster);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -134,6 +136,15 @@ export function DexGrid({
     [apply, gameId, readOnly]
   );
 
+  async function patch(body: Record<string, unknown>) {
+    const res = await fetch('/api/pokedex', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gameId, ...body }),
+    });
+    if (!res.ok) throw new Error(String(res.status));
+  }
+
   async function setHave(speciesId: number, value: boolean) {
     const toggle = (have: boolean) =>
       setNotOwned((prev) => {
@@ -145,12 +156,7 @@ export function DexGrid({
     toggle(value);
     setError(null);
     try {
-      const res = await fetch('/api/pokedex', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId, speciesId, owned: value }),
-      });
-      if (!res.ok) throw new Error(String(res.status));
+      await patch({ speciesId, owned: value });
     } catch {
       toggle(!value);
       setError('Could not save that change. It has been undone; try again.');
@@ -162,75 +168,27 @@ export function DexGrid({
     setGenders((prev) => ({ ...prev, [speciesId]: { ...before, [which]: value } }));
     setError(null);
     try {
-      const res = await fetch('/api/pokedex', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gameId,
-          speciesId,
-          [which === 'male' ? 'hasMale' : 'hasFemale']: value,
-        }),
-      });
-      if (!res.ok) throw new Error(String(res.status));
+      await patch({ speciesId, [which === 'male' ? 'hasMale' : 'hasFemale']: value });
     } catch {
       setGenders((prev) => ({ ...prev, [speciesId]: before }));
       setError('Could not save that gender. It has been undone; try again.');
     }
   }
 
-  useEffect(() => {
-    const end = () => {
-      const p = paint.current;
-      paint.current = null;
-      if (p) void save([...p.ids], p.mode);
-    };
-    window.addEventListener('pointerup', end);
-    window.addEventListener('pointercancel', end);
-    return () => {
-      window.removeEventListener('pointerup', end);
-      window.removeEventListener('pointercancel', end);
-    };
-  }, [save]);
-
-  const onPointerDown = (e: React.PointerEvent, index: number) => {
-    if (readOnly || e.pointerType !== 'mouse' || e.button !== 0) return;
-    pointerHandled.current = true;
+  /** The Caught button. Shift-click fills the range since the last click. */
+  const toggleCaught = (index: number, shift: boolean) => {
+    if (readOnly) return;
     const cell = visible[index];
     const mode = !caught.has(cell.speciesId);
-
-    if (e.shiftKey && lastIndex.current !== null) {
+    if (shift && lastIndex.current !== null) {
       const [a, b] = [lastIndex.current, index].sort((x, y) => x - y);
       const ids = visible.slice(a, b + 1).map((c) => c.speciesId);
       apply(ids, mode);
       void save(ids, mode);
     } else {
-      paint.current = { mode, ids: new Set([cell.speciesId]) };
       apply([cell.speciesId], mode);
+      void save([cell.speciesId], mode);
     }
-    lastIndex.current = index;
-  };
-
-  const onPointerEnter = (index: number) => {
-    const p = paint.current;
-    if (!p) return;
-    const id = visible[index].speciesId;
-    if (p.ids.has(id)) return;
-    p.ids.add(id);
-    apply([id], p.mode);
-    lastIndex.current = index;
-  };
-
-  // Keyboard and touch arrive here without a preceding mouse pointerdown.
-  const onClick = (index: number) => {
-    if (pointerHandled.current) {
-      pointerHandled.current = false;
-      return;
-    }
-    if (readOnly) return;
-    const id = visible[index].speciesId;
-    const mode = !caught.has(id);
-    apply([id], mode);
-    void save([id], mode);
     lastIndex.current = index;
   };
 
@@ -250,10 +208,9 @@ export function DexGrid({
   const scoped = hasUnavailable && onlyInGame ? cells.filter((c) => c.inGame) : cells;
   const total = scoped.length;
   const count = scoped.filter((c) => caught.has(c.speciesId)).length;
-  const haveCount = scoped.filter(
-    (c) => caught.has(c.speciesId) && (!notOwned.has(c.speciesId) || c.ownedViaRoster)
-  ).length;
+  const haveCount = scoped.filter(haveNow).length;
   const pct = total ? Math.round((count / total) * 100) : 0;
+  const openCell = cells.find((c) => c.speciesId === openId) ?? null;
 
   return (
     <div>
@@ -286,7 +243,7 @@ export function DexGrid({
           className="w-52 rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-muted"
         />
 
-        <div className="flex rounded-md border border-line text-xs">
+        <div className="flex flex-wrap rounded-md border border-line text-xs">
           {(['all', 'missing', 'caught', 'have', 'registered'] as const).map((f) => (
             <button
               key={f}
@@ -343,38 +300,62 @@ export function DexGrid({
       {visible.length === 0 ? (
         <p className="py-16 text-center text-sm text-muted">No Pokémon match this filter.</p>
       ) : (
-        <ul className="grid select-none grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-2">
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(108px,1fr))] gap-2">
           {visible.map((c, i) => {
             const isCaught = caught.has(c.speciesId);
             const name = lang === 'en' ? c.nameEn : c.nameEs;
-            const elsewhere = readOnly ? c.caughtIn : isCaught ? [] : c.caughtIn;
+            const elsewhere = isCaught ? [] : c.caughtIn;
             const mixed = c.genderRate > 0 && c.genderRate < 8;
             const g = genders[c.speciesId] ?? { male: false, female: false };
-            const have = isCaught && (!notOwned.has(c.speciesId) || c.ownedViaRoster);
+            const have = haveNow(c);
             const registeredOnly = isCaught && !have;
             const evo = c.evolvedInto ? (lang === 'en' ? c.evolvedInto.nameEn : c.evolvedInto.nameEs) : null;
             return (
-              <li key={c.speciesId} className={`relative ${c.inGame ? '' : 'opacity-50'}`}>
-                <motion.button
+              <li
+                key={c.speciesId}
+                className={`relative flex flex-col rounded-lg border px-1 pb-8 pt-1 transition-colors ${
+                  registeredOnly
+                    ? 'border-dashed border-line bg-surface opacity-80'
+                    : isCaught
+                      ? 'border-line bg-surface-2'
+                      : 'border-transparent bg-surface hover:border-line'
+                } ${c.inGame ? '' : 'opacity-50'}`}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  {readOnly ? (
+                    <span />
+                  ) : (
+                    <button
+                      type="button"
+                      aria-pressed={isCaught}
+                      onClick={(e) => toggleCaught(i, e.shiftKey)}
+                      title={isCaught ? 'Caught. Click to remove from your Pokédex' : 'Click to mark as caught (shift-click for a range)'}
+                      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                        isCaught ? 'bg-done text-bg' : 'border border-line text-muted hover:border-muted hover:text-ink'
+                      }`}
+                    >
+                      {isCaught ? '✓ Caught' : 'Catch'}
+                    </button>
+                  )}
+                  <span className="font-mono text-[10px] text-muted">#{String(c.entryNumber).padStart(3, '0')}</span>
+                  {c.roster !== 'none' ? (
+                    <span
+                      className={`text-sm leading-none ${c.roster === 'done' ? 'text-star' : 'text-pending'}`}
+                      title={c.roster === 'done' ? 'Trained roster: complete' : 'Trained roster: in progress'}
+                    >
+                      {c.roster === 'done' ? '★' : '☆'}
+                    </span>
+                  ) : (
+                    <span className="w-3" />
+                  )}
+                </div>
+
+                <button
                   type="button"
-                  disabled={readOnly}
-                  aria-pressed={isCaught}
-                  title={[name, !c.inGame && `not in ${gameName ?? 'this game'}`, c.caughtIn.length > 0 && `caught in ${c.caughtIn.join(', ')}`].filter(Boolean).join(' · ')}
-                  onPointerDown={(e) => onPointerDown(e, i)}
-                  onPointerEnter={() => onPointerEnter(i)}
-                  onClick={() => onClick(i)}
-                  whileTap={readOnly ? undefined : { scale: 0.92 }}
-                  className={`relative flex w-full flex-col items-center rounded-lg border px-1 pb-1.5 pt-1 transition-colors ${
-                    registeredOnly
-                      ? 'border-dashed border-line bg-surface opacity-70'
-                      : isCaught
-                        ? 'border-line bg-surface-2'
-                        : 'border-transparent bg-surface hover:border-line'
-                  } ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}
+                  onClick={() => setOpenId(c.speciesId)}
+                  title={`${name}: open details`}
+                  className="mt-1 flex w-full flex-col items-center rounded-md pb-1 hover:bg-bg/40 focus-visible:outline-2 focus-visible:outline-star"
                 >
-                  <span className="self-start pl-1 font-mono text-[10px] text-muted">
-                    #{String(c.entryNumber).padStart(3, '0')}
-                  </span>
                   <motion.span
                     animate={{ scale: isCaught ? 1 : 0.9 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 15 }}
@@ -385,6 +366,20 @@ export function DexGrid({
                     {name}
                   </span>
                   {/* Notes sit on their own line under the name, never on top of it. */}
+                  {c.exclusive && (
+                    <span
+                      className={`w-full truncate text-center text-[10px] ${
+                        c.exclusive.own ? 'text-muted' : 'font-semibold text-pending'
+                      }`}
+                      title={
+                        c.exclusive.own
+                          ? `Only in ${c.exclusive.versionName}, your version`
+                          : `Only in ${c.exclusive.versionName}: not in your game, so it needs a trade or a raid`
+                      }
+                    >
+                      {c.exclusive.versionName} only
+                    </span>
+                  )}
                   {registeredOnly && (
                     <span className="w-full truncate text-center text-[10px] text-pending">
                       {evo ? `evolved → ${evo}` : 'not in my box'}
@@ -393,7 +388,7 @@ export function DexGrid({
                   {have && evo && (
                     <span
                       className="w-full truncate text-center text-[10px] font-semibold text-pending"
-                      title={`You also have ${evo}. If you evolved this one, un-tick the check mark.`}
+                      title={`You also have ${evo}. If you evolved this one, un-tick Have.`}
                     >
                       ↗ {evo}
                     </span>
@@ -405,25 +400,12 @@ export function DexGrid({
                           key={game}
                           className="rounded bg-done/20 px-1 text-[9px] font-semibold leading-4 text-done"
                         >
-                          {game}
+                          caught in {game}
                         </span>
                       ))}
                     </span>
                   )}
-                  {/* keeps the row height equal whether or not the buttons below show */}
-                  <span className="h-6" aria-hidden />
-
-                  {c.roster !== 'none' && (
-                    <span
-                      className={`absolute right-1 top-0.5 text-sm ${
-                        c.roster === 'done' ? 'text-star' : 'text-pending'
-                      }`}
-                      title={c.roster === 'done' ? 'Trained roster: complete' : 'Trained roster: in progress'}
-                    >
-                      {c.roster === 'done' ? '★' : '☆'}
-                    </span>
-                  )}
-                </motion.button>
+                </button>
 
                 {!readOnly && isCaught && (
                   <div className="absolute inset-x-1 bottom-1 flex justify-center gap-1">
@@ -439,11 +421,11 @@ export function DexGrid({
                             : 'Not in your box (it evolved or was released). Click if you have one again'
                       }
                       onClick={() => setHave(c.speciesId, !have)}
-                      className={`h-5 w-6 rounded text-xs font-bold ${
+                      className={`h-5 rounded px-1.5 text-[10px] font-bold ${
                         have ? 'bg-done text-bg' : 'border border-pending/60 text-pending hover:bg-pending/10'
                       } disabled:cursor-default`}
                     >
-                      ✓
+                      Have
                     </button>
                     {mixed && have && (
                       <>
@@ -481,12 +463,21 @@ export function DexGrid({
 
       {!readOnly && (
         <p className="mt-4 text-xs text-muted">
-          Click to toggle caught. Shift-click fills a range. Drag across cells to paint several at once. On a caught
-          Pokémon, ✓ means you have one right now: un-tick it when it evolves or you release it, and it stays in the
-          Pokédex as &quot;not in my box&quot;. ♂ and ♀ record which genders you have; the breeding planner uses that to
-          find parents.
+          Click a card to see that Pokémon&apos;s information. Use <strong className="text-ink">Catch</strong> to mark it in
+          your Pokédex (shift-click fills a range). <strong className="text-ink">Have</strong> means you have one right
+          now: un-tick it when it evolves or you release it, and it stays in the Pokédex as &quot;not in my box&quot;. ♂ and
+          ♀ record which genders you have; the breeding planner uses that to find parents.
         </p>
       )}
+
+      <PokemonInfoDialog
+        speciesId={openId}
+        gameId={gameId}
+        lang={lang}
+        status={openCell ? { caught: caught.has(openCell.speciesId), have: haveNow(openCell) } : undefined}
+        exclusive={openCell?.exclusive}
+        onClose={() => setOpenId(null)}
+      />
 
       <ConfirmDialog
         open={bulk != null}
@@ -510,7 +501,7 @@ export function DexGrid({
             </p>
             {bulk?.mode === false && (
               <p className="mt-2 text-red-400">
-                This also forgets the ✓ and the ♂/♀ you recorded for them. There is no undo.
+                This also forgets the Have mark and the ♂/♀ you recorded for them. There is no undo.
               </p>
             )}
           </>

@@ -5,6 +5,9 @@ Track Pokédex progress and a trained competitive roster across Pokémon games. 
 - **Pokédex grid** per regional dex with click, shift-click range and drag-to-paint toggling. Each game also has its own **National Dex** tab: the same caught list as its regional dexes, with a badge on Pokémon you caught in your other games.
 - **Spreadsheet importer** (.csv / .xlsx) with a column-mapping step. Reads Spanish or English names and tolerates typos.
 - **Trained roster** as cards or a dense table. Every nature, ability, item, EV spread and move is a checklist item: orange while pending, green when done.
+- **Pokémon details.** Click any Pokédex card for its information from PokéAPI: description, stats, abilities, egg groups, gender, size, evolution line and where it sits in the game's Pokédexes. Marking uses the **Catch** button on the card (shift-click fills a range).
+- **Version exclusives.** For paired games (Scarlet/Violet) the **Exclusives** tab is a small Pokédex of what only your version has and what only the other version has, with a "Scarlet only" / "Violet only" tag on Pokédex cards. The list comes from Bulbapedia and is kept in `src/lib/games/exclusives/`.
+- **Judge potential.** In games with a Judge (Juez), each roster Pokémon has a Potential you can set on the card or in the edit modal.
 - **Have it now vs. caught.** A caught Pokémon stays in the Pokédex after it evolves. Untick its ✓ and it shows as "not in my box" (with what it evolved into), and the breeding planner stops counting it as a parent.
 - **Genders.** Record ♂/♀ on caught Pokémon in the Pokédex and on roster cards; the breeding planner uses them to know which parents you actually have.
 - **Move legality check** against the game's real learnsets (no AI involved).

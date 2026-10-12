@@ -48,6 +48,8 @@ export type RosterView = {
   evs: EvSpread | null;
   evStatus: TaskStatus;
   teraType: string | null;
+  /** The Judge's verdict, or null when not judged. */
+  potential: 'NO_GOOD' | 'DECENT' | 'PRETTY_GOOD' | 'VERY_GOOD' | 'FANTASTIC' | 'BEST' | null;
   notes: string | null;
   moves: RosterMoveView[];
   audit: { provider: string; model: string; createdAt: string; result: unknown } | null;
@@ -136,6 +138,7 @@ export async function loadRoster(profileId: string, ids?: string[]): Promise<Ros
       evs: r.evs as EvSpread | null,
       evStatus: r.evStatus,
       teraType: r.teraType,
+      potential: r.potential,
       notes: r.notes,
       moves: r.moves.map((m) => ({
         slot: m.slot,

@@ -268,6 +268,16 @@ enum Gender {
   UNKNOWN
 }
 
+/// The in-game Judge's verdict on a Pokémon's overall potential (its IVs).
+enum Potential {
+  NO_GOOD
+  DECENT
+  PRETTY_GOOD
+  VERY_GOOD
+  FANTASTIC
+  BEST
+}
+
 enum Origin {
   CAUGHT
   BRED
@@ -307,6 +317,8 @@ model RosterPokemon {
   evStatus TaskStatus @default(PENDING) @map("ev_status")
 
   teraType String? @map("tera_type")
+  /// What the Judge said, for games that have one. Null = not judged yet.
+  potential Potential?
   notes    String?
   sortOrder Int    @default(0) @map("sort_order")
 

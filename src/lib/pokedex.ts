@@ -1,6 +1,7 @@
 import { prisma } from './db';
 import { LOCAL_USER_ID } from './constants';
 import { NATIONAL_DEX_SLUG, getGame } from './games';
+import { exclusiveBySpecies } from './games/exclusives';
 import { rosterProgress } from './roster-status';
 
 export type DexCell = {
@@ -14,6 +15,8 @@ export type DexCell = {
   caught: boolean;
   /** Obtainable in the game being viewed. Always true outside a game's National Dex. */
   inGame: boolean;
+  /** Only one version of a paired game has it. `own` is true when it is the player's version. */
+  exclusive: { versionName: string; own: boolean } | null;
   /** You have one right now. False on a caught Pokémon means it evolved or was released. */
   owned: boolean;
   /** Owned only because it is in your trained roster, so the Pokédex tick cannot turn it off. */
@@ -127,8 +130,12 @@ export async function loadDex(
     return null;
   };
 
+  const versions = opts.gameId ? getGame(opts.gameId)?.versionExclusives : undefined;
+  const exclusives = versions ? exclusiveBySpecies(versions) : null;
+
   return slots.map((s) => {
     const evo = evolvedInto(s.species.id);
+    const side = exclusives?.get(s.species.id);
     return {
       speciesId: s.species.id,
       entryNumber: s.entryNumber,
@@ -143,6 +150,7 @@ export async function loadDex(
       genderRate: s.species.genderRate,
       caughtIn: [...(caughtIn.get(s.species.id) ?? [])],
       roster: rosterState.get(s.species.id) ?? 'none',
+      exclusive: side && versions ? { versionName: side === 'own' ? versions.ownName : versions.otherName, own: side === 'own' } : null,
       owned: holding(s.species.id),
       ownedViaRoster: !ownedHere.has(s.species.id) && rosterOwned.has(s.species.id),
       evolvedInto: evo ? { nameEn: evo.nameEn, nameEs: evo.nameEs } : null,

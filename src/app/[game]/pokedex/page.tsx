@@ -9,7 +9,7 @@ export default async function PokedexPage({ params, searchParams }: PageProps<'/
   const { dex } = await searchParams;
   const { game, profileId } = await requireGameProfile(gameId);
   const current = game.pokedexes.find((d) => d.slug === dex) ?? game.pokedexes[0];
-  const [cells, lang] = await Promise.all([loadDex(current.slug, profileId), getLang()]);
+  const [cells, lang] = await Promise.all([loadDex(current.slug, profileId, { gameId: game.id }), getLang()]);
 
   return (
     <div>
