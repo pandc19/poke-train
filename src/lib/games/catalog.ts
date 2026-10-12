@@ -5,6 +5,8 @@ export type CatalogEntry = {
   name: Localized;
   effect: Localized;
   sprite?: string;
+  /** Shown when the item has no sprite. */
+  icon?: string;
 };
 
 export type CatalogSection = {
@@ -46,7 +48,7 @@ export const SCARLET_VIOLET_CATALOG: CatalogSection[] = [
           en: 'Resets all of a Pokémon’s EVs to zero at once. Used up on use. DLC: The Teal Mask.',
           es: 'Restablece a cero todos los EVs de un Pokémon de una sola vez. Se consume al usarlo. DLC: La Máscara Turquesa.',
         },
-        sprite: 'fresh-start-mochi',
+        icon: '🍡',
       },
     ],
   },

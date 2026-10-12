@@ -28,7 +28,11 @@ export function CatalogButton({ sections }: { sections: CatalogSection[] }) {
                 {section.entries.map((e) => (
                   <div key={e.name.en} className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 p-2">
                     <span className="grid h-8 w-8 shrink-0 place-items-center">
-                      <Sprite src={e.sprite ? itemSpriteUrl(e.sprite) : null} alt="" size={32} />
+                      {e.sprite || !e.icon ? (
+                        <Sprite src={e.sprite ? itemSpriteUrl(e.sprite) : null} alt="" size={32} />
+                      ) : (
+                        <span className="text-2xl leading-none">{e.icon}</span>
+                      )}
                     </span>
                     <div className="min-w-0 text-xs">
                       <p className="font-medium">{e.name[lang]}</p>
