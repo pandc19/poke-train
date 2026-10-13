@@ -110,6 +110,7 @@ export function PokemonInfoDialog({
   exclusive,
   entryNumber,
   variant = '',
+  form = '',
   onClose,
 }: {
   speciesId: number | null;
@@ -123,10 +124,12 @@ export function PokemonInfoDialog({
   entryNumber?: number;
   /** A regional form opened from its own card ('alola'...): only that form is shown. */
   variant?: string;
+  /** A particular form by its slug (Aqua Breed Tauros, White Kyurem…): only that form is shown. */
+  form?: string;
   onClose: () => void;
 }) {
   const { t } = useT();
-  const key = speciesId == null ? null : `${gameId ?? ''}:${speciesId}:${variant}`;
+  const key = speciesId == null ? null : `${gameId ?? ''}:${speciesId}:${variant}:${form}`;
   const [loaded, setLoaded] = useState<{ key: string; info: PokemonInfo | null; error: string | null } | null>(null);
 
   useEffect(() => {
@@ -135,6 +138,7 @@ export function PokemonInfoDialog({
     const query = new URLSearchParams();
     if (gameId) query.set('gameId', gameId);
     if (variant) query.set('variant', variant);
+    if (form) query.set('form', form);
     fetch(`/api/pokemon/${speciesId}${query.size ? `?${query}` : ''}`, { signal: controller.signal })
       .then(async (res) => {
         const data = await res.json().catch(() => null);
@@ -146,7 +150,7 @@ export function PokemonInfoDialog({
         if (err?.name !== 'AbortError') setLoaded({ key, info: null, error: err.message ?? t('Could not load this Pokémon.') });
       });
     return () => controller.abort();
-  }, [key, speciesId, gameId, variant, t]);
+  }, [key, speciesId, gameId, variant, form, t]);
 
   // A Pokémon already fetched this visit is shown straight from the cache.
   const cached = key ? cache.get(key) : undefined;
@@ -164,7 +168,7 @@ export function PokemonInfoDialog({
   const stages = info ? Math.max(...info.evolutions.map((e) => e.stage)) + 1 : 0;
 
   return (
-    <Dialog open={speciesId != null} onClose={onClose} wide title={info ? `#${String(entryNumber ?? info.id).padStart(3, '0')} ${name}${variant ? ` (${variant[0].toUpperCase()}${variant.slice(1)})` : ''}` : 'Pokémon'}>
+    <Dialog open={speciesId != null} onClose={onClose} wide title={info ? `#${String(entryNumber ?? info.id).padStart(3, '0')} ${name}${variant ? ` (${variant[0].toUpperCase()}${variant.slice(1)})` : form && info.variants[0]?.label ? ` (${info.variants[0].label})` : ''}` : 'Pokémon'}>
       {!current && <p className="py-10 text-center text-sm text-muted">{t('Loading…')}</p>}
       {current?.error && (
         <p role="alert" className="rounded-md border border-pending/40 bg-pending/10 px-3 py-2 text-sm text-pending">

@@ -158,7 +158,9 @@ export async function loadPokemonInfo(
   speciesId: number,
   game?: GameConfig,
   /** A regional form opened from its own Pokédex card: only that form is described. */
-  variant: Variant = ''
+  variant: Variant = '',
+  /** The slug of one particular form (Aqua Breed Tauros, White Kyurem…): only that form is described. */
+  formSlug = ''
 ): Promise<PokemonInfo | null> {
   const species = await prisma.species.findUnique({
     where: { id: speciesId },
@@ -175,6 +177,7 @@ export async function loadPokemonInfo(
             { isDefault: true },
             { slug: { contains: '-paldea' } },
             ...REGIONS.map((r) => ({ slug: { contains: `-${r}` } })),
+            ...(formSlug ? [{ slug: formSlug }] : []),
           ],
         },
         select: { id: true, slug: true, isDefault: true, types: true, baseStats: true, spriteUrl: true },
@@ -184,7 +187,9 @@ export async function loadPokemonInfo(
   });
   if (!species) return null;
   // Violet only has the Paldean form of Wooper and Tauros, so that one leads.
-  const regional = variant
+  const regional = formSlug
+    ? species.forms.find((f) => !f.isDefault && f.slug === formSlug)
+    : variant
     ? species.forms.find((f) => !f.isDefault && variantOfSlug(f.slug) === variant)
     : game?.id === 'violet'
       ? species.forms.find((f) => f.slug.includes('-paldea'))
@@ -244,7 +249,7 @@ export async function loadPokemonInfo(
   const artwork =
     pokemonJson?.sprites?.other?.['official-artwork']?.front_default ?? form?.spriteUrl ?? null;
 
-  const variants = await loadVariants(speciesJson, artwork, pokemonJson, pokemonJson?.name, Boolean(variant && regional));
+  const variants = await loadVariants(speciesJson, artwork, pokemonJson, pokemonJson?.name, Boolean((variant || formSlug) && regional));
 
   return {
     id: species.id,

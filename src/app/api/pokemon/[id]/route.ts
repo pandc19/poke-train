@@ -14,9 +14,12 @@ export async function GET(request: Request, ctx: RouteContext<'/api/pokemon/[id]
   const game = gameId ? getGame(gameId) : undefined;
   const asked = new URL(request.url).searchParams.get('variant');
   const variant = REGIONS.find((r) => r === asked) ?? '';
+  // One particular form of the species, by its slug (letters, digits and dashes only).
+  const askedForm = new URL(request.url).searchParams.get('form') ?? '';
+  const formSlug = /^[a-z0-9-]{1,60}$/.test(askedForm) ? askedForm : '';
 
   try {
-    const info = await loadPokemonInfo(parsed.data.id, game, variant);
+    const info = await loadPokemonInfo(parsed.data.id, game, variant, formSlug);
     if (!info) return apiError('Unknown Pokémon', 404);
     return Response.json(info);
   } catch (error) {

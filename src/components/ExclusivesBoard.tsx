@@ -12,6 +12,8 @@ export type ExclusiveTile = {
   dex: number;
   /** Set when only this form is exclusive; the tile still shows the species. */
   form: string | null;
+  /** The slug of that form in the game data, to show its own details. */
+  formSlug: string | null;
   nameEn: string;
   nameEs: string;
   spriteUrl: string | null;
@@ -146,6 +148,7 @@ export function ExclusivesBoard({
         gameId={gameId}
         lang={lang}
         status={open ? { caught: open.tile.caught, have: open.tile.have } : undefined}
+        form={open?.tile.formSlug ?? ''}
         exclusive={open ? { versionName: open.own ? ownName : otherName, own: open.own } : null}
         onClose={() => setOpen(null)}
       />

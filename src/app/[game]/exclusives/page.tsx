@@ -65,10 +65,10 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
     return pa.root - pb.root || pa.depth - pb.depth || a.dex - b.dex;
   };
 
-  const formSprite = (dex: number, form?: string) => {
+  const formOf = (dex: number, form?: string) => {
     const end = form ? FORM_SLUG_END[form] : undefined;
     if (!end) return null;
-    return formRows.find((f) => f.speciesId === dex && f.slug.endsWith(`-${end}`))?.spriteUrl ?? null;
+    return formRows.find((f) => f.speciesId === dex && f.slug.endsWith(`-${end}`)) ?? null;
   };
 
   const tile = (e: { dex: number; form?: string }): ExclusiveTile => {
@@ -79,7 +79,8 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
       form: e.form ?? null,
       nameEn: s?.nameEn ?? `#${e.dex}`,
       nameEs: s?.nameEs ?? `#${e.dex}`,
-      spriteUrl: formSprite(e.dex, e.form) ?? s?.forms[0]?.spriteUrl ?? null,
+      formSlug: formOf(e.dex, e.form)?.slug ?? null,
+      spriteUrl: formOf(e.dex, e.form)?.spriteUrl ?? s?.forms[0]?.spriteUrl ?? null,
       caught: isCaught,
       have: inRoster.has(e.dex) || caught.get(e.dex) === true,
     };
