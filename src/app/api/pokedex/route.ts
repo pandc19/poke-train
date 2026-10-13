@@ -9,7 +9,10 @@ const Body = z.object({
   caught: z.boolean(),
 });
 
-/** Batch-sets caught state for a profile. Idempotent in both directions. */
+/**
+ * Batch-sets caught state for a profile. Idempotent in both directions. New catches start as
+ * not owned: "Have" is a separate tick, and existing entries keep their state.
+ */
 export async function POST(request: Request) {
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError('Invalid body', 400);
@@ -20,7 +23,7 @@ export async function POST(request: Request) {
 
   if (caught) {
     await prisma.pokedexEntry.createMany({
-      data: speciesIds.map((speciesId) => ({ profileId, speciesId })),
+      data: speciesIds.map((speciesId) => ({ profileId, speciesId, owned: false })),
       skipDuplicates: true,
     });
   } else {

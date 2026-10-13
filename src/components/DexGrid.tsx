@@ -115,7 +115,7 @@ export function DexGrid({
       return next;
     });
     // Un-catching forgets the recorded genders and ownership, as the server does.
-    // A newly caught Pokémon starts as owned, so it is never in the not-owned set.
+    // A newly caught Pokémon is not marked as Have; the player ticks that themselves.
     if (!mode) {
       setNotOwned((prev) => {
         const next = new Set(prev);
@@ -127,8 +127,14 @@ export function DexGrid({
         for (const id of ids) next[id] = { male: false, female: false };
         return next;
       });
+    } else {
+      setNotOwned((prev) => {
+        const next = new Set(prev);
+        for (const id of ids) if (!caught.has(id)) next.add(id);
+        return next;
+      });
     }
-  }, []);
+  }, [caught]);
 
   const save = useCallback(
     async (ids: number[], mode: boolean) => {
