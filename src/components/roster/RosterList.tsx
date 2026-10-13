@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import { motion } from 'motion/react';
 import { PokemonSprite, progressOf } from './parts';
 import type { Lang } from '@/lib/i18n';
@@ -37,8 +38,40 @@ export function RosterList({
   const start = page * PAGE_SIZE;
   const shown = items.slice(start, start + PAGE_SIZE);
 
+  // A swipe sideways turns the page (touch and pen; vertical scrolling is left to the browser).
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const swiped = useRef(false);
+  const SWIPE_MIN = 60;
+
   return (
-    <div>
+    <div
+      style={{ touchAction: 'pan-y' }}
+      onPointerDown={(e) => {
+        swipe.current = e.pointerType === 'mouse' ? null : { x: e.clientX, y: e.clientY };
+      }}
+      onPointerUp={(e) => {
+        const from = swipe.current;
+        swipe.current = null;
+        if (!from) return;
+        const dx = e.clientX - from.x;
+        const dy = e.clientY - from.y;
+        if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+        // The click that ends a swipe on a card must not choose that card.
+        swiped.current = true;
+        setTimeout(() => (swiped.current = false), 0);
+        const next = page + (dx < 0 ? 1 : -1);
+        if (next >= 0 && next < pageCount) onPage(next);
+      }}
+      onClickCapture={(e) => {
+        if (swiped.current) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      }}
+      onPointerCancel={() => {
+        swipe.current = null;
+      }}
+    >
       {shown.length === 0 ? (
         <p className="py-10 text-center text-sm text-muted">{t('No Pokémon match this filter.')}</p>
       ) : (

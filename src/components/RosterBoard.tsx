@@ -264,10 +264,10 @@ export function RosterBoard({
       });
       setRoster((prev) => [...prev, data.pokemon]);
       setAdding('');
-      // The new Pokémon goes to the end of the list: show it and open it.
+      // Show it and open it, wherever the sort puts it: clear what could hide it, then go to its page.
       setFilter('all');
       setQuery('');
-      setPage(Math.floor(roster.length / PAGE_SIZE));
+      setReveal(data.pokemon.id);
       select(data.pokemon.id);
     } catch {
       setError(t('Could not add that Pokémon. Try again.'));
@@ -341,6 +341,16 @@ export function RosterBoard({
       }
     });
   }, [roster, filter, sort, query, lang, name]);
+
+  // A Pokémon just added: once the list has it, turn to the page it is on.
+  const [reveal, setReveal] = useState<string | null>(null);
+  if (reveal) {
+    const index = visible.findIndex((p) => p.id === reveal);
+    if (index >= 0) {
+      setReveal(null);
+      setPage(Math.floor(index / PAGE_SIZE));
+    }
+  }
 
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
