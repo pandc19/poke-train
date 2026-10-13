@@ -133,6 +133,7 @@ function StatsSection({
       potential={p.potential}
       savedEvs={p.currentEvs}
       savedEstimated={p.currentEvsEstimated}
+      plan={p.evs}
     />
   );
 }

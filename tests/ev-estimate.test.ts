@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimateEvRange, estimateEvs, statValue, statsAboveMax } from '@/lib/ev-estimate';
+import { estimateEvRange, estimateMaxEvs, estimateEvs, statValue, statsAboveMax } from '@/lib/ev-estimate';
 import { ivAssumption } from '@/lib/potential';
 
 // Golem's base stats, and an Adamant nature (+Attack, -Sp. Atk).
@@ -118,5 +118,55 @@ describe('stats above what the level allows', () => {
   });
   it('accepts the same stat at the level where it is the maximum', () => {
     expect(statsAboveMax({ stats, level: 74, baseStats: LUCARIO, nature: null })).toEqual({});
+  });
+});
+
+describe('a stat shows a range of EVs, and the plan can sit inside it', () => {
+  const base = { hp: 100, attack: 75, defense: 80, specialAttack: 40, specialDefense: 100, speed: 50 };
+  const none = { hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 };
+  // Level 75: a stat point takes about 5 steps of 4 EVs, so several amounts show the same number.
+  const level = 75;
+  const stats = { ...none, attack: 164 };
+
+  it('has a top end above the fewest EVs when the level is low', () => {
+    const low = estimateEvs({ stats, level, baseStats: base, nature: null, ivs: 31 });
+    const top = estimateMaxEvs({ stats, level, baseStats: base, nature: null, ivs: 31 });
+    expect(top.attack).toBeGreaterThan(low.attack);
+    expect(top.attack % 4).toBe(0);
+    // Every amount in between gives the same shown stat.
+    for (let ev = low.attack; ev <= top.attack; ev += 4) {
+      expect(statValue('attack', base.attack, 31, ev, level, null)).toBe(164);
+    }
+  });
+
+  it('is the same number at level 100, where each step shows', () => {
+    const s100 = { ...none, attack: 200 };
+    const low = estimateEvs({ stats: s100, level: 100, baseStats: base, nature: null, ivs: 31 });
+    const top = estimateMaxEvs({ stats: s100, level: 100, baseStats: base, nature: null, ivs: 31 });
+    expect(top.attack).toBe(low.attack);
+  });
+
+  it('takes the plan as the amount when it is inside the range', () => {
+    const args = { stats, level, baseStats: base, nature: null, ivsLow: 31 };
+    const without = estimateEvRange(args).estimate.attack;
+    const top = estimateMaxEvs({ stats, level, baseStats: base, nature: null, ivs: 31 }).attack;
+    expect(top).toBeGreaterThan(without);
+    expect(estimateEvRange({ ...args, plan: { ...none, attack: without + 4 } }).estimate.attack).toBe(without + 4);
+  });
+
+  it('leaves the estimate alone when the plan is beyond the range', () => {
+    const args = { stats, level, baseStats: base, nature: null, ivsLow: 31 };
+    const top = estimateMaxEvs({ stats, level, baseStats: base, nature: null, ivs: 31 }).attack;
+    const without = estimateEvRange(args).estimate.attack;
+    expect(estimateEvRange({ ...args, plan: { ...none, attack: top + 8 } }).estimate.attack).toBe(without);
+  });
+
+  it('uses the IVs the Judge left open: a plan of 252 fits a stat read at 248 with a lower IV', () => {
+    // Attack 264 at level 66 with an IV between 16 and 25: the fewest EVs at IV 25 may be under 252, the most reach it.
+    const s66 = { ...none, attack: 264 };
+    const args = { stats: s66, level: 66, baseStats: { ...base, attack: 135 }, nature: null, ivsLow: 16 };
+    const est = estimateEvRange(args).estimate.attack;
+    const planned = estimateEvRange({ ...args, plan: { ...none, attack: 252 } }).estimate.attack;
+    expect(planned).toBeGreaterThanOrEqual(est);
   });
 });

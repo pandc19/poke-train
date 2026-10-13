@@ -151,8 +151,8 @@ export const SCARLET_VIOLET_CATALOG: CatalogSection[] = [
     id: 'ev-reducers',
     title: { en: 'Items that lower EVs', es: 'Objetos que reducen EVs' },
     note: {
-      en: 'Each berry removes 10 EVs from one stat.',
-      es: 'Cada baya reductora elimina 10 EVs de una estadística.',
+      en: 'Each berry removes 10 EVs from one stat. The app works EVs out from the stats, which only show them in steps of about 4 or more, so the drop it reads can be 8 or 12 instead of 10.',
+      es: 'Cada baya reductora elimina 10 EVs de una estadística. La app calcula los EVs a partir de las estadísticas, que solo los muestran en pasos de unos 4 o más, así que la bajada que lee puede ser de 8 o 12 en vez de 10.',
     },
     entries: [
       ...perStat(

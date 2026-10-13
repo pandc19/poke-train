@@ -7,6 +7,7 @@ import { LOCAL_USER_ID } from '@/lib/constants';
 import { recomputeEvsFromStats, syncEvStatus } from '@/lib/ev-sync';
 import { rosterGenderToPokedex } from '@/lib/gender-sync';
 import { getGame } from '@/lib/games';
+import { legalPlan } from '@/lib/ev-plan';
 import { parseEvs } from '@/lib/import/evs';
 import { IV_RATING_VALUES, potentialFromRatings, type IvRatings } from '@/lib/iv-ratings';
 import { variantOfSlug } from '@/lib/dex-variant';
@@ -161,6 +162,8 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
       if (set.evs && !evs) {
         return apiError('EV spread not recognised. Example: 252 Atk / 4 SpD / 252 Spe', 422);
       }
+      // A plan is saved the way the game counts: in fours, 252 at most in a stat and 508 in all.
+      if (evs) evs = legalPlan(evs, null, false);
     }
     await prisma.$transaction(async (tx) => {
       await tx.rosterPokemon.update({
@@ -242,6 +245,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
         set.level !== undefined ||
         set.targetNatureId !== undefined ||
         set.mintNatureId !== undefined ||
+        set.evs !== undefined ||
         set.ivRatings !== undefined)
     ) {
       if (set.currentStats === null) {

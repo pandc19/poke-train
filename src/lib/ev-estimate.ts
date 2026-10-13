@@ -79,6 +79,34 @@ export function estimateEvs(args: {
 export const MAX_EV_TOTAL = 510;
 
 /**
+ * The most EVs (in fours, up to 252) that still show the stat that is shown. Below level 100 several
+ * EV amounts give the same number (at level 75 a point takes about 5 steps of 4), so what the stat
+ * says is a range: this is its top end, and `estimateEvs` its bottom.
+ */
+export function estimateMaxEvs(args: {
+  stats: EvSpread;
+  level: number;
+  baseStats: EvSpread;
+  nature: NatureEffect;
+  ivs?: number | Partial<Record<keyof EvSpread, number>>;
+}): EvSpread {
+  const { stats, level, baseStats, nature, ivs = 31 } = args;
+  const out: EvSpread = { hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 };
+  (Object.keys(out) as (keyof EvSpread)[]).forEach((key) => {
+    const target = stats[key];
+    if (!target) return;
+    const iv = typeof ivs === 'number' ? ivs : (ivs[key] ?? 31);
+    for (let steps = 63; steps >= 0; steps--) {
+      if (statValue(key, baseStats[key], iv, steps * 4, level, nature) <= target) {
+        out[key] = steps * 4;
+        return;
+      }
+    }
+  });
+  return out;
+}
+
+/**
  * The fewest EVs that fit the stats (`estimate`) and the most they could be
  * (`high`).
  *
@@ -96,8 +124,14 @@ export function estimateEvRange(args: {
   /** The lowest average IV the overall potential allows, for stats not judged. */
   ivsLow: number;
   ratings?: IvRatings | null;
+  /**
+   * The EV plan, if there is one. A stat only says a range of EVs (see `estimateMaxEvs`, and the IVs
+   * the Judge left open), so where the plan's amount is inside that range it is taken as the amount:
+   * the stat cannot show the difference, and the plan is the best reading of it.
+   */
+  plan?: Partial<EvSpread> | null;
 }): { estimate: EvSpread; high: EvSpread } {
-  const { ivsLow, ratings, ...rest } = args;
+  const { ivsLow, ratings, plan, ...rest } = args;
   const keys = Object.keys(args.stats) as (keyof EvSpread)[];
   const best: Partial<Record<keyof EvSpread, number>> = {};
   const worst: Partial<Record<keyof EvSpread, number>> = {};
@@ -106,8 +140,16 @@ export function estimateEvRange(args: {
     best[key] = bounds.high;
     worst[key] = bounds.low;
   }
+  const estimate = estimateEvs({ ...rest, ivs: best });
+  if (plan) {
+    const most = estimateMaxEvs({ ...rest, ivs: worst });
+    for (const key of keys) {
+      const want = plan[key];
+      if (want != null && want > estimate[key] && want <= most[key]) estimate[key] = want;
+    }
+  }
   return {
-    estimate: estimateEvs({ ...rest, ivs: best }),
+    estimate,
     high: estimateEvs({ ...rest, ivs: worst }),
   };
 }

@@ -406,10 +406,10 @@ function TeamDetail({
   const range = useMemo(
     () =>
       stats && info
-        ? estimateEvRange({ stats, level, baseStats: info.baseStats, nature: info.nature, ivsLow: iv.low, ratings })
+        ? estimateEvRange({ stats, level, baseStats: info.baseStats, nature: info.nature, ivsLow: iv.low, ratings, plan: p.evs })
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [stats, level, info, iv.low, p.ivRatings]
+    [stats, level, info, iv.low, p.ivRatings, p.evs]
   );
   const evs = range?.estimate ?? p.currentEvs;
   const total = evs ? evTotal(evs) : 0;

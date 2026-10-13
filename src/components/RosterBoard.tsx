@@ -321,7 +321,13 @@ export function RosterBoard({
     setError(null);
     setSlots((prev) => {
       const next = [...prev];
-      const from = id ? next.indexOf(id) : -1;
+      if (id == null) {
+        // Emptying a slot: the ones after it move up.
+        next.splice(slot - 1, 1);
+        next.push(null);
+        return next;
+      }
+      const from = next.indexOf(id);
       if (from >= 0) next[from] = next[slot - 1];
       next[slot - 1] = id;
       return next;

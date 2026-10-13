@@ -140,6 +140,7 @@ export function StatsEvsEditor({
   potential,
   savedEvs,
   savedEstimated,
+  plan,
 }: {
   stats: EvSpread | null;
   level: number;
@@ -154,13 +155,15 @@ export function StatsEvsEditor({
   /** The EVs on record, shown when no stats are typed. */
   savedEvs: EvSpread | null;
   savedEstimated: boolean;
+  /** The EV plan, if any: where it fits what the stats can show, it is taken as the amount. */
+  plan?: EvSpread | null;
 }) {
   const { t, lang } = useT();
   const hasStats = stats != null && evTotal(stats) > 0;
   const iv = ivAssumption(potential);
   const range =
     hasStats && info
-      ? estimateEvRange({ stats, level, baseStats: info.baseStats, nature: info.nature, ivsLow: iv.low, ratings })
+      ? estimateEvRange({ stats, level, baseStats: info.baseStats, nature: info.nature, ivsLow: iv.low, ratings, plan })
       : null;
   const above =
     hasStats && info ? statsAboveMax({ stats, level, baseStats: info.baseStats, nature: info.nature, ratings }) : {};

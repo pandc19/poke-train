@@ -55,6 +55,13 @@ export async function PUT(request: Request) {
     if (occupant && moving && moving.id !== occupant.id) {
       await tx.teamSlot.create({ data: { profileId, slot: moving.slot, rosterPokemonId: occupant.rosterPokemonId } });
     }
+    // Emptying a slot closes the gap: the ones after it move up one place each, in order.
+    if (!rosterPokemonId) {
+      const rest = await tx.teamSlot.findMany({ where: { profileId }, orderBy: { slot: 'asc' } });
+      for (const [i, row] of rest.entries()) {
+        if (row.slot !== i + 1) await tx.teamSlot.update({ where: { id: row.id }, data: { slot: i + 1 } });
+      }
+    }
   });
   return Response.json({ team: await loadTeam(profileId) });
 }
