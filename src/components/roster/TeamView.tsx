@@ -61,6 +61,8 @@ export function TeamView({
 }) {
   const { t } = useT();
   const [picking, setPicking] = useState<number | null>(null);
+  // Opened from an empty slot: after each choice the next empty slot comes up, until the team is full.
+  const [filling, setFilling] = useState(false);
   const [query, setQuery] = useState('');
   const [fighting, setFighting] = useState(false);
 
@@ -73,10 +75,17 @@ export function TeamView({
   const shown = members.find((m) => m && m.id === selectedId) ?? members.find(Boolean) ?? null;
   const shownSlot = shown ? team.indexOf(shown.id) : -1;
 
+  const ratio = (p: RosterView) => {
+    const { done, total } = progressOf(p);
+    return total ? done / total : 1;
+  };
+
   const candidates = useMemo(() => {
     const q = query.trim().toLowerCase();
     return roster
       .filter((p) => {
+        // While filling, the ones already chosen are done with.
+        if (filling && team.includes(p.id)) return false;
         if (!q) return true;
         return (
           p.species.nameEn.toLowerCase().includes(q) ||
@@ -84,9 +93,16 @@ export function TeamView({
           (p.nickname ?? '').toLowerCase().includes(q)
         );
       })
-      .sort((a, b) => name(a).localeCompare(name(b), lang) || b.level - a.level);
+      // Fully trained first, then by how much is done; ties by name.
+      .sort((a, b) => ratio(b) - ratio(a) || name(a).localeCompare(name(b), lang) || b.level - a.level);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roster, query, lang]);
+  }, [roster, query, lang, filling, team]);
+
+  /** The empty slot to fill after `index`: the next one in order, otherwise the first one left. */
+  const nextEmpty = (slots: (string | null)[], index: number) => {
+    const after = slots.findIndex((x, i) => i > index && x == null);
+    return after >= 0 ? after : slots.findIndex((x) => x == null);
+  };
 
   return (
     <div>
@@ -146,6 +162,7 @@ export function TeamView({
                   type="button"
                   onClick={() => {
                     setQuery('');
+                    setFilling(true);
                     setPicking(slot);
                   }}
                   className="flex h-full min-h-20 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line px-3 py-3 text-sm text-muted hover:border-muted hover:text-ink"
@@ -180,18 +197,30 @@ export function TeamView({
                   </span>
                 </span>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery('');
-                  setPicking(slot);
-                }}
-                aria-label={t('Change the Pokémon in slot {n}', { n: slot })}
-                title={t('Change')}
-                className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full border border-line bg-surface text-muted hover:text-ink"
-              >
-                ⇄
-              </button>
+              <span className="absolute right-2 top-1/2 flex -translate-y-1/2 flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery('');
+                    setFilling(false);
+                    setPicking(slot);
+                  }}
+                  aria-label={t('Change the Pokémon in slot {n}', { n: slot })}
+                  title={t('Change')}
+                  className="grid h-8 w-8 place-items-center rounded-full border border-line bg-surface text-muted hover:text-ink"
+                >
+                  ⇄
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSetSlot(slot, null)}
+                  aria-label={t('Empty slot {n}', { n: slot })}
+                  title={t('Drop from the team')}
+                  className="grid h-8 w-8 place-items-center rounded-full border border-line bg-surface text-muted hover:border-red-400/60 hover:text-red-400"
+                >
+                  ✕
+                </button>
+              </span>
             </li>
           );
         })}
@@ -227,6 +256,14 @@ export function TeamView({
         wide
         title={t('Choose a Pokémon for slot {n}', { n: picking ?? 0 })}
       >
+        {filling && (
+          <p className="mb-2 flex items-center justify-between text-xs text-muted">
+            <span>{t('{n} of 6 in the team', { n: team.filter(Boolean).length })}</span>
+            <button type="button" onClick={() => setPicking(null)} className="rounded border border-line px-2 py-1 hover:text-ink">
+              {t('Done')}
+            </button>
+          </p>
+        )}
         <SearchInput value={query} onChange={setQuery} placeholder={t('Search the roster')} label={t('Search the roster')} className="mb-3" />
         {candidates.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted">{t('No Pokémon match this filter.')}</p>
@@ -240,8 +277,19 @@ export function TeamView({
                   <button
                     type="button"
                     onClick={() => {
-                      if (picking != null && !here) onSetSlot(picking, p.id);
-                      setPicking(null);
+                      if (picking == null) return;
+                      if (!here) onSetSlot(picking, p.id);
+                      if (filling) {
+                        // On to the next empty slot, in the order they were started; the dialog closes when none is left.
+                        const next = nextEmpty(
+                          team.map((x, i) => (i === picking - 1 ? p.id : x)),
+                          picking - 1
+                        );
+                        setQuery('');
+                        setPicking(next >= 0 ? next + 1 : null);
+                      } else {
+                        setPicking(null);
+                      }
                     }}
                     className={`flex w-full flex-col items-center rounded-lg border px-2 py-2 text-center hover:bg-surface-2 ${
                       inSlot >= 0 ? 'border-star/50' : 'border-line'
@@ -259,7 +307,7 @@ export function TeamView({
             })}
           </ul>
         )}
-        {picking != null && team[picking - 1] && (
+        {picking != null && !filling && team[picking - 1] && (
           <button
             type="button"
             onClick={() => {
