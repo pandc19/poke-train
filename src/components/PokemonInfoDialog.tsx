@@ -38,6 +38,57 @@ const EGG_GROUPS: Record<string, { en: string; es: string }> = {
 // Fetched once per species per page visit.
 const cache = new Map<string, PokemonInfo>();
 
+/** The species image; arrows flip through its looks (forms, genders) and a toggle shows the shiny. */
+function VariantImage({ info, name }: { info: PokemonInfo; name: string }) {
+  const { t } = useT();
+  const [index, setIndex] = useState(0);
+  const [shiny, setShiny] = useState(false);
+  const variants = info.variants.length ? info.variants : [{ label: '', artwork: info.artwork ?? '', shiny: null }];
+  const current = variants[index % variants.length];
+  const hasShiny = variants.some((v) => v.shiny);
+  const showShiny = shiny && current.shiny != null;
+  const src = (showShiny ? current.shiny : current.artwork) || null;
+  const step = (d: number) => setIndex((i) => (i + d + variants.length) % variants.length);
+  const arrow =
+    'grid h-7 w-7 shrink-0 place-items-center rounded-full border border-line bg-surface-2 text-muted hover:text-ink';
+  const multi = variants.length > 1;
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="flex items-center gap-1">
+        {multi && (
+          <button type="button" className={arrow} onClick={() => step(-1)} aria-label={t('Previous form')}>
+            ‹
+          </button>
+        )}
+        <Sprite src={src} alt={`${name} ${current.label}`.trim()} size={144} />
+        {multi && (
+          <button type="button" className={arrow} onClick={() => step(1)} aria-label={t('Next form')}>
+            ›
+          </button>
+        )}
+      </div>
+      {(multi || current.label) && (
+        <span className="text-[11px] text-muted">
+          {current.label ? `${current.label}${multi ? ' · ' : ''}` : ''}
+          {multi ? `${index + 1}/${variants.length}` : ''}
+        </span>
+      )}
+      {hasShiny && (
+        <button
+          type="button"
+          aria-pressed={shiny}
+          onClick={() => setShiny((v) => !v)}
+          className={`rounded border px-2 py-0.5 text-[11px] ${
+            shiny ? 'border-star/50 bg-star/10 text-star' : 'border-line text-muted hover:text-ink'
+          }`}
+        >
+          ✦ {t('Shiny')}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -117,8 +168,8 @@ export function PokemonInfoDialog({
       {info && (
         <div className="space-y-5">
           <div className="flex flex-col gap-4 sm:flex-row">
-            <div className="flex shrink-0 flex-col items-center gap-2 sm:w-40">
-              <Sprite src={info.artwork} alt={name} size={144} />
+            <div className={`flex shrink-0 flex-col items-center gap-2 ${info.variants.length > 1 ? 'sm:w-56' : 'sm:w-40'}`}>
+              <VariantImage key={info.id} info={info} name={name} />
               <div className="flex flex-wrap justify-center gap-1">
                 {info.types.map((t) => (
                   <TypeBadge key={t} type={t} lang={lang} />

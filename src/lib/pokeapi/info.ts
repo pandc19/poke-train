@@ -14,6 +14,8 @@ export type PokemonInfo = {
   heightM: number | null;
   weightKg: number | null;
   artwork: string | null;
+  /** Every look of the species worth flipping through (regional forms, gender differences). Always has the normal look first; arrows only make sense with two or more. */
+  variants: { label: string; artwork: string; shiny: string | null }[];
   abilities: { nameEn: string; nameEs: string; isHidden: boolean }[];
   stats: { key: string; value: number }[];
   eggGroups: string[];
@@ -69,6 +71,63 @@ export function evolutionStages(
     for (const child of children.get(out[i].id) ?? []) out.push({ id: child, stage: out[i].stage + 1, from: out[i].id });
   }
   return out;
+}
+
+const SKIPPED_VARIETY = /-(mega|gmax|totem|starter|cosplay|rock-star|belle|pop-star|phd|libre|original-cap|.+-cap)(-|$)/;
+const MAX_VARIANTS = 30;
+
+const titleCase = (slug: string) =>
+  slug
+    .split('-')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+
+/** The different looks of a species: its other varieties, in-form variations, and the female look when it differs. */
+async function loadVariants(speciesJson: any, defaultArtwork: string | null, defaultPokemon: any): Promise<PokemonInfo['variants']> {
+  const out: PokemonInfo['variants'] = [];
+  const varieties: { is_default: boolean; pokemon: { name: string } }[] = speciesJson.varieties ?? [];
+  const baseName: string = varieties.find((v) => v.is_default)?.pokemon.name ?? speciesJson.name;
+  const hasGender = Boolean(speciesJson.has_gender_differences);
+  const femaleSprite: string | null = defaultPokemon?.sprites?.front_female ?? null;
+  const shinyOf = (p: any): string | null =>
+    p?.sprites?.other?.['official-artwork']?.front_shiny ?? p?.sprites?.front_shiny ?? null;
+
+  const others = varieties.filter((v) => !v.is_default && !SKIPPED_VARIETY.test(v.pokemon.name));
+  // Some species (Oinkologne, Indeedee, Meowstic) have the female as a variety of her own with full artwork.
+  const femaleVariety = others.some((v) => /-female$/.test(v.pokemon.name));
+  const gendered = hasGender && (femaleSprite != null || femaleVariety);
+
+  if (defaultArtwork) out.push({ label: gendered ? '♂' : '', artwork: defaultArtwork, shiny: shinyOf(defaultPokemon) });
+  if (gendered && !femaleVariety && femaleSprite) out.push({ label: '♀', artwork: femaleSprite, shiny: defaultPokemon?.sprites?.front_shiny_female ?? null });
+
+  const fetched = await Promise.all(
+    others.map((v) => getPokeApi(`pokemon/${v.pokemon.name}`).catch(() => null))
+  );
+  fetched.forEach((p, i) => {
+    const art = p?.sprites?.other?.['official-artwork']?.front_default ?? p?.sprites?.front_default;
+    if (!art) return;
+    const name = others[i].pokemon.name;
+    const label = /-female$/.test(name)
+      ? '♀'
+      : titleCase(name.startsWith(baseName + '-') ? name.slice(baseName.length + 1) : name);
+    out.push({ label, artwork: art, shiny: shinyOf(p) });
+  });
+
+  // Species like Unown or Vivillon keep their looks as forms of the one Pokémon.
+  const forms: { name: string }[] = defaultPokemon?.forms ?? [];
+  if (forms.length > 1 && out.length <= 1) {
+    const list = await Promise.all(
+      forms.slice(0, MAX_VARIANTS).map((f) => getPokeApi(`pokemon-form/${f.name}`).catch(() => null))
+    );
+    out.length = 0;
+    list.forEach((f, i) => {
+      const art = f?.sprites?.front_default;
+      if (!art) return;
+      const name = forms[i].name;
+      out.push({ label: titleCase(name.startsWith(baseName + '-') ? name.slice(baseName.length + 1) : name), artwork: art, shiny: f?.sprites?.front_shiny ?? null });
+    });
+  }
+  return out.slice(0, MAX_VARIANTS);
 }
 
 const STAT_KEYS = ['hp', 'attack', 'defense', 'specialAttack', 'specialDefense', 'speed'] as const;
@@ -138,6 +197,8 @@ export async function loadPokemonInfo(speciesId: number, game?: GameConfig): Pro
   const artwork =
     pokemonJson?.sprites?.other?.['official-artwork']?.front_default ?? form?.spriteUrl ?? null;
 
+  const variants = await loadVariants(speciesJson, artwork, pokemonJson);
+
   return {
     id: species.id,
     nameEn: species.nameEn,
@@ -148,6 +209,7 @@ export async function loadPokemonInfo(speciesId: number, game?: GameConfig): Pro
     heightM: pokemonJson ? pokemonJson.height / 10 : null,
     weightKg: pokemonJson ? pokemonJson.weight / 10 : null,
     artwork,
+    variants,
     abilities: abilitySlugs.map((a) => {
       const row = abilityBySlug.get(a.slug);
       return { nameEn: row?.nameEn ?? a.slug, nameEs: row?.nameEs ?? a.slug, isHidden: a.isHidden };
