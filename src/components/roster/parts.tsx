@@ -142,7 +142,11 @@ export function PokemonSprite({ p, size = 80, animated = true }: { p: RosterView
     animated && p.formId
       ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/${p.formId}.gif`
       : null;
-  const [src, setSrc] = useState(moving ?? p.spriteUrl);
+  // The moving picture is tried first, and the still one used if it fails. Remembered per Pokémon, so a card
+  // that shows another Pokémon later (the team closes up when a slot is emptied) shows that one's own picture.
+  const lookKey = `${p.id}:${moving ?? ''}`;
+  const [fellBack, setFellBack] = useState<string | null>(null);
+  const src = fellBack === lookKey ? p.spriteUrl : (moving ?? p.spriteUrl);
   if (!src) {
     return (
       <span
@@ -160,7 +164,7 @@ export function PokemonSprite({ p, size = 80, animated = true }: { p: RosterView
         src={src}
         alt=""
         loading="lazy"
-        onError={() => src !== p.spriteUrl && setSrc(p.spriteUrl)}
+        onError={() => src !== p.spriteUrl && setFellBack(lookKey)}
         style={{ maxWidth: size, maxHeight: size }}
         className={`${p.owned ? '' : 'sprite-silhouette'} ${src === p.spriteUrl ? 'sprite' : ''}`}
       />
