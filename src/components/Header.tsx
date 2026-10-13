@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { motion } from 'motion/react';
 import { setLang } from '@/app/actions';
 import { CatalogButton } from './CatalogDialog';
@@ -27,6 +27,14 @@ export function Header({ games }: { games: GameLink[] }) {
   const params = useParams<{ game?: string }>();
   const [pending, startTransition] = useTransition();
   const current = games.find((g) => g.id === params.game) ?? games[0];
+  const [gamesOpen, setGamesOpen] = useState(false);
+  // The section the player is in, so switching game keeps them there when that game has it.
+  const section = pathname.split('/')[2] || 'pokedex';
+  const sectionIn = (g: GameLink) => {
+    if (section === 'exclusives') return g.exclusives ? section : 'pokedex';
+    if (section === 'breeders' || section === 'breeding') return g.breeding ? section : 'pokedex';
+    return ['pokedex', 'roster', 'search', 'battle', 'national'].includes(section) ? section : 'pokedex';
+  };
 
   // The breeding pages show the breeding items; every other page shows the training ones.
   const onBreeding = /\/(breeding|breeders)(\/|$)/.test(pathname);
@@ -48,7 +56,8 @@ export function Header({ games }: { games: GameLink[] }) {
   ];
 
   return (
-    <header className="border-b border-line bg-surface">
+    <>
+    <header className="bg-surface">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
         <Link href="/" className="flex items-center gap-1.5 text-lg font-bold tracking-tight">
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" className="shrink-0">
@@ -112,15 +121,54 @@ export function Header({ games }: { games: GameLink[] }) {
         </div>
       </div>
 
-      {(
-        <nav aria-label={t('Sections')} className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4">
+    </header>
+    {/* The sections stay at the top while the page scrolls; the logo, the games and the language scroll away. */}
+    <div className="sticky top-0 z-40 border-y border-line bg-surface/95 backdrop-blur" style={{ height: 'var(--nav-h)' }}>
+      <div className="mx-auto flex h-full max-w-7xl items-stretch gap-2 px-4">
+        <div className="relative flex items-center">
+          <button
+            type="button"
+            onClick={() => setGamesOpen((v) => !v)}
+            aria-expanded={gamesOpen}
+            aria-label={t('Game')}
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold text-white shadow"
+            style={{ background: `linear-gradient(160deg, ${current.theme.from}, ${current.theme.to})` }}
+          >
+            {current.shortName}
+            <span aria-hidden className="text-[9px] opacity-80">
+              ▾
+            </span>
+          </button>
+          {gamesOpen && (
+            <>
+              <button type="button" aria-hidden tabIndex={-1} className="fixed inset-0 z-40 cursor-default" onClick={() => setGamesOpen(false)} />
+              <ul className="absolute left-0 top-full z-50 mt-1 min-w-36 rounded-lg border border-line bg-surface p-1 shadow-lg">
+                {games.map((g) => (
+                  <li key={g.id}>
+                    <Link
+                      href={`/${g.id}/${sectionIn(g)}`}
+                      onClick={() => setGamesOpen(false)}
+                      className={`flex items-center gap-2 rounded-md px-2.5 py-2 text-sm hover:bg-surface-2 ${
+                        g.id === current.id ? 'font-semibold' : 'text-muted'
+                      }`}
+                    >
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: g.theme.from }} />
+                      {g.shortName}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+        <nav aria-label={t('Sections')} className="flex flex-1 gap-1 overflow-x-auto">
           {tabs.map((tab) => {
             const active = pathname.startsWith(tab.href);
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`relative whitespace-nowrap px-3 py-2 text-sm ${
+                className={`relative flex items-center whitespace-nowrap px-3 text-sm ${
                   active ? 'text-ink' : 'text-muted hover:text-ink'
                 }`}
               >
@@ -136,8 +184,9 @@ export function Header({ games }: { games: GameLink[] }) {
             );
           })}
         </nav>
-      )}
-      {catalog.length > 0 && <CatalogButton sections={catalog} />}
-    </header>
+      </div>
+    </div>
+    {catalog.length > 0 && <CatalogButton sections={catalog} />}
+    </>
   );
 }

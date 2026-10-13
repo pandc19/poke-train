@@ -504,7 +504,7 @@ export function RosterBoard({
     <div>
       {/* ---------- the switch between the list and the team ---------- */}
       {view === 'list' && (
-        <div className="-mx-4 mb-3 flex flex-wrap items-center gap-3 bg-bg/95 px-4 py-2 backdrop-blur md:sticky md:top-0 md:z-30">
+        <div className="-mx-4 mb-3 flex flex-wrap items-center gap-3 bg-bg/95 px-4 py-2 backdrop-blur md:sticky md:top-[var(--nav-h)] md:z-30">
           <p className="text-sm">
             <span className="font-semibold text-done">{complete}</span>
             <span className="text-muted"> {t('of {total} fully trained', { total: roster.length })}</span>
@@ -557,7 +557,7 @@ export function RosterBoard({
       ) : (
       <div className="grid gap-5 lg:grid-cols-[minmax(0,25rem)_minmax(0,1fr)]">
         {/* ---------- the list: stays in view while the details scroll (it scrolls itself when taller than the screen) ---------- */}
-        <aside className="lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:self-start lg:-m-1 lg:overflow-y-auto lg:p-1">
+        <aside className="lg:sticky lg:top-[calc(var(--nav-h)+4rem)] lg:max-h-[calc(100vh-var(--nav-h)-5rem)] lg:self-start lg:-m-1 lg:overflow-y-auto lg:p-1">
           <div className="mb-3 space-y-2">
             <SearchInput
               value={query}

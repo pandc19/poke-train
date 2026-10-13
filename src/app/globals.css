@@ -17,6 +17,11 @@
   --color-star: #facc15;
 }
 
+/* Height of the sticky bar with the sections; page bars that stick sit just under it. */
+:root {
+  --nav-h: 2.75rem;
+}
+
 body {
   background: var(--color-bg);
   color: var(--color-ink);

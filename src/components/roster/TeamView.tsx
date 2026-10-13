@@ -160,7 +160,7 @@ export function TeamView({
   return (
     <div>
     {/* ---------- what the team is training now ---------- */}
-    <div className="-mx-4 mb-4 bg-bg/95 px-4 py-2 backdrop-blur md:sticky md:top-0 md:z-30">
+    <div className="-mx-4 mb-4 bg-bg/95 px-4 py-2 backdrop-blur md:sticky md:top-[var(--nav-h)] md:z-30">
     <section className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line bg-surface px-3 py-2.5">
       {viewSwitch}
       <h2 className="text-sm font-semibold">{t('Training')}</h2>
@@ -221,7 +221,7 @@ export function TeamView({
 
     <div className="grid gap-5 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
       {/* ---------- the six slots ---------- */}
-      <ol className="grid grid-cols-2 content-start gap-2 lg:sticky lg:top-24 lg:-m-1 lg:max-h-[calc(100vh-7rem)] lg:grid-cols-1 lg:self-start lg:overflow-y-auto lg:p-1">
+      <ol className="grid grid-cols-2 content-start gap-2 lg:sticky lg:top-[calc(var(--nav-h)+6rem)] lg:-m-1 lg:max-h-[calc(100vh-var(--nav-h)-7rem)] lg:grid-cols-1 lg:self-start lg:overflow-y-auto lg:p-1">
         {order.map((i) => {
           const p = members[i];
           const slot = i + 1;
