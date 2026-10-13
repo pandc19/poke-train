@@ -161,6 +161,8 @@ export const ES: Record<string, string> = {
   'Copy the level, stats and EVs as text': 'Copiar el nivel, las estadísticas y los EVs como texto',
   'Loading its moves…': 'Cargando sus movimientos…',
   'Loading…': 'Cargando…',
+  'Back to top': 'Volver arriba',
+  'Back to where I was': 'Volver a donde estaba',
   'Previous form': 'Forma anterior',
   'Next form': 'Forma siguiente',
   'Shiny': 'Variocolor',

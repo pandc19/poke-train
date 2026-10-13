@@ -30,7 +30,8 @@ export function Header({ games }: { games: GameLink[] }) {
 
   // The breeding pages show the breeding items; every other page shows the training ones.
   const onBreeding = /\/(breeding|breeders)(\/|$)/.test(pathname);
-  const catalog = current.catalog.filter((s) => (s.topic ?? 'training') === (onBreeding ? 'breeding' : 'training'));
+  const onPokedex = /\/(pokedex|national)(\/|$)/.test(pathname);
+  const catalog = onPokedex ? [] : current.catalog.filter((s) => (s.topic ?? 'training') === (onBreeding ? 'breeding' : 'training'));
 
   const tabs = [
     { href: `/${current.id}/pokedex`, label: t('Pokédex') },

@@ -9,6 +9,52 @@ import type { DexCell } from '@/lib/pokedex';
 import type { Lang } from '@/lib/i18n';
 import { useT } from '@/lib/translate-client';
 
+/**
+ * Floating button, bottom right. Scrolled down it jumps to the top; once
+ * there it offers to return to where you were.
+ */
+function ScrollTopButton({ topLabel, backLabel }: { topLabel: string; backLabel: string }) {
+  const [y, setY] = useState(0);
+  const [returnTo, setReturnTo] = useState<number | null>(null);
+  const lastY = useRef(0);
+  useEffect(() => {
+    const onScroll = () => {
+      const now = window.scrollY;
+      // Scrolling down on your own makes the remembered spot stale; the smooth jump up must not clear it.
+      if (now > 600 && now > lastY.current) setReturnTo(null);
+      lastY.current = now;
+      setY(now);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  const effectiveReturn = returnTo != null && y < 300 ? returnTo : null;
+
+  const away = y > 600;
+  if (!away && effectiveReturn == null) return null;
+  const label = away ? topLabel : backLabel;
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={() => {
+        if (away) {
+          setReturnTo(window.scrollY);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else if (effectiveReturn != null) {
+          window.scrollTo({ top: effectiveReturn, behavior: 'smooth' });
+          setReturnTo(null);
+        }
+      }}
+      className="fixed bottom-4 right-4 z-40 grid h-11 w-11 place-items-center rounded-full border border-line bg-surface text-lg text-ink shadow-lg hover:bg-surface-2"
+    >
+      <span aria-hidden>{away ? '↑' : '↓'}</span>
+    </button>
+  );
+}
+
 type Filter = 'all' | 'missing' | 'caught' | 'have' | 'registered';
 
 type Genders = { male: boolean; female: boolean };
@@ -389,22 +435,6 @@ export function DexGrid({
                     {name}
                   </span>
                   {/* Notes sit on their own line under the name, never on top of it. */}
-                  {c.exclusive && (
-                    <span
-                      className={`w-full truncate text-center text-[11px] ${
-                        c.exclusive.own ? 'text-muted' : 'font-semibold text-pending'
-                      }`}
-                      title={
-                        c.exclusive.own
-                          ? t('Only in {version}, your version', { version: c.exclusive.versionName })
-                          : t('Only in {version}: not in your game, so it needs a trade or a raid', {
-                              version: c.exclusive.versionName,
-                            })
-                      }
-                    >
-                      {t('{version} only', { version: c.exclusive.versionName })}
-                    </span>
-                  )}
                   {registeredOnly && (
                     <span className="w-full truncate text-center text-[11px] text-pending">
                       {evo ? t('evolved → {name}', { name: evo }) : t('not in my box')}
@@ -491,6 +521,8 @@ export function DexGrid({
           {t('Click a card to see that Pokémon\'s information. Use Catch to mark it in your Pokédex (shift-click fills a range). Have means you have one right now: un-tick it when it evolves or you release it, and it stays in the Pokédex as "not in my box". ♂ and ♀ record which genders you have; the breeding planner uses that to find parents.')}
         </p>
       )}
+
+      <ScrollTopButton topLabel={t('Back to top')} backLabel={t('Back to where I was')} />
 
       <PokemonInfoDialog
         speciesId={openId}
