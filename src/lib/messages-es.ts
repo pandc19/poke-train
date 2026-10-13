@@ -147,7 +147,7 @@ export const ES: Record<string, string> = {
   'Item, moves and Tera type fixed': 'Objeto, movimientos y teratipo fijados',
   'Fix item, moves and Tera type': 'Fijar objeto, movimientos y teratipo',
   'Show all ({n})': 'Ver todos ({n})',
-  'Best to battle first.': 'Los mejores para combatir, primero.',
+  'Best to battle first, each evolution line in order.': 'Los mejores para combatir, primero; cada línea evolutiva en orden.',
   'Current Tera type': 'Teratipo actual',
   'Its nature is not set, so none is applied.': 'No tiene naturaleza indicada, así que no se aplica ninguna.',
   'Language': 'Idioma',

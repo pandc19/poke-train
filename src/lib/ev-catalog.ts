@@ -51,7 +51,13 @@ export function bestSources(candidates: Candidate[], stat: keyof EvSpread, limit
  * For each stat still to train, the Pokémon of this game's regional Pokédexes
  * that give those EVs. Legendaries are left out: they are not for farming.
  */
-export async function loadEvSources(gameId: string, stats: (keyof EvSpread)[], limit = 4): Promise<EvSources[]> {
+export async function loadEvSources(
+  gameId: string,
+  stats: (keyof EvSpread)[],
+  limit = 4,
+  /** Keep each evolution line together, the basic Pokémon first. */
+  byEvolution = false
+): Promise<EvSources[]> {
   if (stats.length === 0) return [];
   const slots = await prisma.pokedexSlot.findMany({
     where: { pokedex: { gameId, slug: { not: NATIONAL_DEX_SLUG } }, species: { isSpecial: false } },
@@ -74,6 +80,11 @@ export async function loadEvSources(gameId: string, stats: (keyof EvSpread)[], l
     for (let cur = parent.get(id); cur != null && stage < 5; cur = parent.get(cur)) stage++;
     return stage;
   };
+  const rootOf = (id: number) => {
+    let root = id;
+    for (let cur = parent.get(id), n = 0; cur != null && n < 5; cur = parent.get(cur), n++) root = cur;
+    return root;
+  };
   const seen = new Set<number>();
   const candidates: Candidate[] = [];
   for (const { species } of slots) {
@@ -92,5 +103,22 @@ export async function loadEvSources(gameId: string, stats: (keyof EvSpread)[], l
       stage: stageOf(species.id),
     });
   }
-  return stats.map((stat) => ({ stat, species: bestSources(candidates, stat, limit) }));
+  return stats.map((stat) => {
+    const species = bestSources(candidates, stat, limit);
+    return { stat, species: byEvolution ? inEvolutionOrder(species, rootOf, stageOf) : species };
+  });
+}
+
+/**
+ * Puts each evolution line together, earliest stage first. The lines keep the
+ * order of their best Pokémon, so the ones to battle first still come first.
+ */
+function inEvolutionOrder(species: EvSource[], rootOf: (id: number) => number, stageOf: (id: number) => number) {
+  const lines = new Map<number, EvSource[]>();
+  for (const sp of species) {
+    const root = rootOf(sp.id);
+    if (!lines.has(root)) lines.set(root, []);
+    lines.get(root)!.push(sp);
+  }
+  return [...lines.values()].flatMap((line) => line.sort((a, b) => stageOf(a.id) - stageOf(b.id) || a.id - b.id));
 }

@@ -158,7 +158,7 @@ function SourceGroup({
         title={t('Battle for {stat} EVs', { stat: group.stat })}
         wide
       >
-        <p className="mb-3 text-xs text-muted">{t('Best to battle first.')}</p>
+        <p className="mb-3 text-xs text-muted">{t('Best to battle first, each evolution line in order.')}</p>
         <div className="grid gap-2 text-xs sm:grid-cols-2">
           {(all.species ?? []).map((sp) => (
             <SourceRow key={sp.id} s={sp} gameId={gameId} aiEnabled={aiEnabled} known={known[sp.id]} card />
