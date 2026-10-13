@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AiBadge } from './AiBadge';
 import { ConfirmDialog } from './Dialog';
 import { SearchInput } from './SearchInput';
@@ -119,7 +119,12 @@ export function RosterBoard({
     return data as T;
   }
 
+  // Where the page was scrolled when another Pokémon was chosen, so the details stay in the same spot.
+  const keepScroll = useRef<number | null>(null);
+
   function select(id: string) {
+    const wide = !window.matchMedia('(max-width: 1023px)').matches;
+    keepScroll.current = wide ? window.scrollY : null;
     setSelectedId(id);
     // Keep the address in step, so a reload or a link comes back to the same Pokémon.
     window.history.replaceState(null, '', `?p=${id}`);
@@ -354,6 +359,14 @@ export function RosterBoard({
   const selectedId = roster.some((p) => p.id === pickedId) ? pickedId : (visible[0]?.id ?? null);
   const selected = roster.find((p) => p.id === selectedId) ?? null;
 
+  // The details are replaced by the other Pokémon's, and the page stays where it was.
+  useLayoutEffect(() => {
+    if (keepScroll.current != null) {
+      window.scrollTo({ top: keepScroll.current });
+      keepScroll.current = null;
+    }
+  }, [selectedId]);
+
   const numberLabel = (p: RosterView) => `#${String(p.nationalNumber).padStart(3, '0')}`;
 
   const dialogs = (
@@ -475,8 +488,8 @@ export function RosterBoard({
       )}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,25rem)_minmax(0,1fr)]">
-        {/* ---------- the list ---------- */}
-        <aside>
+        {/* ---------- the list: stays in view while the details scroll (it scrolls itself when taller than the screen) ---------- */}
+        <aside className="lg:sticky lg:top-3 lg:max-h-[calc(100vh-1.5rem)] lg:self-start lg:-m-1 lg:overflow-y-auto lg:p-1">
           <div className="mb-3 space-y-2">
             <SearchInput
               value={query}
