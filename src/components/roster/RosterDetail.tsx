@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'motion/react';
+import { AiBadge } from '../AiBadge';
 import { AuditPanel } from '../AuditPanel';
 import { StatsEvsEditor, type EvEstimateInfo } from '../StatsEvs';
 import { TypeBadge } from '../TypeBadge';
@@ -81,7 +82,7 @@ function Suggestion({
   return (
     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]" title={title}>
       <span className="text-pending">
-        {t('AI suggests')}: <span className="font-medium">{children}</span>
+        <AiBadge className="mr-1" /> {t('AI suggests')}: <span className="font-medium">{children}</span>
       </span>
       {onApply && (
         <button
@@ -633,7 +634,9 @@ export function RosterDetail({
             </div>
             {sug.moves && (
               <div className="rounded-md border border-line bg-bg p-2 text-[11px]">
-                <p className="mb-1 text-muted">{t('AI suggests, in order. Tap one to put it in that slot.')}</p>
+                <p className="mb-1 text-muted">
+                  <AiBadge className="mr-1" /> {t('AI suggests, in order. Tap one to put it in that slot.')}
+                </p>
                 <ol className="space-y-1">
                   {sug.moves.slice(0, 4).map((m, i) => {
                     const slot = i + 1;

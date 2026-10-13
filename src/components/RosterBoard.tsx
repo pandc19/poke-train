@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AiBadge } from './AiBadge';
 import { ConfirmDialog } from './Dialog';
 import { SearchInput } from './SearchInput';
 import { RosterDetail } from './roster/RosterDetail';
@@ -457,7 +458,9 @@ export function RosterBoard({
       {team.result && (
         <div className="mb-4 rounded-lg border border-line bg-surface p-4 text-sm">
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-semibold">{t('Roster audit')}</h2>
+            <h2 className="font-semibold">
+              {t('Roster audit')} <AiBadge className="ml-1" />
+            </h2>
             <button onClick={() => setTeam({ busy: false, result: null })} className="text-xs text-muted">
               {t('Close')}
             </button>

@@ -27,6 +27,23 @@ export default async function BreedingPage({ params }: PageProps<'/[game]/breedi
     getT(),
   ]);
 
+  // A picture for every Pokémon a plan can mention: the ones in this game, and any other a plan names.
+  const ids = new Set<number>(species.map((s) => s.id));
+  const walk = (v: unknown) => {
+    if (Array.isArray(v)) v.forEach(walk);
+    else if (v && typeof v === 'object') {
+      const o = v as Record<string, unknown>;
+      if (typeof o.id === 'number' && typeof o.nameEn === 'string') ids.add(o.id);
+      Object.values(o).forEach(walk);
+    }
+  };
+  walk(goals);
+  const forms = await prisma.form.findMany({
+    where: { speciesId: { in: [...ids] }, isDefault: true },
+    select: { speciesId: true, spriteUrl: true },
+  });
+  const sprites = Object.fromEntries(forms.flatMap((f) => (f.spriteUrl ? [[f.speciesId, f.spriteUrl]] : [])));
+
   return (
     <div>
       <h1 className="text-xl font-bold">{t('Breeding assistant')}</h1>
@@ -41,6 +58,7 @@ export default async function BreedingPage({ params }: PageProps<'/[game]/breedi
         gameId={game.id}
         initial={goals}
         species={species}
+        sprites={sprites}
         natures={natures}
         lang={lang}
         aiEnabled={getAiProvider() != null}

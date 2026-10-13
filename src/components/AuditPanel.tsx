@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useCachedLocations } from './useCachedLocations';
+import { AiBadge } from './AiBadge';
 import { Dialog } from './Dialog';
 import { Sprite } from './Sprite';
 import { TypeBadge } from './TypeBadge';
@@ -73,6 +74,9 @@ function SourceRow({
       {state.error && <p className="text-pending">{state.error}</p>}
       {result && open && (
         <div className="mt-1 rounded bg-surface p-2 text-muted">
+          <p className="mb-1">
+            <AiBadge />
+          </p>
           {result.locations.map((l, i) => (
             <p key={i}>
               <span className="font-medium text-ink">{l.place}</span>
@@ -175,10 +179,13 @@ function Box({
   fixed,
   onToggle,
   fixTitle,
+  ai = true,
   children,
 }: {
   title: string;
   fixed: boolean;
+  /** Written by the AI (until the player fixes it, which makes it theirs). */
+  ai?: boolean;
   /** Without it the part cannot be fixed. */
   onToggle?: () => void;
   fixTitle?: string;
@@ -191,6 +198,7 @@ function Box({
         <h4 className="font-semibold uppercase text-muted">
           {fixed && <span className="mr-1 text-done">✓</span>}
           {title}
+          {ai && !fixed && <AiBadge className="ml-2" />}
         </h4>
         {onToggle && (
           <button
@@ -341,7 +349,9 @@ export function AuditPanel({
 
       {compare && compare.length > 0 && (
         <section className="rounded-lg border border-line bg-surface p-3">
-          <h4 className="mb-2 font-semibold uppercase text-muted">{t('Now vs AI')}</h4>
+          <h4 className="mb-2 font-semibold uppercase text-muted">
+            {t('Now vs AI')} <AiBadge className="ml-1" />
+          </h4>
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
             {compare.map((r) => (
               <div key={r.key} className="contents">

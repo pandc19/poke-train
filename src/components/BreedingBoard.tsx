@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { AiBadge } from './AiBadge';
 import { ConfirmDialog } from './Dialog';
 import { ComboInput } from './roster/parts';
+import { Sprite } from './Sprite';
 import { useCachedLocations } from './useCachedLocations';
 import { STAT_LABELS } from './EvInputs';
 import type { LocationResult } from '@/lib/ai/schema';
@@ -25,6 +27,7 @@ export function BreedingBoard({
   gameId,
   initial,
   species,
+  sprites,
   natures,
   lang,
   aiEnabled,
@@ -33,6 +36,8 @@ export function BreedingBoard({
   gameId: string;
   initial: BreedingGoalView[];
   species: Named[];
+  /** Picture of each Pokémon (by species id). */
+  sprites: Record<number, string>;
   natures: Named[];
   lang: Lang;
   aiEnabled: boolean;
@@ -72,6 +77,7 @@ export function BreedingBoard({
   const [deleting, setDeleting] = useState<BreedingGoalView | null>(null);
 
   const name = (x: Named | SpeciesRef) => (lang === 'en' ? x.nameEn : x.nameEs);
+  const pic = (x: { id: number }, size = 44) => <Sprite src={sprites[x.id] ?? null} alt="" size={size} />;
   const find = (list: Named[], text: string) => {
     const t = text.trim().toLowerCase();
     return list.find((x) => x.nameEn.toLowerCase() === t || x.nameEs.toLowerCase() === t);
@@ -245,10 +251,13 @@ export function BreedingBoard({
     const canLookUp = item.have === 'missing';
     return (
       <li key={key} className="rounded-lg border border-line p-2 text-xs">
-        <p className="text-sm font-semibold">
-          {symbol(item.gender)}
-          {name(item.species)} <span className="text-xs font-normal text-muted">· {roleLabel(goal, item)}</span>
-        </p>
+        <div className="flex items-center gap-2">
+          {pic(item.species, 48)}
+          <p className="text-sm font-semibold">
+            {symbol(item.gender)}
+            {name(item.species)} <span className="text-xs font-normal text-muted">· {roleLabel(goal, item)}</span>
+          </p>
+        </div>
         <p className={item.have === 'ready' ? 'text-done' : item.have === 'caught' ? 'text-star' : 'text-pending'}>
           {describe(goal, item)}
         </p>
@@ -293,7 +302,9 @@ export function BreedingBoard({
             >
               {location?.busy ? t('Searching…') : t('Search again')}
             </button>
-            <p className="mt-1 text-[10px]">{t('AI-researched. Check in game before relying on it.')}</p>
+            <p className="mt-1 flex items-center gap-1.5 text-[10px]">
+              <AiBadge /> {t('AI-researched. Check in game before relying on it.')}
+            </p>
           </div>
         )}
       </li>
@@ -301,49 +312,58 @@ export function BreedingBoard({
   };
 
   const renderStep = (step: Step, key: number) => {
+    /** The picture(s) of the Pokémon a step is about, then its text. */
+    const row = (pics: SpeciesRef[], text: React.ReactNode) => (
+      <li key={key} className="flex items-center gap-2">
+        <span className="flex shrink-0">{pics.map((x) => <span key={`${x.id}`}>{pic(x, 40)}</span>)}</span>
+        <span>{text}</span>
+      </li>
+    );
     switch (step.action) {
       case 'obtain':
-        return (
-          <li key={key}>
+        return row(
+          [step.species],
+          <>
             {step.have === 'ready' ? t('Use your') : t('Get a')}{' '}
             <span className="font-medium">
               {symbol(step.gender)}
               {name(step.species)}
             </span>
             .
-          </li>
+          </>
         );
       case 'teach':
-        return (
-          <li key={key}>
-            {step.method === 'level-up'
-              ? step.level === 0
-                ? t('{name} learns the move when it evolves (or relearn it from the moves menu).', { name: name(step.species) })
-                : step.level === 1
-                  ? t('{name} knows the move from the start (relearn it from the moves menu if it was forgotten).', {
-                      name: name(step.species),
-                    })
-                  : t('Raise {name} to level {level} so it learns the move.', { name: name(step.species), level: step.level })
-              : step.method === 'machine'
-                ? t('Teach {name} the move with its TM.', { name: name(step.species) })
-                : t('Teach {name} the move ({method}).', { name: name(step.species), method: step.method })}
-          </li>
+        return row(
+          [step.species],
+          step.method === 'level-up'
+            ? step.level === 0
+              ? t('{name} learns the move when it evolves (or relearn it from the moves menu).', { name: name(step.species) })
+              : step.level === 1
+                ? t('{name} knows the move from the start (relearn it from the moves menu if it was forgotten).', {
+                    name: name(step.species),
+                  })
+                : t('Raise {name} to level {level} so it learns the move.', { name: name(step.species), level: step.level })
+            : step.method === 'machine'
+              ? t('Teach {name} the move with its TM.', { name: name(step.species) })
+              : t('Teach {name} the move ({method}).', { name: name(step.species), method: step.method })
         );
       case 'breed':
-        return (
-          <li key={key}>
+        return row(
+          [step.father, step.mother],
+          <>
             {t('Breed')} <span className="font-medium">{name(step.father)} ♂</span> {t('with')}{' '}
             <span className="font-medium">{name(step.mother)} ♀</span>.{' '}
             {t('The {name} that hatches knows the move.', { name: name(step.offspring) })}
-          </li>
+          </>
         );
       case 'picnic':
-        return (
-          <li key={key}>
+        return row(
+          [step.to, step.from],
+          <>
             {t('Give')} <span className="font-medium">{name(step.to)}</span>{' '}
             {t('a Mirror Herb and leave one move slot empty, then have a picnic with')}{' '}
             <span className="font-medium">{name(step.from)}</span> {t('in the party.')}
-          </li>
+          </>
         );
     }
   };
@@ -358,12 +378,15 @@ export function BreedingBoard({
 
   const renderPick = (p: ParentPick, role: string) => (
     <li key={role} className="rounded-lg border border-line p-2">
-      <p className="text-sm font-semibold">
-        {p.gender === 'female' ? '♀ ' : p.gender === 'male' ? '♂ ' : ''}
-        {p.label ?? name(p.species)}
-        {p.label && <span className="text-xs font-normal text-muted"> · {name(p.species)}</span>}
-        <span className="text-xs font-normal text-muted"> · {role}</span>
-      </p>
+      <div className="flex items-center gap-2">
+        {pic(p.species, 48)}
+        <p className="text-sm font-semibold">
+          {p.gender === 'female' ? '♀ ' : p.gender === 'male' ? '♂ ' : ''}
+          {p.label ?? name(p.species)}
+          {p.label && <span className="text-xs font-normal text-muted"> · {name(p.species)}</span>}
+          <span className="text-xs font-normal text-muted"> · {role}</span>
+        </p>
+      </div>
       <p className="text-muted">
         {sourceLabel(p)}
         {p.perfect.length > 0 && ` · ${t('perfect')}: ${statList(p.perfect)}`}
@@ -662,6 +685,7 @@ export function BreedingBoard({
                   className={`rounded-xl border bg-surface p-4 ${goal.status === 'DONE' ? 'border-done/60' : 'border-line'}`}
                 >
                   <div className="flex flex-wrap items-center gap-3">
+                    {pic(goal.species, 56)}
                     <h3 className="text-base font-semibold">{name(goal.species)}</h3>
                     {goal.moves.length > 0 && <span className="text-xs text-muted">{goal.moves.map(name).join(' · ')}</span>}
                     <div className="ml-auto flex items-center gap-2 text-xs">

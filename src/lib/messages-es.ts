@@ -270,6 +270,8 @@ export const ES: Record<string, string> = {
   'Search the roster': 'Buscar en el equipo',
   'Clear search': 'Borrar búsqueda',
   'Mint given': 'Menta dada',
+  'Written by AI': 'Escrito por IA',
+  'AI': 'IA',
   'Completed first': 'Completos primero',
   'Unfinished first': 'Sin terminar primero',
   'Name (A–Z)': 'Nombre (A–Z)',

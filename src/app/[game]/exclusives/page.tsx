@@ -4,6 +4,17 @@ import { prisma } from '@/lib/db';
 import { getLang, getT } from '@/lib/i18n';
 import { requireGameProfile } from '@/lib/profile';
 
+/** The end of the form's slug in the data for each form label in the exclusives list. */
+const FORM_SLUG_END: Record<string, string> = {
+  Alola: 'alola',
+  'Paldea Blaze': 'paldea-blaze-breed',
+  'Paldea Aqua': 'paldea-aqua-breed',
+  White: 'white',
+  Black: 'black',
+  'Dusk Mane': 'dusk',
+  'Dawn Wings': 'dawn',
+};
+
 export default async function ExclusivesPage({ params }: PageProps<'/[game]/exclusives'>) {
   const { game: gameId } = await params;
   const { game, profileId } = await requireGameProfile(gameId);
@@ -11,7 +22,8 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
   if (!ve) notFound();
 
   const dexNumbers = [...new Set(ve.groups.flatMap((g) => [...g.own, ...g.other].map((e) => e.dex)))];
-  const [species, links, entries, roster, lang, t] = await Promise.all([
+  const withForm = [...new Set(ve.groups.flatMap((g) => [...g.own, ...g.other]).filter((e) => e.form).map((e) => e.dex))];
+  const [species, links, formRows, entries, roster, lang, t] = await Promise.all([
     prisma.species.findMany({
       where: { id: { in: dexNumbers } },
       select: {
@@ -22,6 +34,11 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
       },
     }),
     prisma.species.findMany({ select: { id: true, evolvesFromId: true } }),
+    // The regional or special forms the list names, to show the right picture.
+    prisma.form.findMany({
+      where: { speciesId: { in: withForm }, isDefault: false },
+      select: { speciesId: true, slug: true, spriteUrl: true },
+    }),
     prisma.pokedexEntry.findMany({ where: { profileId, speciesId: { in: dexNumbers } }, select: { speciesId: true, owned: true } }),
     prisma.rosterPokemon.findMany({ where: { profileId, owned: true, speciesId: { in: dexNumbers } }, select: { speciesId: true } }),
     getLang(),
@@ -48,6 +65,12 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
     return pa.root - pb.root || pa.depth - pb.depth || a.dex - b.dex;
   };
 
+  const formSprite = (dex: number, form?: string) => {
+    const end = form ? FORM_SLUG_END[form] : undefined;
+    if (!end) return null;
+    return formRows.find((f) => f.speciesId === dex && f.slug.endsWith(`-${end}`))?.spriteUrl ?? null;
+  };
+
   const tile = (e: { dex: number; form?: string }): ExclusiveTile => {
     const s = byId.get(e.dex);
     const isCaught = caught.has(e.dex) || inRoster.has(e.dex);
@@ -56,7 +79,7 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
       form: e.form ?? null,
       nameEn: s?.nameEn ?? `#${e.dex}`,
       nameEs: s?.nameEs ?? `#${e.dex}`,
-      spriteUrl: s?.forms[0]?.spriteUrl ?? null,
+      spriteUrl: formSprite(e.dex, e.form) ?? s?.forms[0]?.spriteUrl ?? null,
       caught: isCaught,
       have: inRoster.has(e.dex) || caught.get(e.dex) === true,
     };
