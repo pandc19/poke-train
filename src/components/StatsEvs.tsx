@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NO_EVS, STAT_LABELS, STAT_ORDER, cleanNumber } from './EvInputs';
 import { IV_RATINGS, ivRating, type IvRatingValue, type IvRatings } from '@/lib/iv-ratings';
 import { estimateEvRange, statsAboveMax, type NatureEffect } from '@/lib/ev-estimate';
@@ -207,6 +207,11 @@ export function StatsEvsEditor({
     }
   }
 
+  const [levelText, setLevelText] = useState(String(level));
+  useEffect(() => {
+    setLevelText((text) => (Number(text) === level || (Number(text) > 100 && level === 100) ? text : String(level)));
+  }, [level]);
+
   return (
     <div className="space-y-2">
       <div
@@ -262,8 +267,14 @@ export function StatsEvsEditor({
               inputMode="numeric"
               min={1}
               max={100}
-              value={level}
-              onChange={(e) => onChange(stats, Math.min(100, Math.max(1, cleanNumber(e.target.value) || 1)), ratings)}
+              value={levelText}
+              onChange={(e) => {
+                // Kept as typed: clearing the box to type a new level must not snap it to 1 first.
+                setLevelText(e.target.value);
+                const n = cleanNumber(e.target.value);
+                if (n > 0) onChange(stats, Math.min(100, n), ratings);
+              }}
+              onBlur={() => setLevelText(String(level))}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') e.currentTarget.blur();
               }}

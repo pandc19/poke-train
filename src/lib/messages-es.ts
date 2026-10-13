@@ -276,6 +276,7 @@ export const ES: Record<string, string> = {
   'Search the roster': 'Buscar en el equipo',
   'Clear search': 'Borrar búsqueda',
   'Mint given': 'Menta dada',
+  'Lv. {level}': 'Nv. {level}',
   'Fixed': 'Fijado',
   'Fix': 'Fijar',
   'Fixes the item, moves, Tera type and Mint shown here, so they stay when you run the audit again.': 'Fija el objeto, los movimientos, el teratipo y la menta mostrados, para que se mantengan al volver a ejecutar la auditoría.',

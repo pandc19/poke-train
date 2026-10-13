@@ -59,8 +59,13 @@ export function RosterList({
                   } ${prog.complete ? 'border-done/60' : 'border-line'}`}
                   style={selected ? { outline: `2px solid ${accent}`, outlineOffset: 1 } : undefined}
                 >
-                  <span className="self-start font-mono text-[10px] text-muted">{numberOf(p)}</span>
-                  {prog.complete && <span className="absolute right-1.5 top-1 text-sm text-star">★</span>}
+                  <span className="flex w-full items-center justify-between text-[10px] text-muted">
+                    <span className="font-mono">{numberOf(p)}</span>
+                    <span className="flex items-center gap-1">
+                      {prog.complete && <span className="text-sm leading-none text-star">★</span>}
+                      <span>{t('Lv. {level}', { level: p.level })}</span>
+                    </span>
+                  </span>
                   <PokemonSprite p={p} size={56} animated={false} />
                   <span className="mt-0.5 w-full truncate text-xs font-medium">{name}</span>
                   <span className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-bg">
