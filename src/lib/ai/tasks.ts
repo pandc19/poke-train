@@ -14,7 +14,7 @@ import type { RosterView } from '../roster';
 import { type BuildAudit, type BuildAuditRaw, LocationSchema, buildAuditSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 14;
+const PROMPT_VERSION = 15;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -269,7 +269,11 @@ export async function auditBuild(
           ? 'mint: a Mint changes which stats a nature raises and lowers without changing the nature. The effect the game applies is mintNature when it is given, otherwise currentNature (or targetNature when currentNature is unknown). ' +
             'Judge that effect against its role, base stats and the moves you recommend: the raised stat should be the one it attacks or speeds with, and the lowered one a stat it never uses (Attack for a special attacker, Sp. Atk for a physical one). ' +
             'If the effect it has is already the best one, set keep to true and nature to that nature. Otherwise set keep to false and nature to the better one, in English. ' +
-            'Neutral natures never need a Mint to be kept: if no effect is better than neutral, say so with keep true. Give a one-sentence reason.'
+            (p.mintNature
+              ? 'It holds a Mint now, so keep true means to leave it as it is. '
+              : 'It has NO Mint: never tell the player to keep a Mint. If its own nature already has the best effect, set keep to true and say in the reason that no Mint is needed; ' +
+                'otherwise set keep to false and suggest using that nature’s Mint. ') +
+            'Give a one-sentence reason.'
           : '',
         hasTera
           ? p.auditLocks?.teraType

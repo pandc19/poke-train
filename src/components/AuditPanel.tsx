@@ -177,6 +177,7 @@ export function AuditPanel({
   onLocksChange,
   currentTera,
   onMint,
+  hasMint,
   lockedPlan,
   onLockPlan,
   onUnlockPlan,
@@ -196,6 +197,8 @@ export function AuditPanel({
   onLocksChange?: (locks: AuditLocks | null) => void;
   /** The Tera type it has now, to show beside the suggestion. */
   currentTera?: string | null;
+  /** Whether it has been given a Mint, so "keep" is not said of one it does not have. */
+  hasMint?: boolean;
   /** Records the suggested Mint as given (true) or takes it back (false). */
   onMint?: (nature: string, given: boolean) => void;
   /** The EV spread the player has fixed as the plan, if any. */
@@ -391,7 +394,13 @@ export function AuditPanel({
                 return (
                 <p>
                   <span className="font-medium">
-                    {keep ? t('Keep it: {nature}', { nature: shown.nature }) : t('Change to {nature}', { nature: shown.nature })}
+                    {keep
+                    ? hasMint
+                      ? t('Keep it: {nature}', { nature: shown.nature })
+                      : t('No Mint needed: {nature} is already the best', { nature: shown.nature })
+                    : hasMint
+                      ? t('Change to {nature}', { nature: shown.nature })
+                      : t('Use a {nature} Mint', { nature: shown.nature })}
                   </span>
                     <span className="text-muted"> · {shown.reason}</span>
                 </p>

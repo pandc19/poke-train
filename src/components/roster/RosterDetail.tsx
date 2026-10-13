@@ -547,6 +547,7 @@ export function RosterDetail({
           locks={p.auditLocks}
           onLocksChange={(locks) => void save({ auditLocks: locks })}
           currentTera={p.teraType}
+          hasMint={p.mintNature != null}
           onMint={(nature, given) => {
             const match = options.natures.find((n) => n.nameEn.toLowerCase() === nature.toLowerCase());
             if (match) void save({ mintNatureId: given ? match.id : null });
