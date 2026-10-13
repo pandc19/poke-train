@@ -52,17 +52,6 @@ const Body = z.object({
           speed: z.number().int().min(0).max(999),
         })
         .nullable(),
-      /** EVs gained that the stats cannot show; added to the estimate. */
-      hiddenEvs: z
-        .object({
-          hp: z.number().int().min(0).max(252),
-          attack: z.number().int().min(0).max(252),
-          defense: z.number().int().min(0).max(252),
-          specialAttack: z.number().int().min(0).max(252),
-          specialDefense: z.number().int().min(0).max(252),
-          speed: z.number().int().min(0).max(252),
-        })
-        .nullable(),
       level: z.number().int().min(1).max(100),
       /** What the Judge said about each stat's IV. */
       auditLocks: AuditLocksSchema.nullable(),
@@ -213,7 +202,6 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
             : {}),
           ...(set.currentStats !== undefined ? { currentStats: set.currentStats ?? Prisma.DbNull } : {}),
           ...(set.level !== undefined ? { level: set.level } : {}),
-          ...(set.hiddenEvs !== undefined ? { hiddenEvs: set.hiddenEvs ?? Prisma.DbNull } : {}),
           ...(set.ivRatings !== undefined ? { ivRatings: set.ivRatings ?? Prisma.DbNull } : {}),
           ...(set.auditLocks !== undefined ? { auditLocks: set.auditLocks ?? Prisma.DbNull } : {}),
           ...(currentEvs !== undefined
@@ -256,7 +244,6 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
       currentEvs === undefined &&
       (set.currentStats !== undefined ||
         set.level !== undefined ||
-        set.hiddenEvs !== undefined ||
         set.targetNatureId !== undefined ||
         set.mintNatureId !== undefined ||
         set.ivRatings !== undefined)

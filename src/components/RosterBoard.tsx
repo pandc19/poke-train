@@ -71,6 +71,8 @@ export function RosterBoard({
   useEffect(() => {
     try {
       const saved = localStorage.getItem(SORT_KEY) as Sort | null;
+      // Read after mount on purpose: the server render has no localStorage.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (saved && SORTS.includes(saved)) setSort(saved);
     } catch {}
   }, []);
@@ -179,17 +181,15 @@ export function RosterBoard({
     p: RosterView,
     stats: EvSpread | null,
     level: number,
-    ivRatings: IvRatings,
-    hiddenEvs: EvSpread | null
+    ivRatings: IvRatings
   ) {
     setError(null);
-    replace({ ...p, currentStats: stats, level, ivRatings, hiddenEvs });
+    replace({ ...p, currentStats: stats, level, ivRatings });
     try {
       const data = await api<{ pokemon: RosterView }>(`/api/roster/${p.id}`, 'PATCH', {
         set: {
           currentStats: stats,
           level,
-          hiddenEvs,
           ivRatings: Object.values(ivRatings).some(Boolean) ? ivRatings : null,
         },
       });
@@ -553,7 +553,7 @@ export function RosterBoard({
               onSet={(set) => saveSet(selected, set)}
               onGender={(g) => changeGender(selected, g)}
               onPotential={(v) => changePotential(selected, v)}
-              onSaveStats={(stats, level, ratings, hidden) => saveStats(selected, stats, level, ratings, hidden)}
+              onSaveStats={(stats, level, ratings) => saveStats(selected, stats, level, ratings)}
               onAudit={(refresh, deep) => audit(selected, refresh, deep)}
               onToggleAudit={() => setAuditShown(selected.id, hiddenAudits.has(selected.id))}
               onBreeder={(on) => setBreeder(selected, on)}

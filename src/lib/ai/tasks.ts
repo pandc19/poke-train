@@ -4,9 +4,10 @@ import { prisma } from '../db';
 import type { GameConfig } from '../games';
 import { learnableMoves } from '../breeding/moves';
 import { evGap, evTotal, formatEvs } from '../import/evs';
-import { withFixedMoves } from '../audit-locks';
+import { activeMint, withFixedMoves } from '../audit-locks';
 import { STAT_NAMES, loadEvSources } from '../ev-catalog';
 import { describePlan, legalPlan, trainingItemsFor } from '../ev-plan';
+import { syncEvStatus } from '../ev-sync';
 import type { Lang } from '../i18n';
 import { ivRating } from '../iv-ratings';
 import { potentialLevel } from '../potential';
@@ -14,7 +15,7 @@ import type { RosterView } from '../roster';
 import { type BuildAudit, type BuildAuditRaw, LocationSchema, buildAuditSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 15;
+const PROMPT_VERSION = 17;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -121,7 +122,7 @@ function describeBuild(p: RosterView, hasEvs = true) {
       ? {
           // EVs per stat, all six listed. Not the same thing as the stats above.
           currentEvs: p.currentEvs ? statLine(p.currentEvs) : null,
-          evsLeftToTrain: p.currentEvs ? Math.max(0, 510 - evTotal(p.currentEvs)) : null,
+          evsLeftToTrain: p.currentEvs ? Math.max(0, 508 - evTotal(p.currentEvs)) : null,
           // Worked out from the stats and IV ratings, so they may be a little low.
           currentEvsAreEstimated: p.currentEvs ? p.currentEvsEstimated : null,
           // The spread the player is training towards, when there is one. The plan is then fixed.
@@ -172,8 +173,12 @@ export async function auditBuild(
   const hasTera = game.features.teraType;
   // Mints exist where the game's catalog lists them.
   const hasMint = game.catalog.some((s) => s.id === 'mints');
+  // A fixed Mint only counts while it still holds (the Pokémon has it, or needs none).
+  const mintLock = hasMint
+    ? activeMint(locks, p.mintNature?.nameEn, (p.currentNature ?? p.targetNature)?.nameEn)
+    : undefined;
   const allFixed = Boolean(
-    locks?.heldItem && (locks.moves?.length ?? 0) >= 4 && (!hasEvs || p.evs) && (!hasTera || locks.teraType) && (!hasMint || locks.mint)
+    locks?.heldItem && (locks.moves?.length ?? 0) >= 4 && (!hasEvs || p.evs) && (!hasTera || locks.teraType) && (!hasMint || mintLock)
   );
 
   return cached(
@@ -195,13 +200,19 @@ export async function auditBuild(
           heldItem: locks?.heldItem ?? r.heldItem,
           recommendedMoves: withFixedMoves(locks?.moves, r.recommendedMoves),
           ...(hasTera ? { teraType: locks?.teraType ?? r.teraType } : {}),
-          ...(hasMint ? { mint: locks?.mint ? { ...locks.mint, keep: true } : r.mint } : {}),
+          ...(hasMint ? { mint: mintLock ? { ...mintLock, keep: true } : r.mint } : {}),
         });
         if (!hasEvs) return { ...(raw as BuildAudit), ...fixed(raw as BuildAudit) };
         // The spread is the model's proposal; what it means for this Pokémon is worked out here.
         const withPlan = raw as BuildAuditRaw;
-        // A plan the player has fixed is kept as it is; otherwise it is the model's proposal made legal.
-        const plan = p.evs ?? legalPlan(withPlan.evPlan.spread, p.currentEvs, !hasTarget);
+        // A plan the player has fixed is kept, only made legal again (amounts in fours, 252 and 508 caps);
+        // otherwise it is the model's proposal made legal.
+        const plan = legalPlan(p.evs ?? withPlan.evPlan.spread, p.currentEvs, !hasTarget);
+        if (p.evs && formatEvs(plan) !== formatEvs(p.evs)) {
+          // The fixed plan was saved before these rules: save it as it now reads.
+          await prisma.rosterPokemon.update({ where: { id: p.id }, data: { evs: plan } });
+          await syncEvStatus(prisma, p.id);
+        }
         const { spread, toTrain } = describePlan(plan, p.currentEvs, lang === 'es' ? 'nada' : 'nothing');
         const gap = evGap(plan, p.currentEvs);
         const missing = (Object.keys(gap) as (keyof typeof gap)[]).filter((k) => gap[k] > 0);
@@ -223,7 +234,7 @@ export async function auditBuild(
             heldItem: p.auditLocks!.heldItem,
             recommendedMoves: p.auditLocks!.moves,
             ...(hasTera ? { teraType: p.auditLocks!.teraType } : {}),
-            ...(hasMint ? { mint: { ...p.auditLocks!.mint!, keep: true } } : {}),
+            ...(hasMint ? { mint: { ...mintLock!, keep: true } } : {}),
             ...(hasEvs ? { evPlan: { spread: p.evs } } : {}),
           } as never)
         : undefined,
@@ -237,8 +248,8 @@ export async function auditBuild(
         JSON.stringify({ pokemon: build, legalMovePool }, null, 2),
         hasEvs
           ? 'evPlan: currentStats are the numbers the game shows (HP 331, Attack 328…). They are NOT EVs, so never use them for the plan. ' +
-            'currentEvs are the EVs it has trained, per stat, and evsLeftToTrain is how many of the 510 are still free. ' +
-            'spread is the EVs it should finish with, as numbers per stat (at most 252 each and 510 in total). ' +
+            'currentEvs are the EVs it has trained, per stat, and evsLeftToTrain is how many of the 508 are still free. ' +
+            'spread is the EVs it should finish with, as numbers per stat: multiples of 4 only (the game counts EVs in fours, so 6 is no better than 4), at most 252 each and 508 in total. ' +
             (p.evs
               ? 'The player has fixed the EV plan: targetEvs is the spread it finishes with, so use it exactly as spread. ' +
                 'Choose the held item and the moves for those EVs. '
@@ -263,8 +274,8 @@ export async function auditBuild(
           'Do not recommend moves that use a stat it is not investing in: no special attacks when its Sp. Atk gets no EVs and its nature does not raise it, ' +
           'and no physical attacks when its Attack gets none. Status and setup moves are fine. ' +
           'Use the type, category and power given; do not invent move effects. Keep each reason to one short sentence.',
-        hasMint && p.auditLocks?.mint
-          ? `mint: the player has fixed ${p.auditLocks.mint.nature}. Return exactly that nature with keep true and a one-sentence reason.`
+        hasMint && mintLock
+          ? `mint: the player has fixed ${mintLock.nature}. Return exactly that nature with keep true and a one-sentence reason.`
           : hasMint
           ? 'mint: a Mint changes which stats a nature raises and lowers without changing the nature. The effect the game applies is mintNature when it is given, otherwise currentNature (or targetNature when currentNature is unknown). ' +
             'Judge that effect against its role, base stats and the moves you recommend: the raised stat should be the one it attacks or speeds with, and the lowered one a stat it never uses (Attack for a special attacker, Sp. Atk for a physical one). ' +

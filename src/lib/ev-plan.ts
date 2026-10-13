@@ -2,18 +2,20 @@ import { evGap, evTotal, formatEvs, type EvSpread } from './import/evs';
 
 const KEYS: (keyof EvSpread)[] = ['hp', 'attack', 'defense', 'specialAttack', 'specialDefense', 'speed'];
 const MAX_STAT = 252;
-const MAX_TOTAL = 510;
+/** The game allows 510, but EVs count in fours, so 508 is the most that does anything. */
+const MAX_TOTAL = 508;
 
 /**
  * Makes the spread the model proposed a spread the game allows: at most 252 in
- * a stat and 510 in all. Where EVs are hard to change, `keepCurrent` also never
+ * a stat and 508 in all (510 in the game, but only whole fours count). Where EVs are hard to change, `keepCurrent` also never
  * goes below what the Pokémon already has, so the plan only adds to it.
+ * Amounts are rounded down to a multiple of 4, which is how the game counts them.
  */
 export function legalPlan(
   proposed: EvSpread,
   current: EvSpread | null,
   keepCurrent: boolean,
-  /** Stats from most to least important. When the spread is over 510, the least important lose EVs first. */
+  /** Stats from most to least important. When the spread is over 508, the least important lose EVs first. */
   priority: (keyof EvSpread)[] = []
 ): EvSpread {
   const floor = (key: keyof EvSpread) => (keepCurrent ? Math.min(MAX_STAT, current?.[key] ?? 0) : 0);
@@ -21,12 +23,19 @@ export function legalPlan(
   for (const key of KEYS) {
     plan[key] = Math.max(floor(key), Math.min(MAX_STAT, Math.max(0, Math.round(proposed[key]))));
   }
-  // Over 510: take the surplus back from the least important stat, then the next, never below its floor.
+  // The game counts EVs in groups of 4, so a stat with 6 gives no more than one with 4: drop the odd ones
+  // (252 / 252 / 4, not 252 / 252 / 6), unless the Pokémon already has them.
+  for (const key of KEYS) {
+    const odd = plan[key] % 4;
+    if (odd && plan[key] - odd >= floor(key)) plan[key] -= odd;
+  }
+  // Over 508: take the surplus back from the least important stat, then the next, never below its floor.
+  // It goes in whole fours, so what is left stays a multiple of 4.
   const unlisted = KEYS.filter((k) => !priority.includes(k)).sort((a, b) => plan[b] - floor(b) - (plan[a] - floor(a)));
   for (const key of [...unlisted, ...[...priority].reverse()]) {
     const surplus = evTotal(plan) - MAX_TOTAL;
     if (surplus <= 0) break;
-    plan[key] -= Math.min(plan[key] - floor(key), surplus);
+    plan[key] -= Math.min(plan[key] - floor(key), Math.ceil(surplus / 4) * 4);
   }
   return plan;
 }

@@ -14,21 +14,25 @@ describe('legalPlan', () => {
   const current = evs(120, 92, 4);
 
   it('never goes below the current EVs when they are hard to change', () => {
-    expect(legalPlan(evs(0, 252, 0, 0, 0, 252), current, true)).toEqual(evs(120, 252, 4, 0, 0, 134));
+    expect(legalPlan(evs(0, 252, 0, 0, 0, 252), current, true)).toEqual(evs(120, 252, 4, 0, 0, 132));
   });
 
-  it('caps a stat at 252 and the total at 510', () => {
+  it('caps a stat at 252 and the total at 508', () => {
     const plan = legalPlan(evs(300, 300, 0, 0, 0, 300), null, false);
     expect(Math.max(...Object.values(plan))).toBeLessThanOrEqual(252);
     expect(plan.speed).toBe(252);
-    expect(Object.values(plan).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(510);
+    expect(Object.values(plan).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(508);
   });
 
   it('takes the surplus from the least important stat first', () => {
     const plan = legalPlan(evs(120, 252, 4, 0, 0, 252), evs(120, 92, 4), true, ['attack', 'speed']);
-    expect(plan).toEqual(evs(120, 252, 4, 0, 0, 134));
+    expect(plan).toEqual(evs(120, 252, 4, 0, 0, 132));
     const other = legalPlan(evs(120, 252, 4, 0, 0, 252), evs(120, 92, 4), true, ['speed', 'attack']);
-    expect(other).toEqual(evs(120, 134, 4, 0, 0, 252));
+    expect(other).toEqual(evs(120, 132, 4, 0, 0, 252));
+  });
+
+  it('uses amounts in fours: 252 / 252 / 4, not 6', () => {
+    expect(legalPlan(evs(6, 252, 0, 0, 0, 252), null, false)).toEqual(evs(4, 252, 0, 0, 0, 252));
   });
 
   it('keeps what is trained when the plan already fits', () => {

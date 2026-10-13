@@ -26,7 +26,6 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
       targetNatureId: true,
       potential: true,
       ivRatings: true,
-      hiddenEvs: true,
     },
   });
   if (!row?.currentStats) return;
@@ -50,7 +49,6 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
     nature,
     ivsLow: ivAssumption(row.potential).low,
     ratings: row.ivRatings as IvRatings | null,
-    hidden: row.hiddenEvs as Partial<EvSpread> | null,
   });
   await db.rosterPokemon.update({
     where: { id: rosterId },

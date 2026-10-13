@@ -15,6 +15,22 @@ export const AuditLocksSchema = z.object({
 });
 export type AuditLocks = z.infer<typeof AuditLocksSchema>;
 
+/**
+ * The fixed Mint, when it still holds: the Pokémon has that Mint, or has none and
+ * its own nature is the one chosen ("no Mint needed"). Otherwise it is stale
+ * (the Mint was never given, or the nature changed) and the audit decides again.
+ */
+export function activeMint(
+  locks: AuditLocks | null | undefined,
+  mintNature: string | null | undefined,
+  realNature: string | null | undefined
+) {
+  const fixed = locks?.mint;
+  if (!fixed) return undefined;
+  const same = (a: string | null | undefined, b: string) => a != null && a.toLowerCase() === b.toLowerCase();
+  return same(mintNature ?? realNature, fixed.nature) ? fixed : undefined;
+}
+
 type Moves = { move: string; reason: string }[];
 
 /**

@@ -68,20 +68,18 @@ function StatsSection({
 }: {
   p: RosterView;
   info?: EvEstimateInfo;
-  onSave: (stats: EvSpread | null, level: number, ratings: IvRatings, hidden: EvSpread | null) => void;
+  onSave: (stats: EvSpread | null, level: number, ratings: IvRatings) => void;
 }) {
   const [stats, setStats] = useState<EvSpread | null>(p.currentStats);
   const [level, setLevel] = useState(p.level);
   const [ratings, setRatings] = useState<IvRatings>(p.ivRatings ?? {});
-  const [hidden, setHidden] = useState<EvSpread | null>(p.hiddenEvs);
   const commit = () => {
     const next = stats && evTotal(stats) > 0 ? stats : null;
     const changed =
       JSON.stringify(next) !== JSON.stringify(p.currentStats) ||
       level !== p.level ||
-      JSON.stringify(ratings) !== JSON.stringify(p.ivRatings ?? {}) ||
-      JSON.stringify(hidden) !== JSON.stringify(p.hiddenEvs);
-    if (changed) onSave(next, level, ratings, hidden);
+      JSON.stringify(ratings) !== JSON.stringify(p.ivRatings ?? {});
+    if (changed) onSave(next, level, ratings);
   };
   return (
     <StatsEvsEditor
@@ -98,8 +96,6 @@ function StatsSection({
       potential={p.potential}
       savedEvs={p.currentEvs}
       savedEstimated={p.currentEvsEstimated}
-      hidden={hidden}
-      onHiddenChange={setHidden}
     />
   );
 }
@@ -149,7 +145,7 @@ export function RosterDetail({
   onSet: (set: Record<string, unknown>) => Promise<string | null>;
   onGender: (g: Gender) => void;
   onPotential: (v: RosterView['potential']) => void;
-  onSaveStats: (stats: EvSpread | null, level: number, ratings: IvRatings, hidden: EvSpread | null) => void;
+  onSaveStats: (stats: EvSpread | null, level: number, ratings: IvRatings) => void;
   onAudit: (refresh: boolean, deep: boolean) => void;
   onToggleAudit: () => void;
   /** Adds it to, or takes it off, the breeders. */
@@ -170,7 +166,14 @@ export function RosterDetail({
 
   const [error, setError] = useState<string | null>(null);
   const [nickname, setNickname] = useState(p.nickname ?? '');
-  const [targetEvs, setTargetEvs] = useState(p.evs ? formatEvs(p.evs) : '');
+  const savedEvs = p.evs ? formatEvs(p.evs) : '';
+  const [targetEvs, setTargetEvs] = useState(savedEvs);
+  // The plan can be fixed from the audit, outside this box: show what was saved.
+  const [shownSaved, setShownSaved] = useState(savedEvs);
+  if (shownSaved !== savedEvs) {
+    setShownSaved(savedEvs);
+    setTargetEvs(savedEvs);
+  }
 
   const prog = progressOf(p);
 
@@ -547,7 +550,8 @@ export function RosterDetail({
           locks={p.auditLocks}
           onLocksChange={(locks) => void save({ auditLocks: locks })}
           currentTera={p.teraType}
-          hasMint={p.mintNature != null}
+          mintGiven={p.mintNature?.nameEn ?? null}
+          realNature={(p.currentNature ?? p.targetNature)?.nameEn ?? null}
           onMint={(nature, given) => {
             const match = options.natures.find((n) => n.nameEn.toLowerCase() === nature.toLowerCase());
             if (match) void save({ mintNatureId: given ? match.id : null });

@@ -5,7 +5,7 @@ import { useCachedLocations } from './useCachedLocations';
 import { Dialog } from './Dialog';
 import { Sprite } from './Sprite';
 import { TypeBadge } from './TypeBadge';
-import type { AuditLocks } from '@/lib/audit-locks';
+import { activeMint, type AuditLocks } from '@/lib/audit-locks';
 import type { BuildAudit, LocationResult } from '@/lib/ai/schema';
 import { useT } from '@/lib/translate-client';
 
@@ -177,7 +177,8 @@ export function AuditPanel({
   onLocksChange,
   currentTera,
   onMint,
-  hasMint,
+  mintGiven,
+  realNature,
   lockedPlan,
   onLockPlan,
   onUnlockPlan,
@@ -197,8 +198,10 @@ export function AuditPanel({
   onLocksChange?: (locks: AuditLocks | null) => void;
   /** The Tera type it has now, to show beside the suggestion. */
   currentTera?: string | null;
-  /** Whether it has been given a Mint, so "keep" is not said of one it does not have. */
-  hasMint?: boolean;
+  /** The nature (English name) of the Mint it was given, if any: "keep" is not said of a Mint it does not have. */
+  mintGiven?: string | null;
+  /** Its own nature (English name), what counts when it has no Mint. */
+  realNature?: string | null;
   /** Records the suggested Mint as given (true) or takes it back (false). */
   onMint?: (nature: string, given: boolean) => void;
   /** The EV spread the player has fixed as the plan, if any. */
@@ -228,16 +231,22 @@ export function AuditPanel({
   const itemFixed = Boolean(locks?.heldItem);
   const movesFixed = locks?.moves ?? [];
   const teraFixed = locks?.teraType;
-  const mintFixed = locks?.mint;
+  const hasMint = mintGiven != null;
+  // A fixed Mint only counts while it still holds; an answer saved before that changed is not shown.
+  const mintFixed = activeMint(locks, mintGiven, realNature);
+  const sameNature = (a?: string | null, b?: string | null) => a != null && b != null && a.toLowerCase() === b.toLowerCase();
+  const staleMint =
+    !mintFixed && audit.mint != null && !hasMint && audit.mint.keep && !sameNature(audit.mint.nature, realNature);
+  const mintShown = mintFixed ? { ...mintFixed, keep: true } : audit.mint && !staleMint ? audit.mint : undefined;
   const anyFixed = itemFixed || movesFixed.length > 0 || Boolean(teraFixed) || Boolean(mintFixed);
   const recommended = audit.recommendedMoves ?? [];
   // One button fixes the held item and all the moves together, or lets them all go.
   const toggleFixed = () => {
     if (anyFixed) return setLocks({});
     // A Mint that is to change is recorded as given when it is fixed (the same as marking it by hand).
-    if (audit.mint && !audit.mint.keep) onMint?.(audit.mint.nature, true);
+    if (mintShown && !mintShown.keep) onMint?.(mintShown.nature, true);
     setLocks({
-      mint: audit.mint ? { nature: audit.mint.nature, reason: audit.mint.reason } : undefined,
+      mint: mintShown ? { nature: mintShown.nature, reason: mintShown.reason } : undefined,
       heldItem: audit.heldItem ? { item: audit.heldItem.item, reason: audit.heldItem.reason } : undefined,
       moves: recommended.slice(0, 4).map((m) => ({ move: m.move, reason: m.reason })),
       teraType: audit.teraType ? { type: audit.teraType.type, reason: audit.teraType.reason } : undefined,
@@ -384,13 +393,12 @@ export function AuditPanel({
           </div>
         )}
 
-        {(audit.mint || mintFixed) && (
+        {mintShown && (
           <div>
             <h4 className={heading}>{t('Mint')}</h4>
             {(() => {
-              // A Mint the player fixed is the one a re-run keeps, so it is the one shown.
-              const shown = mintFixed ?? audit.mint!;
-              const keep = mintFixed ? true : audit.mint!.keep;
+              const shown = mintShown;
+              const keep = shown.keep;
                 return (
                 <p>
                   <span className="font-medium">
@@ -409,7 +417,7 @@ export function AuditPanel({
           </div>
         )}
 
-        {onLocksChange && (audit.heldItem || recommended.length > 0 || audit.teraType || audit.mint) && (
+        {onLocksChange && (audit.heldItem || recommended.length > 0 || audit.teraType || mintShown) && (
           <p className="flex flex-wrap items-center gap-2">
             {anyFixed ? (
               <>

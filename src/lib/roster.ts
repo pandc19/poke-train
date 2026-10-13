@@ -58,8 +58,6 @@ export type RosterView = {
   currentEvs: EvSpread | null;
   /** The current EVs were calculated from the stats, so they are approximate. */
   currentEvsEstimated: boolean;
-  /** EVs it has gained that the stats cannot show, added to the estimate. */
-  hiddenEvs: EvSpread | null;
   /** The stats the game shows (blue graph), when recorded. The current EVs are worked out from them. */
   currentStats: EvSpread | null;
   level: number;
@@ -177,7 +175,6 @@ export async function loadRoster(
       evs: r.evs as EvSpread | null,
       currentEvs: r.currentEvs as EvSpread | null,
       currentEvsEstimated: r.currentEvsEstimated,
-      hiddenEvs: r.hiddenEvs as EvSpread | null,
       currentStats: r.currentStats as EvSpread | null,
       level: r.level,
       ivRatings: r.ivRatings as IvRatings | null,
