@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { motion } from 'motion/react';
 import { Dialog } from '../Dialog';
 import { SearchInput } from '../SearchInput';
 import { TeraBadge, TypeBadge } from '../TypeBadge';
@@ -68,11 +69,57 @@ export function TeamView({
   const [filling, setFilling] = useState(false);
   const [query, setQuery] = useState('');
   const [fighting, setFighting] = useState(false);
+  // Order the cards by how close each Pokémon is to its plan in the stat being trained. Display only: the
+  // slots, and so the order in the game, are not touched. Remembered on this device.
+  const [byProgress, setByProgress] = useState(() => {
+    try {
+      return localStorage.getItem('team-by-progress') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const chooseByProgress = (on: boolean) => {
+    setByProgress(on);
+    try {
+      localStorage.setItem('team-by-progress', on ? '1' : '0');
+    } catch {}
+  };
 
   const byId = useMemo(() => new Map(roster.map((p) => [p.id, p])), [roster]);
   const members = team.map((id) => (id ? (byId.get(id) ?? null) : null));
   const name = (p: RosterView) => p.nickname ?? (lang === 'en' ? p.species.nameEn : p.species.nameEs);
   const speciesName = (p: RosterView) => (lang === 'en' ? p.species.nameEn : p.species.nameEs);
+
+  /** What a member still has to train in the chosen stat: null when its plan has nothing for it. */
+  const leftIn = (p: RosterView | null): number | null => {
+    if (!p || !training) return null;
+    const target = p.evs?.[training] ?? 0;
+    if (target <= 0) return null;
+    return target - (p.currentEvs?.[training] ?? 0);
+  };
+
+  // The order the cards are shown in: slot order, or by progress in the stat being trained. The closest to finishing
+  // comes first, then the ones with more to go, then the ones already there, then those with no plan for the stat;
+  // empty slots last. It follows the saved numbers, so it moves once an edit has settled and not on every tap.
+  const order = useMemo(() => {
+    const indices = members.map((_, i) => i);
+    if (!byProgress || !training) return indices;
+    const group = (p: RosterView | null) => {
+      if (!p) return 4;
+      const left = leftIn(p);
+      return left == null ? 3 : left > 0 ? 0 : 2;
+    };
+    return indices.sort((a, b) => {
+      const ma = members[a];
+      const mb = members[b];
+      const ga = group(ma);
+      const gb = group(mb);
+      if (ga !== gb) return ga - gb;
+      if (ga === 0) return (leftIn(ma) ?? 0) - (leftIn(mb) ?? 0) || a - b;
+      return a - b;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members, byProgress, training]);
 
   // The one shown: the selected Pokémon when it is in the team, otherwise the first of the team.
   const shown = members.find((m) => m && m.id === selectedId) ?? members.find(Boolean) ?? null;
@@ -130,6 +177,19 @@ export function TeamView({
           );
         })}
       </div>
+      {training && (
+        <button
+          type="button"
+          aria-pressed={byProgress}
+          onClick={() => chooseByProgress(!byProgress)}
+          title={t('Shows the closest to finishing this stat first. The slots and the order in the game do not change.')}
+          className={`rounded-md border px-3 py-1.5 text-xs ${
+            byProgress ? 'border-done/60 bg-done/15 font-semibold text-done' : 'border-line text-muted hover:text-ink'
+          }`}
+        >
+          {t('Order by progress')}
+        </button>
+      )}
       {training ? (
         <button
           type="button"
@@ -156,11 +216,12 @@ export function TeamView({
     <div className="grid gap-5 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
       {/* ---------- the six slots ---------- */}
       <ol className="grid grid-cols-2 content-start gap-2 lg:sticky lg:top-3 lg:-m-1 lg:max-h-[calc(100vh-1.5rem)] lg:grid-cols-1 lg:self-start lg:overflow-y-auto lg:p-1">
-        {members.map((p, i) => {
+        {order.map((i) => {
+          const p = members[i];
           const slot = i + 1;
           if (!p) {
             return (
-              <li key={slot}>
+              <motion.li key={`empty-${slot}`} layout transition={{ duration: 0.25 }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -172,13 +233,14 @@ export function TeamView({
                 >
                   <span className="text-lg leading-none">＋</span> {t('Add to slot {n}', { n: slot })}
                 </button>
-              </li>
+              </motion.li>
             );
           }
           const prog = progressOf(p);
           const active = shown?.id === p.id;
+          const left = leftIn(p);
           return (
-            <li key={slot} className="relative">
+            <motion.li key={p.id} layout transition={{ duration: 0.25 }} className="relative">
               <button
                 type="button"
                 onClick={() => onSelect(p.id)}
@@ -191,7 +253,15 @@ export function TeamView({
                 <PokemonSprite p={p} size={56} animated={false} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{name(p)}</span>
-                  <span className="block text-xs text-muted">{t('Lv. {level}', { level: p.level })}</span>
+                  <span className="block text-xs text-muted">
+                    {t('Lv. {level}', { level: p.level })}
+                    {byProgress && ` · ${t('slot {n}', { n: slot })}`}
+                  </span>
+                  {training && left != null && (
+                    <span className={`block text-[11px] font-medium ${left > 0 ? 'text-pending' : 'text-done'}`}>
+                      {STAT_LABELS[training][lang]} · {left > 0 ? t('{n} to go', { n: left }) : `✓ ${t('Done')}`}
+                    </span>
+                  )}
                   <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-bg">
                     <span
                       className={`block h-full rounded-full ${prog.complete ? 'bg-done' : 'bg-pending'}`}
@@ -224,7 +294,7 @@ export function TeamView({
                   ✕
                 </button>
               </span>
-            </li>
+            </motion.li>
           );
         })}
       </ol>

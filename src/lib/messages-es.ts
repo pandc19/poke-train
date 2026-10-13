@@ -270,6 +270,8 @@ export const ES: Record<string, string> = {
   'Search the roster': 'Buscar en el equipo',
   'Clear search': 'Borrar búsqueda',
   'Mint given': 'Menta dada',
+  'Order by progress': 'Ordenar por progreso',
+  'Shows the closest to finishing this stat first. The slots and the order in the game do not change.': 'Muestra primero al que está más cerca de terminar esta estadística. Los huecos y el orden en el juego no cambian.',
   'Search a Pokémon': 'Buscar un Pokémon',
   'These stats ask for {total} EVs, more than a Pokémon can have (508). If it has leveled up, change the level.': 'Estas estadísticas piden {total} EVs, más de los que puede tener un Pokémon (508). Si ha subido de nivel, cambia el nivel.',
   '{stats} at the most it can be at level {level}. If the game does not show its EVs full, it may have leveled up: check the level.': '{stats}: lo máximo posible al nivel {level}. Si el juego no muestra sus EVs completos, puede que haya subido de nivel: revisa el nivel.',
