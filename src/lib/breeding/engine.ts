@@ -40,10 +40,27 @@ export type BreedingData = {
 
 export type Gender = 'MALE' | 'FEMALE' | 'BOTH' | 'GENDERLESS' | 'UNKNOWN';
 
+/** What the Judge's word for one stat tells about its IV: exactly 31, anything else, or not judged. */
+export type IvKnowledge = 'perfect' | 'imperfect' | 'unknown';
+export const IV_STATS = ['hp', 'attack', 'defense', 'specialAttack', 'specialDefense', 'speed'] as const;
+export type IvStat = (typeof IV_STATS)[number];
+
 export type OwnedPokemon = {
   speciesId: number;
   gender: Gender;
   moveIds: number[];
+  /** Where it was recorded. A Pokédex entry is a species and a gender with nothing known about it. */
+  source?: 'breeder' | 'roster' | 'pokedex';
+  /** Roster id, so a plan can point at the exact Pokémon. */
+  id?: string;
+  /** Nickname, when it has one. */
+  label?: string | null;
+  /** The Judge's word for each IV; stats left out are not judged. */
+  ivs?: Partial<Record<IvStat, IvKnowledge>>;
+  /** The nature it has now. */
+  natureId?: number | null;
+  /** True when its ability is the species' hidden one; null when not known. */
+  hiddenAbility?: boolean | null;
 };
 
 export type Owned = {
@@ -133,7 +150,7 @@ const NO_EGGS = 'no-eggs';
 const MAX_CHAIN_DEPTH = 3;
 const MAX_OPTIONS = 3;
 
-const ref = (s: SpeciesInfo): SpeciesRef => ({ id: s.id, nameEn: s.nameEn, nameEs: s.nameEs });
+export const ref = (s: SpeciesInfo): SpeciesRef => ({ id: s.id, nameEn: s.nameEn, nameEs: s.nameEs });
 
 /** The species itself followed by its pre-evolutions, base stage last. */
 export function lineage(data: BreedingData, speciesId: number): SpeciesInfo[] {
@@ -145,12 +162,12 @@ export function lineage(data: BreedingData, speciesId: number): SpeciesInfo[] {
   return chain;
 }
 
-const baseOf = (data: BreedingData, speciesId: number) => lineage(data, speciesId).at(-1);
+export const baseOf = (data: BreedingData, speciesId: number) => lineage(data, speciesId).at(-1);
 
-const canBreedAtAll = (s: SpeciesInfo) => s.eggGroups.length > 0 && !s.eggGroups.includes(NO_EGGS) && s.id !== DITTO_ID;
-const canBeMale = (s: SpeciesInfo) => s.genderRate >= 0 && s.genderRate < 8;
-const canBeFemale = (s: SpeciesInfo) => s.genderRate > 0;
-const shareGroup = (a: SpeciesInfo, b: SpeciesInfo) => a.eggGroups.some((g) => b.eggGroups.includes(g));
+export const canBreedAtAll = (s: SpeciesInfo) => s.eggGroups.length > 0 && !s.eggGroups.includes(NO_EGGS) && s.id !== DITTO_ID;
+export const canBeMale = (s: SpeciesInfo) => s.genderRate >= 0 && s.genderRate < 8;
+export const canBeFemale = (s: SpeciesInfo) => s.genderRate > 0;
+export const shareGroup = (a: SpeciesInfo, b: SpeciesInfo) => a.eggGroups.some((g) => b.eggGroups.includes(g));
 
 /** Ways a species' line learns a move, split into egg and everything else. */
 function waysFor(data: BreedingData, speciesId: number, moveId: number) {
@@ -174,7 +191,7 @@ function waysFor(data: BreedingData, speciesId: number, moveId: number) {
 
 const childrenIndex = new WeakMap<BreedingData, Map<number, number[]>>();
 
-function familyIds(data: BreedingData, speciesId: number): number[] {
+export function familyIds(data: BreedingData, speciesId: number): number[] {
   let children = childrenIndex.get(data);
   if (!children) {
     children = new Map();
@@ -198,14 +215,14 @@ function familyIds(data: BreedingData, speciesId: number): number[] {
 }
 
 /** The stage of a family that can actually breed (baby Pokémon cannot; their evolutions can). */
-function breederOf(data: BreedingData, speciesId: number): SpeciesInfo | null {
+export function breederOf(data: BreedingData, speciesId: number): SpeciesInfo | null {
   const self = data.species.get(speciesId);
   if (self && canBreedAtAll(self)) return self;
   return familyIds(data, speciesId).map((id) => data.species.get(id)!).find(canBreedAtAll) ?? null;
 }
 
 /** A recorded gender, or the one a single-gender species must have. */
-function effectiveGender(data: BreedingData, p: OwnedPokemon): Gender {
+export function effectiveGender(data: BreedingData, p: OwnedPokemon): Gender {
   if (p.gender !== 'UNKNOWN') return p.gender;
   const rate = data.species.get(p.speciesId)?.genderRate;
   return rate === 0 ? 'MALE' : rate === 8 ? 'FEMALE' : 'UNKNOWN';

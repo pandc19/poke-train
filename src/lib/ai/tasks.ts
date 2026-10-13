@@ -11,7 +11,7 @@ import type { Lang } from '../i18n';
 import { ivRating } from '../iv-ratings';
 import { potentialLevel } from '../potential';
 import type { RosterView } from '../roster';
-import { type BuildAudit, type BuildAuditRaw, LocationSchema, buildAuditSchema, StarterAdviceSchema, TeamAuditSchema } from './schema';
+import { type BuildAudit, type BuildAuditRaw, LocationSchema, buildAuditSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
 const PROMPT_VERSION = 13;
@@ -328,27 +328,5 @@ export async function researchLocation(
       'Do not explain what you could not confirm: leave it out. ' +
       'If it cannot be caught in the wild, set found to false and say in one sentence how it is obtained. ' +
       'notes stays empty unless one short sentence is essential (for example, it needs the DLC).',
-  });
-}
-
-export function adviseStarterTeam(
-  provider: AiProvider,
-  game: GameConfig,
-  lang: Lang,
-  profileId: string,
-  owned: string[],
-  refresh: boolean
-) {
-  return cached(provider, { kind: 'starter-team', profileId, refresh, lang }, { game: game.id, owned, lang }, {
-    system: system(game, lang),
-    schema: StarterAdviceSchema,
-    schemaName: 'starter_advice',
-    webSearch: true,
-    tier: 'deep',
-    prompt:
-      `Recommend an early-game utility core for ${game.name}: story progression, EV training, catching ` +
-      '(False Swipe plus a sleep or paralysis move) and egg hatching (Flame Body or similar). ' +
-      `The player already has: ${owned.length ? owned.join(', ') : 'nothing yet'}. Prefer what they own, ` +
-      'and for anything else say where to get it early. Six picks at most.',
   });
 }

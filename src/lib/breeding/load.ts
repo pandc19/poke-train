@@ -1,7 +1,7 @@
 import { prisma } from '../db';
 import { LOCAL_USER_ID } from '../constants';
 import type { GameConfig } from '../games';
-import type { BreedingData, LearnWay, Owned, OwnedPokemon } from './engine';
+import { IV_STATS, type BreedingData, type IvKnowledge, type LearnWay, type Owned, type OwnedPokemon } from './engine';
 
 /** Loads what the engine needs for a set of moves in one game. */
 export async function loadBreedingData(game: GameConfig, moveIds: number[]): Promise<BreedingData> {
@@ -46,8 +46,15 @@ export async function loadOwned(profileId: string): Promise<Owned> {
     prisma.rosterPokemon.findMany({
       where: { profileId, owned: true, profile: { userId: LOCAL_USER_ID } },
       select: {
+        id: true,
         speciesId: true,
         gender: true,
+        nickname: true,
+        ivRatings: true,
+        currentNatureId: true,
+        abilityId: true,
+        roles: { select: { role: true } },
+        species: { select: { forms: { select: { abilities: { select: { abilityId: true, isHidden: true } } } } } },
         // Only moves already checked off: a pending move is not known yet.
         moves: { where: { status: 'DONE', moveId: { not: null } }, select: { moveId: true } },
       },
@@ -60,17 +67,32 @@ export async function loadOwned(profileId: string): Promise<Owned> {
 
   // Registered-only entries (evolved or released) are not in the player's hands.
   const held = entries.filter((e) => e.owned);
-  const owned: OwnedPokemon[] = roster.map((p) => ({
-    speciesId: p.speciesId,
-    gender: p.gender,
-    moveIds: p.moves.map((m) => m.moveId!),
-  }));
+  const owned: OwnedPokemon[] = roster.map((p) => {
+    const ratings = (p.ivRatings ?? {}) as Record<string, string | null>;
+    const ivs: Partial<Record<(typeof IV_STATS)[number], IvKnowledge>> = {};
+    for (const stat of IV_STATS) {
+      const word = ratings[stat];
+      if (word) ivs[stat] = word === 'PERFECT' ? 'perfect' : 'imperfect';
+    }
+    const hiddenIds = new Set(p.species.forms.flatMap((f) => f.abilities.filter((a) => a.isHidden).map((a) => a.abilityId)));
+    return {
+      id: p.id,
+      label: p.nickname,
+      speciesId: p.speciesId,
+      gender: p.gender,
+      moveIds: p.moves.map((m) => m.moveId!),
+      source: p.roles.some((r) => r.role === 'BREEDER') ? ('breeder' as const) : ('roster' as const),
+      ivs,
+      natureId: p.currentNatureId,
+      hiddenAbility: p.abilityId == null ? null : hiddenIds.has(p.abilityId),
+    };
+  });
   const inRoster = new Set(roster.map((p) => p.speciesId));
   for (const e of held) {
-    if (e.hasMale) owned.push({ speciesId: e.speciesId, gender: 'MALE', moveIds: [] });
-    if (e.hasFemale) owned.push({ speciesId: e.speciesId, gender: 'FEMALE', moveIds: [] });
+    if (e.hasMale) owned.push({ speciesId: e.speciesId, gender: 'MALE', moveIds: [], source: 'pokedex' });
+    if (e.hasFemale) owned.push({ speciesId: e.speciesId, gender: 'FEMALE', moveIds: [], source: 'pokedex' });
     if (!e.hasMale && !e.hasFemale && !inRoster.has(e.speciesId)) {
-      owned.push({ speciesId: e.speciesId, gender: 'UNKNOWN', moveIds: [] });
+      owned.push({ speciesId: e.speciesId, gender: 'UNKNOWN', moveIds: [], source: 'pokedex' });
     }
   }
   return { roster: owned, caughtSpeciesIds: new Set(held.map((e) => e.speciesId)) };

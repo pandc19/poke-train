@@ -287,6 +287,12 @@ enum Origin {
   UNKNOWN
 }
 
+/// Where a Pokémon is used. One Pokémon can be on the trained roster, in the breeders, or both.
+enum PokemonRole {
+  ROSTER
+  BREEDER
+}
+
 /// One trained (or to-be-trained) Pokémon. Each trainable aspect carries its
 /// own PENDING/DONE status; the card is complete when all of them are DONE.
 model RosterPokemon {
@@ -355,9 +361,22 @@ model RosterPokemon {
 
   moves  RosterMove[]
   audits AiAudit[]
+  roles  PokemonRoleAssignment[]
 
   @@index([profileId, sortOrder])
   @@map("roster_pokemon")
+}
+
+/// Which pages a Pokémon appears on. The Pokémon itself (species, stats, IV words, ...) is
+/// stored once in RosterPokemon; a Pokémon with no role left is deleted.
+model PokemonRoleAssignment {
+  rosterPokemonId String      @map("roster_pokemon_id") @db.Uuid
+  role            PokemonRole
+
+  rosterPokemon RosterPokemon @relation(fields: [rosterPokemonId], references: [id], onDelete: Cascade)
+
+  @@id([rosterPokemonId, role])
+  @@map("pokemon_roles")
 }
 
 model RosterMove {
@@ -391,6 +410,10 @@ model BreedingGoal {
   /// Move ids the offspring should know.
   moveIds   Int[]          @map("move_ids")
   natureId  Int?           @map("nature_id")
+  /// Stats whose IV must be 31 (stat keys: hp, attack, defense, specialAttack, specialDefense, speed).
+  ivTargets String[]       @default([]) @map("iv_targets")
+  /// The offspring should have the hidden ability.
+  hiddenAbility Boolean    @default(false) @map("hidden_ability")
   status    BreedingStatus @default(PLANNED)
   /// Last computed plan (see src/lib/breeding).
   plan      Json?
@@ -422,7 +445,7 @@ model AiAudit {
   id              String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
   profileId       String   @map("profile_id") @db.Uuid
   rosterPokemonId String?  @map("roster_pokemon_id") @db.Uuid
-  kind            String // build | team | location | breeding-path | starter-team
+  kind            String // build | team | location | breeding-path
   provider        String
   model           String
   inputHash       String   @map("input_hash")

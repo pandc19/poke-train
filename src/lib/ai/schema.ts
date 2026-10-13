@@ -95,9 +95,3 @@ export const LocationSchema = z.object({
   notes: z.string().describe('Empty, or one short sentence'),
 });
 export type LocationResult = z.infer<typeof LocationSchema>;
-
-export const StarterAdviceSchema = z.object({
-  summary: z.string(),
-  picks: z.array(z.object({ pokemon: z.string(), role: z.string(), why: z.string(), whereToGet: z.string() })),
-});
-export type StarterAdvice = z.infer<typeof StarterAdviceSchema>;

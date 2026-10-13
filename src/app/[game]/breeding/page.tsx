@@ -13,15 +13,16 @@ export default async function BreedingPage({ params }: PageProps<'/[game]/breedi
   if (!game.features.breeding) notFound();
 
   const named = { id: true, nameEn: true, nameEs: true } as const;
-  const [goals, roster, species, lang, t] = await Promise.all([
+  const [goals, roster, species, natures, lang, t] = await Promise.all([
     loadGoals(game, profileId),
-    loadRoster(profileId),
+    loadRoster(profileId, undefined, 'ROSTER'),
     // Only Pokémon obtainable in this game can be bred in it.
     prisma.species.findMany({
       where: { pokedexSlots: { some: { pokedex: { gameId: game.id } } } },
       select: named,
       orderBy: { id: 'asc' },
     }),
+    prisma.nature.findMany({ select: named, orderBy: { nameEn: 'asc' } }),
     getLang(),
     getT(),
   ]);
@@ -31,7 +32,7 @@ export default async function BreedingPage({ params }: PageProps<'/[game]/breedi
       <h1 className="text-xl font-bold">{t('Breeding assistant')}</h1>
       <p className="mb-5 mt-1 max-w-3xl text-sm text-muted">
         {t(
-          'Say which Pokémon you want. The plan checks the Pokémon and genders you recorded in your Pokédex and roster, then lists what you already have and what you still need to catch or breed.'
+          'Say which Pokémon you want. The plan checks the Pokémon and genders you recorded in your Pokédex, roster and breeders, then lists what you already have and what you still need to catch or breed.'
         )}
         {game.features.mirrorHerb &&
           ` ${t('In this game a Mirror Herb picnic can copy egg moves without hatching anything.')}`}
@@ -40,6 +41,7 @@ export default async function BreedingPage({ params }: PageProps<'/[game]/breedi
         gameId={game.id}
         initial={goals}
         species={species}
+        natures={natures}
         lang={lang}
         aiEnabled={getAiProvider() != null}
         rosterBuilds={roster

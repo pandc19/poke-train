@@ -1,4 +1,5 @@
 import type { Localized } from '../translate';
+import { DESTINY_KNOT, EVERSTONE, MIRROR_HERB, POWER_ITEMS } from '../breeding/items';
 
 /** One thing in a catalog: its name, what it does, and its sprite (a PokéAPI item slug). */
 export type CatalogEntry = {
@@ -7,10 +8,14 @@ export type CatalogEntry = {
   sprite?: string;
   /** Shown when the item has no sprite. */
   icon?: string;
+  /** Where to find it, when that is worth saying. */
+  where?: Localized;
 };
 
 export type CatalogSection = {
   id: string;
+  /** Which pages show it: the training pages (default) or the breeding pages. */
+  topic?: 'training' | 'breeding';
   title: Localized;
   note?: Localized;
   entries: CatalogEntry[];
@@ -123,6 +128,143 @@ export const SCARLET_VIOLET_CATALOG: CatalogSection[] = [
       ],
       (st) => ({ en: `${st.en} · +8 EVs`, es: `${st.es} · +8 EVs` })
     ),
+  },
+];
+
+const POWER_STATS = ['hp', 'attack', 'defense', 'specialAttack', 'specialDefense', 'speed'] as const;
+
+/**
+ * What to bring to breed well, and what to search for in the shop or the bag.
+ * Item names are the ones the game shows in each language.
+ */
+export const SCARLET_VIOLET_BREEDING_CATALOG: CatalogSection[] = [
+  {
+    id: 'breeding-core',
+    topic: 'breeding',
+    title: { en: 'Held by the parents', es: 'Para los padres' },
+    note: {
+      en: 'Give these to the parents (or the picnic party) before the egg is made. One of each is enough.',
+      es: 'Equípalos a los padres (o al grupo del picnic) antes de que aparezca el huevo. Con uno de cada es suficiente.',
+    },
+    entries: [
+      {
+        name: DESTINY_KNOT.name,
+        sprite: DESTINY_KNOT.slug,
+        effect: {
+          en: 'The egg inherits 5 IVs from the parents instead of 3. Either parent can hold it.',
+          es: 'El huevo hereda 5 IVs de los padres en vez de 3. Puede llevarlo cualquiera de los dos.',
+        },
+        where: { en: 'Sold at Delibird Presents (Mesagoza); stock grows with your badges.', es: 'Se vende en Delibird Presents (Mesagoza); el stock crece con tus medallas.' },
+      },
+      {
+        name: EVERSTONE.name,
+        sprite: EVERSTONE.slug,
+        effect: {
+          en: 'The egg gets the nature of the parent holding it.',
+          es: 'El huevo tendrá la naturaleza del padre que lo lleve.',
+        },
+        where: { en: 'Sold at Delibird Presents (Mesagoza).', es: 'Se vende en Delibird Presents (Mesagoza).' },
+      },
+      {
+        name: MIRROR_HERB.name,
+        sprite: MIRROR_HERB.slug,
+        effect: {
+          en: 'Held with a free move slot, it copies egg moves from the other Pokémon at a picnic, no egg needed.',
+          es: 'Con un hueco libre en los movimientos, copia movimientos huevo de otro Pokémon en un picnic, sin necesidad de huevo.',
+        },
+      },
+    ],
+  },
+  {
+    id: 'breeding-power',
+    topic: 'breeding',
+    title: { en: 'Power items (pass one IV)', es: 'Objetos recios (pasan un IV)' },
+    note: {
+      en: 'The parent holding one always passes that stat’s IV to the egg. Pair it with a parent whose IV in that stat is Best (31).',
+      es: 'El padre que lo lleve siempre pasa el IV de esa estadística al huevo. Úsalo con un padre cuyo IV en esa estadística sea Inmejorable (31).',
+    },
+    entries: POWER_STATS.map((stat) => {
+      const label = { hp: ['HP', 'PS'], attack: ['Attack', 'Ataque'], defense: ['Defense', 'Defensa'], specialAttack: ['Sp. Atk', 'Ataque Especial'], specialDefense: ['Sp. Def', 'Defensa Especial'], speed: ['Speed', 'Velocidad'] }[stat];
+      return {
+        name: POWER_ITEMS[stat].name,
+        sprite: POWER_ITEMS[stat].slug,
+        effect: { en: `Passes ${label[0]} IV`, es: `Pasa el IV de ${label[1]}` },
+      };
+    }),
+  },
+  {
+    id: 'breeding-fixes',
+    topic: 'breeding',
+    title: { en: 'Fixing what the egg did not get', es: 'Arreglar lo que no salió' },
+    note: {
+      en: 'These help after hatching, so a so-so egg is not wasted. None of them is passed on to the next egg.',
+      es: 'Ayudan después de que nazca, para no perder un huevo mediocre. Ninguno se transmite al siguiente huevo.',
+    },
+    entries: [
+      {
+        name: { en: 'Bottle Cap', es: 'Tapón' },
+        sprite: 'bottle-cap',
+        effect: {
+          en: 'Hyper Training: at level 100 it makes one stat count as 31 in battle.',
+          es: 'Superentrenamiento: a nivel 100 hace que una estadística cuente como 31 en combate.',
+        },
+      },
+      {
+        name: { en: 'Gold Bottle Cap', es: 'Tapón Dorado' },
+        sprite: 'gold-bottle-cap',
+        effect: {
+          en: 'Hyper Training for all six stats at once, at level 100.',
+          es: 'Superentrenamiento de las seis estadísticas a la vez, a nivel 100.',
+        },
+      },
+      {
+        name: { en: 'Mints', es: 'Mentas' },
+        sprite: 'adamant-mint',
+        effect: {
+          en: 'Change which stat the nature raises or lowers, so the nature of the egg matters less. The real nature (what an Everstone passes) stays.',
+          es: 'Cambian qué estadística sube o baja la naturaleza, así la naturaleza del huevo importa menos. La naturaleza real (la que pasa una Piedra Eterna) no cambia.',
+        },
+      },
+      {
+        name: { en: 'Ability Patch', es: 'Parche Habilidad' },
+        sprite: 'ability-patch',
+        effect: {
+          en: 'Turns a normal ability into the hidden one, so you do not need a hidden-ability parent.',
+          es: 'Cambia una habilidad normal por la oculta, así no necesitas un padre con habilidad oculta.',
+        },
+      },
+      {
+        name: { en: 'Ability Capsule', es: 'Cápsula Habilidad' },
+        sprite: 'ability-capsule',
+        effect: {
+          en: 'Switches between the two normal abilities.',
+          es: 'Alterna entre las dos habilidades normales.',
+        },
+      },
+    ],
+  },
+  {
+    id: 'breeding-picnic',
+    topic: 'breeding',
+    title: { en: 'Picnic', es: 'Picnic' },
+    entries: [
+      {
+        name: { en: 'Egg Power sandwich', es: 'Sándwich con Poder Huevo' },
+        icon: '🥪',
+        effect: {
+          en: 'Eggs show up in the picnic basket faster. Use a sandwich with a sweet ingredient.',
+          es: 'Los huevos aparecen antes en la cesta del picnic. Usa un sándwich con ingrediente dulce.',
+        },
+      },
+      {
+        name: { en: 'Keep the party to 3', es: 'Lleva solo 3 al picnic' },
+        icon: '🧺',
+        effect: {
+          en: 'Two parents plus one more: extra Pokémon in the party can pair up and make unwanted eggs.',
+          es: 'Dos padres y uno más: otros Pokémon en el grupo pueden emparejarse y crear huevos no deseados.',
+        },
+      },
+    ],
   },
 ];
 

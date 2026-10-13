@@ -33,6 +33,8 @@ export type RosterView = {
   /** Abilities this species can actually have, for the editor and the legality flag. */
   abilityOptions: (Named & { isHidden: boolean })[];
   nickname: string | null;
+  /** Where it is used: the trained roster, the breeders, or both. */
+  roles: ('ROSTER' | 'BREEDER')[];
   gender: 'MALE' | 'FEMALE' | 'BOTH' | 'GENDERLESS' | 'UNKNOWN';
   /** Eighths female; -1 = genderless. Decides which gender buttons make sense. */
   genderRate: number;
@@ -73,9 +75,21 @@ export type RosterView = {
 
 const named = { id: true, nameEn: true, nameEs: true } as const;
 
-export async function loadRoster(profileId: string, ids?: string[]): Promise<RosterView[]> {
+/**
+ * The Pokémon of a profile. `role` limits it to the trained roster or to the breeders;
+ * without it every Pokémon comes back (what a lookup by id wants).
+ */
+export async function loadRoster(
+  profileId: string,
+  ids?: string[],
+  role?: 'ROSTER' | 'BREEDER'
+): Promise<RosterView[]> {
   const rows = await prisma.rosterPokemon.findMany({
-    where: { profileId, ...(ids ? { id: { in: ids } } : {}) },
+    where: {
+      profileId,
+      ...(ids ? { id: { in: ids } } : {}),
+      ...(role ? { roles: { some: { role } } } : {}),
+    },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     include: {
       species: {
@@ -95,6 +109,7 @@ export async function loadRoster(profileId: string, ids?: string[]): Promise<Ros
           },
         },
       },
+      roles: { select: { role: true } },
       baseSpecies: { select: named },
       targetNature: { select: named },
       currentNature: { select: named },
@@ -140,6 +155,7 @@ export async function loadRoster(profileId: string, ids?: string[]): Promise<Ros
       types: form?.types ?? [],
       abilityOptions,
       nickname: r.nickname,
+      roles: r.roles.map((x) => x.role),
       gender: r.gender,
       origin: r.origin,
       owned: r.owned,

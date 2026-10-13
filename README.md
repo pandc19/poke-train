@@ -13,8 +13,8 @@ Track Pokédex progress and a trained competitive roster across Pokémon games. 
 - **Have it now vs. caught.** A caught Pokémon stays in the Pokédex after it evolves. Untick its ✓ and it shows as "not in my box" (with what it evolved into), and the breeding planner stops counting it as a parent.
 - **Genders.** Record ♂/♀ on caught Pokémon in the Pokédex and on roster cards; the breeding planner uses them to know which parents you actually have.
 - **Move legality check** against the game's real learnsets (no AI involved).
-- **Breeding assistant**: finds parents in your roster and Pokédex, fathers that can pass an egg move, multi-generation chains, and the Mirror Herb picnic shortcut.
-- **Starter team**: checks which Pokémon in the game can do early utility jobs (catching, egg hatching) from real moveset and ability data, and whether you already have one.
+- **Breeders**: Pokémon you keep to breed with, recorded with the Judge's word for each IV, nature and ability. A Pokémon is stored once and can be on the roster, in the breeders, or both (`pokemon_roles`); removing it from one page keeps it on the other.
+- **Breeding assistant**: finds parents in your breeders, roster and Pokédex, fathers that can pass an egg move, multi-generation chains, and the Mirror Herb picnic shortcut. A goal can also ask for IVs that must be 31, a nature and the hidden ability: the plan then picks the best pair, says which Destiny Knot, Power item and Everstone to hold, and gives the exact chance that every wanted IV comes out perfect (`src/lib/breeding/ivs.ts`). The Catalog button shows the breeding items on the breeding pages.
 - **Optional AI** (OpenAI or Claude, switchable): build and team audits, where to find items and TMs, where to catch a Pokémon.
 
 ## Run it locally
@@ -70,7 +70,7 @@ Track Pokédex progress and a trained competitive roster across Pokémon games. 
 | `CLAUDE_ESCALATION_MODEL` | no | Harder requests. Default `claude-opus-5-5` |
 | `CLAUDE_MODEL` / `OPENAI_MODEL` | no | Older single-model setting: used for both when the pair above is not set |
 
-**Which model does what.** The bulk model answers single-Pokémon audits and location lookups. The escalation model answers the whole-roster audit and the starter-team advice, and you can re-run any single audit on it with "Re-run with the stronger model". Claude models older than Opus 4.6 / Sonnet 4.6 (such as Haiku) automatically use the basic web search tool.
+**Which model does what.** The bulk model answers single-Pokémon audits and location lookups. The escalation model answers the whole-roster audit, and you can re-run any single audit on it with "Re-run with the stronger model". Claude models older than Opus 4.6 / Sonnet 4.6 (such as Haiku) automatically use the basic web search tool.
 
 With no API key the app runs in **no-AI mode**: everything works except the AI buttons, which explain how to turn them on. To switch provider, change `AI_PROVIDER` and restart `npm run dev`. AI answers are cached in the database, so repeating a question costs nothing.
 
@@ -94,7 +94,7 @@ With no API key the app runs in **no-AI mode**: everything works except the AI b
 
 ## Importing a spreadsheet
 
-Open **Import**, drop the file, check what each column is imported as, preview, then import. `samples/violet-roster.csv` is a working example.
+The **Import** page is not in the menu any more (the roster is already imported), but it is still at `/violet/import`. Open it, drop the file, check what each column is imported as, preview, then import. `samples/violet-roster.csv` is a working example.
 
 How rows are read:
 

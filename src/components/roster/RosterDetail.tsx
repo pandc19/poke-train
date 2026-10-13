@@ -125,6 +125,7 @@ export function RosterDetail({
   onSaveStats,
   onAudit,
   onToggleAudit,
+  onBreeder,
   onRemove,
 }: {
   gameId: string;
@@ -147,6 +148,8 @@ export function RosterDetail({
   onSaveStats: (stats: EvSpread | null, level: number, ratings: IvRatings) => void;
   onAudit: (refresh: boolean, deep: boolean) => void;
   onToggleAudit: () => void;
+  /** Adds it to, or takes it off, the breeders. */
+  onBreeder: (on: boolean) => void;
   onRemove: () => void;
 }) {
   const { t } = useT();
@@ -288,6 +291,19 @@ export function RosterDetail({
               }
             >
               <span className="text-xs text-muted">{t('Do you have this Pokémon?')}</span>
+            </Field>
+            <Field
+              label={t('Breeding')}
+              hint={t('A breeder is kept on the Breeders page with its IVs, and used as a parent by the breeding planner.')}
+              action={
+                <TaskToggle
+                  status={p.roles.includes('BREEDER') ? 'DONE' : 'PENDING'}
+                  onToggle={() => onBreeder(!p.roles.includes('BREEDER'))}
+                  label={p.roles.includes('BREEDER') ? t('Also a breeder') : t('Not a breeder')}
+                />
+              }
+            >
+              <span className="text-xs text-muted">{t('Keep it for breeding too?')}</span>
             </Field>
             <Field label={t('Gender')} hint={t('Used by the breeding planner to know which parents you have.')}>
               <GenderControl p={p} onChange={onGender} />

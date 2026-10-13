@@ -192,7 +192,7 @@ export function RosterBoard({
   async function remove(p: RosterView) {
     setRemoving(null);
     try {
-      await api(`/api/roster/${p.id}`, 'DELETE');
+      await api(`/api/roster/${p.id}?role=ROSTER`, 'DELETE');
       const index = roster.findIndex((x) => x.id === p.id);
       const rest = roster.filter((x) => x.id !== p.id);
       setRoster(rest);
@@ -206,6 +206,26 @@ export function RosterBoard({
     }
   }
 
+  /** Adds or takes away the "also a breeder" role. */
+  async function setBreeder(p: RosterView, on: boolean) {
+    setError(null);
+    try {
+      if (on) {
+        const data = await api<{ pokemon: RosterView }>('/api/roster', 'POST', {
+          gameId,
+          existingId: p.id,
+          role: 'BREEDER',
+        });
+        replace(data.pokemon);
+      } else {
+        await api(`/api/roster/${p.id}?role=BREEDER`, 'DELETE');
+        replace({ ...p, roles: p.roles.filter((r) => r !== 'BREEDER') });
+      }
+    } catch {
+      setError(t('Could not save that change. It has been undone; try again.'));
+    }
+  }
+
   async function add() {
     const wanted = adding.trim().toLowerCase();
     const species = options.species.find((s) => s.nameEn.toLowerCase() === wanted || s.nameEs.toLowerCase() === wanted);
@@ -215,7 +235,11 @@ export function RosterBoard({
     }
     setError(null);
     try {
-      const data = await api<{ pokemon: RosterView }>('/api/roster', 'POST', { gameId, speciesId: species.id });
+      const data = await api<{ pokemon: RosterView }>('/api/roster', 'POST', {
+        gameId,
+        speciesId: species.id,
+        role: 'ROSTER',
+      });
       setRoster((prev) => [...prev, data.pokemon]);
       setAdding('');
       // The new Pokémon goes to the end of the list: show it and open it.
@@ -504,6 +528,7 @@ export function RosterBoard({
               onSaveStats={(stats, level, ratings) => saveStats(selected, stats, level, ratings)}
               onAudit={(refresh, deep) => audit(selected, refresh, deep)}
               onToggleAudit={() => setAuditShown(selected.id, hiddenAudits.has(selected.id))}
+              onBreeder={(on) => setBreeder(selected, on)}
               onRemove={() => setRemoving(selected)}
             />
           ) : (

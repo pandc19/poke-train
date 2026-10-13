@@ -1,6 +1,7 @@
 import { prisma } from '../db';
 import type { GameConfig } from '../games';
-import { planBreeding, type BreedingPlan } from './engine';
+import { IV_STATS, planBreeding, type BreedingPlan, type IvStat } from './engine';
+import { planIvs, type IvPlan } from './ivs';
 import { loadBreedingData, loadOwned } from './load';
 
 type Named = { id: number; nameEn: string; nameEs: string };
@@ -10,6 +11,12 @@ export type BreedingGoalView = {
   species: Named;
   moves: Named[];
   status: 'PLANNED' | 'IN_PROGRESS' | 'DONE';
+  /** What the offspring should be like, besides its moves. */
+  ivTargets: IvStat[];
+  nature: Named | null;
+  hiddenAbility: boolean;
+  /** The best parents for those wishes among what you have, or null when none were asked for. */
+  ivs: IvPlan | null;
   /** Always computed fresh from the current roster and Pokédex, never stored. */
   plan: BreedingPlan | null;
 };
@@ -28,18 +35,31 @@ export async function loadGoals(game: GameConfig, profileId: string, ids?: strin
   if (!goals.length) return [];
 
   const allMoveIds = [...new Set(goals.flatMap((g) => g.moveIds))];
-  const [moves, data, owned] = await Promise.all([
+  const natureIds = [...new Set(goals.flatMap((g) => (g.natureId != null ? [g.natureId] : [])))];
+  const [moves, natures, data, owned] = await Promise.all([
     prisma.move.findMany({ where: { id: { in: allMoveIds } }, select: { id: true, nameEn: true, nameEs: true } }),
+    prisma.nature.findMany({ where: { id: { in: natureIds } }, select: { id: true, nameEn: true, nameEs: true } }),
     loadBreedingData(game, allMoveIds),
     loadOwned(profileId),
   ]);
   const moveById = new Map(moves.map((m) => [m.id, m]));
+  const natureById = new Map(natures.map((n) => [n.id, n]));
 
-  return goals.map((g) => ({
-    id: g.id,
-    species: g.species,
-    moves: g.moveIds.map((id) => moveById.get(id)).filter((m): m is Named => m != null),
-    status: g.status,
-    plan: planBreeding(data, owned, g.speciesId, g.moveIds),
-  }));
+  return goals.map((g) => {
+    const ivTargets = g.ivTargets.filter((s): s is IvStat => (IV_STATS as readonly string[]).includes(s));
+    const wantsMore = ivTargets.length > 0 || g.natureId != null || g.hiddenAbility;
+    return {
+      id: g.id,
+      species: g.species,
+      moves: g.moveIds.map((id) => moveById.get(id)).filter((m): m is Named => m != null),
+      status: g.status,
+      ivTargets,
+      nature: g.natureId != null ? (natureById.get(g.natureId) ?? null) : null,
+      hiddenAbility: g.hiddenAbility,
+      ivs: wantsMore
+        ? planIvs(data, owned, g.speciesId, { ivTargets, natureId: g.natureId, hiddenAbility: g.hiddenAbility })
+        : null,
+      plan: planBreeding(data, owned, g.speciesId, g.moveIds),
+    };
+  });
 }

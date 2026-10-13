@@ -9,7 +9,7 @@ export default async function RosterPage({ params, searchParams }: PageProps<'/[
   const { p: selected } = await searchParams;
   const { game, profileId } = await requireGameProfile(gameId);
   const [roster, options, lang, t] = await Promise.all([
-    loadRoster(profileId),
+    loadRoster(profileId, undefined, 'ROSTER'),
     loadEditorOptions(game),
     getLang(),
     getT(),

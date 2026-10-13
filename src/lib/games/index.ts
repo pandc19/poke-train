@@ -1,7 +1,6 @@
 import type { Localized } from '../translate';
-import { type CatalogSection, SCARLET_VIOLET_CATALOG } from './catalog';
+import { type CatalogSection, SCARLET_VIOLET_BREEDING_CATALOG, SCARLET_VIOLET_CATALOG } from './catalog';
 import { scarletVioletExclusives, type VersionExclusives } from './exclusives';
-import { VIOLET_UTILITY_ROLES } from './utility-roles';
 
 export type { VersionExclusives } from './exclusives';
 
@@ -41,7 +40,6 @@ export type GameConfig = {
   catalog: CatalogSection[];
   /** Cartridge colours for the game selector. */
   theme: { from: string; to: string; accent: string };
-  utilityRoles: UtilityRole[];
   /** For games sold as a pair: what only this version and only the other version have. */
   versionExclusives?: VersionExclusives;
   /**
@@ -55,27 +53,6 @@ export type GameConfig = {
    * format of the answer, not as facts about locations.
    */
   locationNote?: string;
-};
-
-/**
- * A job every team wants covered early. The Starter team page checks which
- * Pokémon in the game can do it from real learnset and ability data, so
- * nothing here is a hand-written claim about locations.
- * All values are PokéAPI slugs.
- */
-export type UtilityRole = {
-  id: string;
-  title: Localized;
-  why: Localized;
-  needs: {
-    /** The Pokémon must learn every one of these. */
-    allMoves?: string[];
-    /** ...and at least one of these. */
-    anyMoves?: string[];
-    /** Or, instead, have one of these abilities. */
-    anyAbilities?: string[];
-  };
-  tips: Localized[];
 };
 
 export const GAMES: GameConfig[] = [
@@ -102,8 +79,7 @@ export const GAMES: GameConfig[] = [
       judge: true,
     },
     theme: { from: '#7c3aed', to: '#4c1d95', accent: '#c4b5fd' },
-    utilityRoles: VIOLET_UTILITY_ROLES,
-    catalog: SCARLET_VIOLET_CATALOG,
+    catalog: [...SCARLET_VIOLET_CATALOG, ...SCARLET_VIOLET_BREEDING_CATALOG],
     locationNote:
       'Paldea is one open map and you can fast travel almost anywhere, so for each place give the area and the nearest fast-travel point, town or landmark to travel to. ' +
       'Kitakami and Blueberry Academy are separate DLC maps: say which map it is, and the nearest region of that map.',

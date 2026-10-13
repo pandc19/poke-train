@@ -60,6 +60,7 @@ export async function POST(request: Request) {
       await tx.rosterPokemon.create({
         data: {
           profileId,
+          roles: { create: { role: 'ROSTER' } },
           importBatchId: batch.id,
           sortOrder: ++sortOrder,
           speciesId: r.species!.id,

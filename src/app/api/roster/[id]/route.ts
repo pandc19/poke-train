@@ -29,6 +29,8 @@ const Body = z.object({
       nickname: z.string().max(60).nullable(),
       gender: z.enum(['MALE', 'FEMALE', 'BOTH', 'GENDERLESS', 'UNKNOWN']),
       targetNatureId: id,
+      /** The nature it really has (breeders record this one). */
+      currentNatureId: id,
       abilityId: id,
       itemId: id,
       itemNote: z.string().max(200).nullable(),
@@ -174,6 +176,14 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
                 natureStatus: set.targetNatureId != null && set.targetNatureId === current.currentNatureId ? 'DONE' : 'PENDING',
               }
             : {}),
+          ...(set.currentNatureId !== undefined && set.currentNatureId !== current.currentNatureId
+            ? {
+                currentNatureId: set.currentNatureId,
+                ...(current.targetNatureId != null
+                  ? { natureStatus: set.currentNatureId === current.targetNatureId ? ('DONE' as const) : ('PENDING' as const) }
+                  : {}),
+              }
+            : {}),
           ...(set.abilityId !== undefined && set.abilityId !== current.abilityId
             ? { abilityId: set.abilityId, abilityStatus: 'PENDING' }
             : {}),
@@ -256,10 +266,20 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
   return Response.json({ pokemon: view });
 }
 
-export async function DELETE(_request: Request, ctx: RouteContext<'/api/roster/[id]'>) {
+/**
+ * Takes a Pokémon off one page (`?role=ROSTER` or `?role=BREEDER`). It is deleted only when
+ * no role is left, so one that is also a breeder stays in the breeders when removed from the roster.
+ */
+export async function DELETE(request: Request, ctx: RouteContext<'/api/roster/[id]'>) {
   const { id: rosterId } = await ctx.params;
   const current = await findOwned(rosterId);
   if (!current) return apiError('Not found', 404);
-  await prisma.rosterPokemon.delete({ where: { id: rosterId } });
-  return Response.json({ ok: true });
+  const role = new URL(request.url).searchParams.get('role');
+  const parsedRole = z.enum(['ROSTER', 'BREEDER']).safeParse(role);
+  if (parsedRole.success) {
+    await prisma.pokemonRoleAssignment.deleteMany({ where: { rosterPokemonId: rosterId, role: parsedRole.data } });
+  }
+  const left = await prisma.pokemonRoleAssignment.count({ where: { rosterPokemonId: rosterId } });
+  if (left === 0) await prisma.rosterPokemon.delete({ where: { id: rosterId } });
+  return Response.json({ ok: true, deleted: left === 0 });
 }

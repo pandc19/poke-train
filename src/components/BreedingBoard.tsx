@@ -5,9 +5,12 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ConfirmDialog } from './Dialog';
 import { ComboInput } from './roster/parts';
 import { useCachedLocations } from './useCachedLocations';
+import { STAT_LABELS } from './EvInputs';
 import type { LocationResult } from '@/lib/ai/schema';
-import type { MoveOption, MovePlan, ShoppingItem, SpeciesRef, Step } from '@/lib/breeding/engine';
+import { IV_STATS, type IvStat, type MoveOption, type MovePlan, type ShoppingItem, type SpeciesRef, type Step } from '@/lib/breeding/engine';
 import type { BreedingGoalView } from '@/lib/breeding/goals';
+import { DESTINY_KNOT, EVERSTONE, POWER_ITEMS } from '@/lib/breeding/items';
+import type { IvPlan, ParentPick } from '@/lib/breeding/ivs';
 import type { Lang } from '@/lib/i18n';
 import { useT } from '@/lib/translate-client';
 
@@ -22,6 +25,7 @@ export function BreedingBoard({
   gameId,
   initial,
   species,
+  natures,
   lang,
   aiEnabled,
   rosterBuilds,
@@ -29,6 +33,7 @@ export function BreedingBoard({
   gameId: string;
   initial: BreedingGoalView[];
   species: Named[];
+  natures: Named[];
   lang: Lang;
   aiEnabled: boolean;
   rosterBuilds: RosterBuild[];
@@ -49,6 +54,10 @@ export function BreedingBoard({
   /** One move id (or none) per slot, chosen from the moves the Pokémon can have. */
   const [wanted, setWanted] = useState<(number | null)[]>([null, null, null, null]);
   const [options, setOptions] = useState<{ egg: Named[]; other: Named[] } | null>(null);
+  /** What the offspring should be like, besides its moves. */
+  const [ivTargets, setIvTargets] = useState<IvStat[]>([]);
+  const [natureText, setNatureText] = useState('');
+  const [hiddenAbility, setHiddenAbility] = useState(false);
   const [filledFromRoster, setFilledFromRoster] = useState(false);
   const [skipped, setSkipped] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -122,12 +131,27 @@ export function BreedingBoard({
       return;
     }
     const moveIds = wanted.filter((m): m is number => m != null);
+    const nature = natureText.trim() ? find(natures, natureText) : undefined;
+    if (natureText.trim() && !nature) {
+      setError(t('"{name}" is not a nature. Pick one from the suggestions.', { name: natureText }));
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const data = await api<{ goal: BreedingGoalView }>('/api/breeding', 'POST', { gameId, speciesId: s.id, moveIds });
+      const data = await api<{ goal: BreedingGoalView }>('/api/breeding', 'POST', {
+        gameId,
+        speciesId: s.id,
+        moveIds,
+        ivTargets,
+        natureId: nature?.id ?? null,
+        hiddenAbility,
+      });
       setGoals((prev) => [data.goal, ...prev]);
       setTarget('');
+      setIvTargets([]);
+      setNatureText('');
+      setHiddenAbility(false);
       setWanted([null, null, null, null]);
       setOptions(null);
       setFilledFromRoster(false);
@@ -322,6 +346,118 @@ export function BreedingBoard({
     }
   };
 
+  const pct = (x: number) => {
+    const v = x * 100;
+    return `${v >= 10 ? Math.round(v) : v >= 1 ? v.toFixed(1) : v.toFixed(2)}%`;
+  };
+  const statList = (stats: IvStat[]) => stats.map((s) => STAT_LABELS[s][lang]).join(', ');
+  const sourceLabel = (p: ParentPick) =>
+    p.source === 'breeder' ? t('from your breeders') : p.source === 'roster' ? t('from your roster') : t('from your Pokédex, IVs unknown');
+
+  const renderPick = (p: ParentPick, role: string) => (
+    <li key={role} className="rounded-lg border border-line p-2">
+      <p className="text-sm font-semibold">
+        {p.gender === 'female' ? '♀ ' : p.gender === 'male' ? '♂ ' : ''}
+        {p.label ?? name(p.species)}
+        {p.label && <span className="text-xs font-normal text-muted"> · {name(p.species)}</span>}
+        <span className="text-xs font-normal text-muted"> · {role}</span>
+      </p>
+      <p className="text-muted">
+        {sourceLabel(p)}
+        {p.perfect.length > 0 && ` · ${t('perfect')}: ${statList(p.perfect)}`}
+      </p>
+    </li>
+  );
+
+  const renderIvs = (goal: BreedingGoalView, ivs: IvPlan) => {
+    const heading = (
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t('Best parents for the IVs')}</h4>
+    );
+    if (ivs.reason === 'no-breeding') return null;
+    if (ivs.reason === 'no-base' || ivs.reason === 'no-partner' || !ivs.base || !ivs.partner) {
+      return (
+        <div className="mt-4">
+          {heading}
+          <p className="text-xs text-pending">
+            {ivs.reason === 'no-partner'
+              ? t('No partner to pair it with: you need a male that shares its egg group, or a Ditto. Record one in Breeders.')
+              : t('No {name} (or one of its line) recorded as a female. Add it in Breeders or record it in the Pokédex.', {
+                  name: name(goal.species),
+                })}
+          </p>
+        </div>
+      );
+    }
+    const powerStat = ivs.items.powerItem;
+    const holder = (who: 'base' | 'partner' | null) => (who === 'base' ? ivs.base : ivs.partner);
+    const holderName = (who: 'base' | 'partner' | null) => {
+      const p = holder(who);
+      return p ? (p.label ?? name(p.species)) : '';
+    };
+    return (
+      <div className="mt-4">
+        {heading}
+        <ul className="grid gap-2 text-xs sm:grid-cols-2">
+          {renderPick(ivs.base, t('the egg takes its species'))}
+          {renderPick(ivs.partner, ivs.partner.species.id === 132 ? t('Ditto') : t('father'))}
+        </ul>
+        <div className="mt-2 rounded-lg bg-surface-2 p-3 text-xs">
+          <p className="font-medium">{t('Bring')}:</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">
+            <li>
+              {DESTINY_KNOT.name[lang]} {t('(either parent holds it; 5 IVs are passed on instead of 3)')}
+            </li>
+            {powerStat && (
+              <li>
+                {POWER_ITEMS[powerStat].name[lang]} {t('on {name}, so its {stat} IV is always passed on', {
+                  name: holderName(ivs.items.powerHolder),
+                  stat: STAT_LABELS[powerStat][lang],
+                })}
+              </li>
+            )}
+            {ivs.items.everstone && (
+              <li>
+                {EVERSTONE.name[lang]} {t('on {name}, so the egg gets its nature', { name: holderName(ivs.items.everstone) })}
+              </li>
+            )}
+          </ul>
+          <p className="mt-2 text-muted">{t('Find them in the Catalog (button at the bottom right).')}</p>
+        </div>
+        {ivs.targets.length > 0 && (
+          <p className="mt-2 text-xs">
+            {t('Chance that all of {stats} come out perfect:', { stats: statList(ivs.targets) })}{' '}
+            <span className="font-semibold text-star">{pct(ivs.chance.all)}</span>{' '}
+            <span className="text-muted">
+              ({t('about {n} of {total} on average', { n: ivs.chance.expected.toFixed(1), total: ivs.targets.length })})
+            </span>
+          </p>
+        )}
+        {ivs.gaps.length > 0 && (
+          <p className="mt-1 text-xs text-pending">
+            {t('Neither parent has a perfect {stats} recorded. Breed or catch one that does, or fix it afterwards with a Bottle Cap.', {
+              stats: statList(ivs.gaps),
+            })}
+          </p>
+        )}
+        {ivs.unrecorded && (
+          <p className="mt-1 text-xs text-muted">
+            {t('One of these parents comes from the Pokédex, so its IVs are not known and the chance is a minimum. Record it in Breeders.')}
+          </p>
+        )}
+        {ivs.natureOk === false && (
+          <p className="mt-1 text-xs text-pending">
+            {t('Neither parent has the nature you want. Breed without an Everstone and fix the effect with a Mint.')}
+          </p>
+        )}
+        {ivs.hiddenOk === false && (
+          <p className="mt-1 text-xs text-pending">
+            {t('The mother does not have the hidden ability recorded. Use one that has it, or an Ability Patch afterwards.')}
+          </p>
+        )}
+      </div>
+    );
+  };
+
   const renderMove = (goal: BreedingGoalView, plan: MovePlan) => (
     <div key={plan.moveId} className="rounded-lg border border-line p-3">
       <h4 className="text-sm font-semibold">{moveName(goal, plan.moveId)}</h4>
@@ -399,6 +535,43 @@ export function BreedingBoard({
             );
           })}
         </div>
+        <div className="mt-3 grid gap-3 md:grid-cols-[2fr_1fr_1fr]">
+          <fieldset>
+            <legend className="mb-1 text-xs font-medium text-muted">{t('IVs that must be 31 (Best)')}</legend>
+            <div className="flex flex-wrap gap-1.5">
+              {IV_STATS.map((stat) => {
+                const on = ivTargets.includes(stat);
+                return (
+                  <button
+                    key={stat}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setIvTargets((prev) => (on ? prev.filter((s) => s !== stat) : [...prev, stat]))}
+                    className={`rounded-md border px-2.5 py-1 text-xs ${
+                      on ? 'border-done/60 bg-done/15 text-done' : 'border-line text-muted hover:text-ink'
+                    }`}
+                  >
+                    {STAT_LABELS[stat][lang]}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">{t('Nature')}</span>
+            <ComboInput
+              list="breed-natures"
+              value={natureText}
+              onChange={setNatureText}
+              placeholder={t('Any')}
+              className={inputClass}
+            />
+          </label>
+          <label className="flex items-end gap-2 pb-1.5 text-xs text-muted">
+            <input type="checkbox" checked={hiddenAbility} onChange={(e) => setHiddenAbility(e.target.checked)} />
+            {t('Hidden ability')}
+          </label>
+        </div>
         <p className="mt-2 text-xs text-muted">
           {!targetId
             ? t('Choose a Pokémon to see the moves it can have in this game.')
@@ -425,6 +598,11 @@ export function BreedingBoard({
             </span>
           )}
         </div>
+        <datalist id="breed-natures">
+          {natures.map((n) => (
+            <option key={n.id} value={name(n)} label={lang === 'en' ? n.nameEs : n.nameEn} />
+          ))}
+        </datalist>
         <datalist id="breed-species">
           {species.map((s) => (
             <option key={s.id} value={name(s)} label={lang === 'en' ? s.nameEs : s.nameEn} />
@@ -473,6 +651,22 @@ export function BreedingBoard({
                     </div>
                   </div>
 
+                  {(goal.ivTargets.length > 0 || goal.nature || goal.hiddenAbility) && (
+                    <p className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                      {goal.ivTargets.map((s) => (
+                        <span key={s} className="rounded border border-done/50 bg-done/10 px-1.5 py-0.5 text-done">
+                          {STAT_LABELS[s][lang]} 31
+                        </span>
+                      ))}
+                      {goal.nature && (
+                        <span className="rounded border border-line px-1.5 py-0.5">{name(goal.nature)}</span>
+                      )}
+                      {goal.hiddenAbility && (
+                        <span className="rounded border border-line px-1.5 py-0.5">{t('Hidden ability')}</span>
+                      )}
+                    </p>
+                  )}
+
                   {plan && !plan.parents.canBreed && (
                     <p className="mt-3 text-sm text-red-400">
                       {t('{name} cannot breed (it is in the "no eggs" group), so it has to be caught.', {
@@ -512,6 +706,8 @@ export function BreedingBoard({
                       </div>
                     </>
                   )}
+
+                  {goal.ivs && plan?.parents.canBreed && renderIvs(goal, goal.ivs)}
 
                   {plan && (natural.length > 0 || plan.moves.some((m) => m.kind !== 'natural')) && (
                     <div className="mt-4">

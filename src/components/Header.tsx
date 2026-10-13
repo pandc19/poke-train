@@ -28,14 +28,21 @@ export function Header({ games }: { games: GameLink[] }) {
   const [pending, startTransition] = useTransition();
   const current = games.find((g) => g.id === params.game) ?? games[0];
 
+  // The breeding pages show the breeding items; every other page shows the training ones.
+  const onBreeding = /\/(breeding|breeders)(\/|$)/.test(pathname);
+  const catalog = current.catalog.filter((s) => (s.topic ?? 'training') === (onBreeding ? 'breeding' : 'training'));
+
   const tabs = [
     { href: `/${current.id}/pokedex`, label: t('Pokédex') },
     { href: `/${current.id}/national`, label: t('National Dex') },
     { href: `/${current.id}/roster`, label: t('Roster') },
-    { href: `/${current.id}/import`, label: t('Import') },
     ...(current.exclusives ? [{ href: `/${current.id}/exclusives`, label: t('Exclusives') }] : []),
-    ...(current.breeding ? [{ href: `/${current.id}/breeding`, label: t('Breeding') }] : []),
-    { href: `/${current.id}/starter-team`, label: t('Starter team') },
+    ...(current.breeding
+      ? [
+          { href: `/${current.id}/breeders`, label: t('Breeders') },
+          { href: `/${current.id}/breeding`, label: t('Breeding') },
+        ]
+      : []),
   ];
 
   return (
@@ -120,7 +127,7 @@ export function Header({ games }: { games: GameLink[] }) {
           })}
         </nav>
       )}
-      {current.catalog.length > 0 && <CatalogButton sections={current.catalog} />}
+      {catalog.length > 0 && <CatalogButton sections={catalog} />}
     </header>
   );
 }
