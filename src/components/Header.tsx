@@ -37,6 +37,7 @@ export function Header({ games }: { games: GameLink[] }) {
     { href: `/${current.id}/pokedex`, label: t('Pokédex') },
     ...(current.exclusives ? [{ href: `/${current.id}/exclusives`, label: t('Exclusives') }] : []),
     { href: `/${current.id}/roster`, label: t('Roster') },
+    { href: `/${current.id}/search`, label: t('Search') },
     { href: `/${current.id}/battle`, label: t('Battle') },
     ...(current.breeding
       ? [
