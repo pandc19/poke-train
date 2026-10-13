@@ -47,8 +47,16 @@ export function Header({ games }: { games: GameLink[] }) {
   return (
     <header className="border-b border-line bg-surface">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
-        <Link href="/" className="text-lg font-bold tracking-tight">
-          Poké<span className="text-star">Train</span>
+        <Link href="/" className="flex items-center gap-1.5 text-lg font-bold tracking-tight">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" className="shrink-0">
+            <circle cx="12" cy="12" r="10.5" fill="#fff" stroke="#1f2937" strokeWidth="1.5" />
+            <path d="M1.5 12a10.5 10.5 0 0 1 21 0z" fill="#ef4444" stroke="#1f2937" strokeWidth="1.5" />
+            <path d="M1.5 12h21" stroke="#1f2937" strokeWidth="1.5" />
+            <circle cx="12" cy="12" r="3.5" fill="#fff" stroke="#1f2937" strokeWidth="1.5" />
+          </svg>
+          <span>
+            Poké<span className="text-star">Train</span>
+          </span>
         </Link>
 
         <div className="flex items-center gap-2" aria-label={t('Game')}>
