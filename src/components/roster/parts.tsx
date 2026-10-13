@@ -191,7 +191,8 @@ export function PotentialSelect({ p, onChange }: { p: RosterView; onChange: (v: 
 }
 
 const MAX_SUGGESTIONS = 40;
-const plain = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const plain = (text: string) =>
+  text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’‘]/g, "'").toLowerCase();
 
 /** The options of a <datalist> on the page, as plain data. */
 function readDatalist(id: string): { value: string; label: string }[] {

@@ -236,13 +236,19 @@ export async function loadEditorOptions(game: GameConfig) {
     prisma.item.findMany({
       // Things a Pokémon can meaningfully hold; skips key items, TMs, balls, etc.
       where: {
-        category: {
-          in: [
-            'held-items', 'choice', 'bad-held-items', 'type-enhancement', 'species-specific', 'plates',
-            'in-a-pinch', 'picky-healing', 'type-protection', 'medicine', 'other', 'effort-training',
-            'training', 'scarves', 'jewels', 'mega-stones', 'z-crystals', 'memories', 'held-items-other',
-          ],
-        },
+        OR: [
+          {
+            category: {
+              in: [
+                'held-items', 'choice', 'bad-held-items', 'type-enhancement', 'species-specific', 'plates',
+                'in-a-pinch', 'picky-healing', 'type-protection', 'medicine', 'other', 'effort-training',
+                'training', 'scarves', 'jewels', 'mega-stones', 'z-crystals', 'memories', 'held-items-other',
+              ],
+            },
+          },
+          // Held items PokéAPI files under another category (the Leader's Crest is in "picnic").
+          { slug: { in: ['leaders-crest'] } },
+        ],
       },
       select: named,
       orderBy: { nameEn: 'asc' },
