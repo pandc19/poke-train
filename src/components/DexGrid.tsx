@@ -498,6 +498,7 @@ export function DexGrid({
         lang={lang}
         status={openCell ? { caught: caught.has(openCell.speciesId), have: haveNow(openCell) } : undefined}
         exclusive={openCell?.exclusive}
+        entryNumber={openCell?.entryNumber}
         onClose={() => setOpenId(null)}
       />
 

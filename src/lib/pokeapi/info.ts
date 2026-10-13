@@ -83,7 +83,13 @@ const titleCase = (slug: string) =>
     .join(' ');
 
 /** The different looks of a species: its other varieties, in-form variations, and the female look when it differs. */
-async function loadVariants(speciesJson: any, defaultArtwork: string | null, defaultPokemon: any): Promise<PokemonInfo['variants']> {
+async function loadVariants(
+  speciesJson: any,
+  defaultArtwork: string | null,
+  defaultPokemon: any,
+  /** The variety shown first; it is the species' default one unless the game has a regional form. */
+  primaryName?: string
+): Promise<PokemonInfo['variants']> {
   const out: PokemonInfo['variants'] = [];
   const varieties: { is_default: boolean; pokemon: { name: string } }[] = speciesJson.varieties ?? [];
   const baseName: string = varieties.find((v) => v.is_default)?.pokemon.name ?? speciesJson.name;
@@ -92,12 +98,14 @@ async function loadVariants(speciesJson: any, defaultArtwork: string | null, def
   const shinyOf = (p: any): string | null =>
     p?.sprites?.other?.['official-artwork']?.front_shiny ?? p?.sprites?.front_shiny ?? null;
 
-  const others = varieties.filter((v) => !v.is_default && !SKIPPED_VARIETY.test(v.pokemon.name));
+  const primary = primaryName ?? baseName;
+  const others = varieties.filter((v) => v.pokemon.name !== primary && !SKIPPED_VARIETY.test(v.pokemon.name));
   // Some species (Oinkologne, Indeedee, Meowstic) have the female as a variety of her own with full artwork.
   const femaleVariety = others.some((v) => /-female$/.test(v.pokemon.name));
   const gendered = hasGender && (femaleSprite != null || femaleVariety);
 
-  if (defaultArtwork) out.push({ label: gendered ? '♂' : '', artwork: defaultArtwork, shiny: shinyOf(defaultPokemon) });
+  const primaryLabel = primary === baseName ? '' : titleCase(primary.slice(baseName.length + 1) || primary);
+  if (defaultArtwork) out.push({ label: gendered ? '♂' : primaryLabel, artwork: defaultArtwork, shiny: shinyOf(defaultPokemon) });
   if (gendered && !femaleVariety && femaleSprite) out.push({ label: '♀', artwork: femaleSprite, shiny: defaultPokemon?.sprites?.front_shiny_female ?? null });
 
   const fetched = await Promise.all(
@@ -109,7 +117,9 @@ async function loadVariants(speciesJson: any, defaultArtwork: string | null, def
     const name = others[i].pokemon.name;
     const label = /-female$/.test(name)
       ? '♀'
-      : titleCase(name.startsWith(baseName + '-') ? name.slice(baseName.length + 1) : name);
+      : name === baseName
+        ? 'Normal'
+        : titleCase(name.startsWith(baseName + '-') ? name.slice(baseName.length + 1) : name);
     out.push({ label, artwork: art, shiny: shinyOf(p) });
   });
 
@@ -148,11 +158,17 @@ export async function loadPokemonInfo(speciesId: number, game?: GameConfig): Pro
       eggGroups: true,
       genderRate: true,
       isBaby: true,
-      forms: { where: { isDefault: true }, select: { id: true, types: true, baseStats: true, spriteUrl: true }, take: 1 },
+      forms: {
+        where: { OR: [{ isDefault: true }, { slug: { contains: '-paldea' } }] },
+        select: { id: true, slug: true, isDefault: true, types: true, baseStats: true, spriteUrl: true },
+        orderBy: { id: 'asc' },
+      },
     },
   });
   if (!species) return null;
-  const form = species.forms[0];
+  // Violet only has the Paldean form of Wooper and Tauros, so that one leads.
+  const regional = game?.id === 'violet' ? species.forms.find((f) => f.slug.includes('-paldea')) : undefined;
+  const form = regional ?? species.forms.find((f) => f.isDefault);
 
   const [speciesJson, pokemonJson, family, slots] = await Promise.all([
     getPokeApi(`pokemon-species/${speciesId}`),
@@ -163,7 +179,11 @@ export async function loadPokemonInfo(speciesId: number, game?: GameConfig): Pro
         evolvesFromId: true,
         nameEn: true,
         nameEs: true,
-        forms: { where: { isDefault: true }, select: { spriteUrl: true }, take: 1 },
+        forms: {
+          where: { OR: [{ isDefault: true }, { slug: { contains: '-paldea' } }] },
+          select: { slug: true, isDefault: true, spriteUrl: true },
+          orderBy: { id: 'asc' },
+        },
       },
     }),
     game
@@ -197,7 +217,7 @@ export async function loadPokemonInfo(speciesId: number, game?: GameConfig): Pro
   const artwork =
     pokemonJson?.sprites?.other?.['official-artwork']?.front_default ?? form?.spriteUrl ?? null;
 
-  const variants = await loadVariants(speciesJson, artwork, pokemonJson);
+  const variants = await loadVariants(speciesJson, artwork, pokemonJson, pokemonJson?.name);
 
   return {
     id: species.id,
@@ -227,7 +247,11 @@ export async function loadPokemonInfo(speciesId: number, game?: GameConfig): Pro
       ...e,
       nameEn: byId.get(e.id)?.nameEn ?? String(e.id),
       nameEs: byId.get(e.id)?.nameEs ?? String(e.id),
-      spriteUrl: byId.get(e.id)?.forms[0]?.spriteUrl ?? null,
+      spriteUrl: (() => {
+        const forms = byId.get(e.id)?.forms ?? [];
+        const look = (game?.id === 'violet' ? forms.find((f) => f.slug.includes('-paldea')) : undefined) ?? forms.find((f) => f.isDefault);
+        return look?.spriteUrl ?? null;
+      })(),
     })),
     dexEntries: slots
       .sort((a, b) => a.pokedex.sortOrder - b.pokedex.sortOrder)

@@ -108,6 +108,7 @@ export function PokemonInfoDialog({
   lang,
   status,
   exclusive,
+  entryNumber,
   onClose,
 }: {
   speciesId: number | null;
@@ -117,6 +118,8 @@ export function PokemonInfoDialog({
   status?: { caught: boolean; have: boolean };
   /** Set when only one version of a paired game has it. */
   exclusive?: { versionName: string; own: boolean } | null;
+  /** Its number in the Pokédex being browsed; the National number is used when absent. */
+  entryNumber?: number;
   onClose: () => void;
 }) {
   const { t } = useT();
@@ -157,7 +160,7 @@ export function PokemonInfoDialog({
   const stages = info ? Math.max(...info.evolutions.map((e) => e.stage)) + 1 : 0;
 
   return (
-    <Dialog open={speciesId != null} onClose={onClose} wide title={info ? `#${String(info.id).padStart(3, '0')} ${name}` : 'Pokémon'}>
+    <Dialog open={speciesId != null} onClose={onClose} wide title={info ? `#${String(entryNumber ?? info.id).padStart(3, '0')} ${name}` : 'Pokémon'}>
       {!current && <p className="py-10 text-center text-sm text-muted">{t('Loading…')}</p>}
       {current?.error && (
         <p role="alert" className="rounded-md border border-pending/40 bg-pending/10 px-3 py-2 text-sm text-pending">

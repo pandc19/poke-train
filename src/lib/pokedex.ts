@@ -59,7 +59,11 @@ export async function loadDex(
             nameEn: true,
             nameEs: true,
             genderRate: true,
-            forms: { where: { isDefault: true }, select: { spriteUrl: true, types: true }, take: 1 },
+            forms: {
+              where: { OR: [{ isDefault: true }, { slug: { contains: '-paldea' } }] },
+              select: { slug: true, isDefault: true, spriteUrl: true, types: true },
+              orderBy: { id: 'asc' },
+            },
           },
         },
       },
@@ -133,7 +137,13 @@ export async function loadDex(
   const versions = opts.gameId ? getGame(opts.gameId)?.versionExclusives : undefined;
   const exclusives = versions ? exclusiveBySpecies(versions) : null;
 
+  // The Paldea Pokédex lists the Paldean form where there is one (Wooper, Tauros).
+  const lookOf = (forms: (typeof slots)[number]['species']['forms']) =>
+    (pokedexSlug === 'paldea' ? forms.find((f) => f.slug.includes('-paldea')) : undefined) ??
+    forms.find((f) => f.isDefault);
+
   return slots.map((s) => {
+    const look = lookOf(s.species.forms);
     const evo = evolvedInto(s.species.id);
     const side = exclusives?.get(s.species.id);
     return {
@@ -141,8 +151,8 @@ export async function loadDex(
       entryNumber: s.entryNumber,
       nameEn: s.species.nameEn,
       nameEs: s.species.nameEs,
-      spriteUrl: s.species.forms[0]?.spriteUrl ?? null,
-      types: s.species.forms[0]?.types ?? [],
+      spriteUrl: look?.spriteUrl ?? null,
+      types: look?.types ?? [],
       caught: caughtHere.has(s.species.id),
       inGame: inGame ? inGame.has(s.species.id) : true,
       hasMale: gendersHere.get(s.species.id)?.hasMale ?? false,
