@@ -20,7 +20,7 @@ const Body = z.object({
   /** Flip one micro-task. */
   task: z
     .object({
-      key: z.union([z.enum(['owned', 'ability', 'item', 'tera', 'evs']), z.string().regex(/^move:[1-4]$/)]),
+      key: z.union([z.enum(['owned', 'item', 'tera', 'evs']), z.string().regex(/^move:[1-4]$/)]),
       status: Status,
     })
     .optional(),
@@ -107,13 +107,11 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
         data:
           key === 'owned'
             ? { owned: status === 'DONE' }
-            : key === 'ability'
-              ? { abilityStatus: status }
-              : key === 'item'
-                ? { itemStatus: status }
-                : key === 'tera'
-                  ? { teraStatus: status }
-                  : { evStatus: status },
+            : key === 'item'
+              ? { itemStatus: status }
+              : key === 'tera'
+                ? { teraStatus: status }
+                : { evStatus: status },
       });
       // A Pokémon you have is caught and in your box, so the Pokédex says so too.
       if (key === 'owned' && status === 'DONE') {
@@ -193,7 +191,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
             : {}),
           ...(set.mintNatureId !== undefined ? { mintNatureId: set.mintNatureId } : {}),
           ...(set.abilityId !== undefined && set.abilityId !== current.abilityId
-            ? { abilityId: set.abilityId, abilityStatus: 'PENDING' }
+            ? { abilityId: set.abilityId }
             : {}),
           ...(set.itemId !== undefined && set.itemId !== current.itemId
             ? { itemId: set.itemId, itemStatus: 'PENDING' }

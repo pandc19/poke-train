@@ -509,18 +509,10 @@ export function RosterDetail({
             </Field>
             <Field
               label={t('Ability')}
-              action={
-                p.ability && (
-                  <TaskToggle
-                    status={p.abilityStatus}
-                    onToggle={() => onToggle('ability', p.abilityStatus)}
-                    warning={
-                      p.abilityLegal === false
-                        ? t('{name} cannot have this ability', { name: label(p.species) })
-                        : undefined
-                    }
-                  />
-                )
+              hint={
+                p.abilityLegal === false
+                  ? t('{name} cannot have this ability', { name: label(p.species) })
+                  : undefined
               }
             >
               <select
