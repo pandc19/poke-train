@@ -73,9 +73,13 @@ const nameIn = (names: Json[], lang: string): string | undefined =>
   names?.find((n) => n.language.name === lang)?.name;
 const titleCase = (slug: string) =>
   slug.replace(/(^|-)(\w)/g, (_, sep, c) => (sep ? ' ' : '') + c.toUpperCase());
+/** Spanish names PokéAPI has differently from the games (slug → the name the game shows). Kept across syncs. */
+const SPANISH_FIXES: Record<string, string> = {
+  'flash-cannon': 'Foco Resplandor',
+};
 const names = (d: Json) => {
   const nameEn = nameIn(d.names, 'en') ?? titleCase(d.name);
-  return { nameEn, nameEs: nameIn(d.names, 'es') ?? nameEn };
+  return { nameEn, nameEs: SPANISH_FIXES[d.name] ?? nameIn(d.names, 'es') ?? nameEn };
 };
 
 async function chunked<T>(rows: T[], fn: (chunk: T[]) => Promise<unknown>, size = 5000) {

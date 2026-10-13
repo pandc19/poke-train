@@ -16,7 +16,7 @@ const entry = (id: number, nameEn: string, nameEs: string): NamedEntry => ({
 });
 
 const species = [entry(74, 'Geodude', 'Geodude'), entry(76, 'Golem', 'Golem'), entry(633, 'Deino', 'Deino'), entry(635, 'Hydreigon', 'Hydreigon'), entry(906, 'Sprigatito', 'Sprigatito'), entry(908, 'Meowscarada', 'Meowscarada'), entry(884, 'Duraludon', 'Duraludon'), entry(1018, 'Archaludon', 'Archaludon')];
-const moves = [entry(1, 'Rock Slide', 'Avalancha'), entry(2, 'Earthquake', 'Terremoto'), entry(3, 'Fire Punch', 'Puño Fuego'), entry(4, 'Substitute', 'Sustituto'), entry(5, 'Sucker Punch', 'Golpe Bajo'), entry(6, 'U-turn', 'Ida y Vuelta'), entry(7, 'Flower Trick', 'Truco Floral'), entry(8, 'Play Rough', 'Carantoña'), entry(9, 'Flash Cannon', 'Cañón Resplandor'), entry(10, 'Dragon Pulse', 'Pulso Dragón'), entry(11, 'Tailwind', 'Viento Afín')];
+const moves = [entry(1, 'Rock Slide', 'Avalancha'), entry(2, 'Earthquake', 'Terremoto'), entry(3, 'Fire Punch', 'Puño Fuego'), entry(4, 'Substitute', 'Sustituto'), entry(5, 'Sucker Punch', 'Golpe Bajo'), entry(6, 'U-turn', 'Ida y Vuelta'), entry(7, 'Flower Trick', 'Truco Floral'), entry(8, 'Play Rough', 'Carantoña'), entry(9, 'Flash Cannon', 'Foco Resplandor'), entry(10, 'Dragon Pulse', 'Pulso Dragón'), entry(11, 'Tailwind', 'Viento Afín')];
 const items = [entry(1, 'Muscle Band', 'Cinta Fuerte'), entry(2, 'Life Orb', 'Vidasfera'), entry(3, 'Choice Band', 'Cinta Elección'), entry(4, 'Focus Sash', 'Banda Aguante')];
 const abilities = [entry(1, 'Sturdy', 'Robustez'), entry(2, 'Stalwart', 'Acérrimo')];
 const natures = [entry(1, 'Adamant', 'Firme'), entry(2, 'Jolly', 'Alegre'), entry(3, 'Modest', 'Modesta'), entry(4, 'Relaxed', 'Plácida')];
