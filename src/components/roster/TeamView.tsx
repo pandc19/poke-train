@@ -9,7 +9,7 @@ import type { EvEstimateInfo } from '../StatsEvs';
 import { EvSourcesDialog } from '../EvSources';
 import { HEX_ORDER, HexChart } from './HexChart';
 import { PokemonSprite, progressOf } from './parts';
-import { estimateEvRange, statValue } from '@/lib/ev-estimate';
+import { estimateEvRange, levelHints, statValue } from '@/lib/ev-estimate';
 import { evTotal, type EvSpread } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
 import type { IvRatings } from '@/lib/iv-ratings';
@@ -426,6 +426,10 @@ function TeamDetail({
     [stats, level, info, iv.low, p.ivRatings, p.evs]
   );
   const evs = range?.estimate ?? p.currentEvs;
+  const hints =
+    stats && info && range
+      ? levelHints({ stats, level, baseStats: info.baseStats, nature: info.nature, ratings, estimate: range.estimate })
+      : null;
   const total = evs ? evTotal(evs) : 0;
   const natureShown = p.mintNature ?? p.currentNature ?? p.targetNature;
   const nowNature = natureShown;
@@ -519,6 +523,21 @@ function TeamDetail({
                 </button>
               </div>
             </div>
+            {hints?.overTotal != null && (
+              <p role="alert" className="mb-1 text-xs text-pending">
+                {t('These stats ask for {total} EVs, more than a Pokémon can have (508). If it has leveled up, change the level.', {
+                  total: hints.overTotal,
+                })}
+              </p>
+            )}
+            {hints && hints.atMax.length > 0 && (
+              <p className="mb-1 text-xs text-star">
+                {t('{stats} at the most it can be at level {level}. If the game does not show its EVs full, it may have leveled up: check the level.', {
+                  stats: hints.atMax.map((k) => STAT_LABELS[k][lang]).join(', '),
+                  level,
+                })}
+              </p>
+            )}
             <HexChart
               values={stats}
               max={Math.max(150, ...KEYS.map((k) => stats[k])) * 1.05}

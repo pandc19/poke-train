@@ -176,3 +176,31 @@ export function statsAboveMax(args: {
   }
   return out;
 }
+
+/**
+ * Signs that the level on record may be behind the game (it leveled up and only the stats were typed):
+ * the stats ask for more EVs than a Pokémon can have, or a stat sits exactly at the most it can be at this
+ * level, so the EVs read "full" while the game may say otherwise. Nothing is said at level 100.
+ */
+export function levelHints(args: {
+  stats: EvSpread;
+  level: number;
+  baseStats: EvSpread;
+  nature: NatureEffect;
+  ratings?: IvRatings | null;
+  /** The EVs read from the stats (the fewest that fit). */
+  estimate: EvSpread;
+}): { overTotal: number | null; atMax: (keyof EvSpread)[] } {
+  const { stats, level, baseStats, nature, ratings, estimate } = args;
+  if (level >= 100) return { overTotal: null, atMax: [] };
+  const total = (Object.values(estimate) as number[]).reduce((a, b) => a + b, 0);
+  const above = statsAboveMax({ stats, level, baseStats, nature, ratings });
+  const atMax: (keyof EvSpread)[] = [];
+  for (const key of Object.keys(stats) as (keyof EvSpread)[]) {
+    if (!stats[key] || key in above) continue;
+    const max = statValue(key, baseStats[key], ivBoundsFor(ratings, key).high, 252, level, nature);
+    if (stats[key] === max) atMax.push(key);
+  }
+  // 508 is what can be spent in fours; a little over is just how the stats round.
+  return { overTotal: total > MAX_EV_TOTAL ? total : null, atMax };
+}

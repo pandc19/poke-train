@@ -39,7 +39,9 @@ export function HexChart({
   const ring = (f: number) => HEX_ORDER.map((_, i) => point(i, R * f)).join(' ');
 
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[26rem]">
+    // The top and bottom corners carry controls that stand out of the square, so there is room above and below.
+    <div className="py-12">
+      <div className="relative mx-auto aspect-square w-full max-w-[26rem]">
       <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="absolute inset-0 h-full w-full" aria-hidden>
         {[1, 0.66, 0.33].map((f) => (
           <polygon key={f} points={ring(f)} fill="none" stroke="currentColor" strokeOpacity={f === 1 ? 0.35 : 0.15} />
@@ -65,6 +67,7 @@ export function HexChart({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

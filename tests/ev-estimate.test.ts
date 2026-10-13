@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimateEvRange, estimateMaxEvs, estimateEvs, statValue, statsAboveMax } from '@/lib/ev-estimate';
+import { estimateEvRange, estimateMaxEvs, levelHints, estimateEvs, statValue, statsAboveMax } from '@/lib/ev-estimate';
 import { ivAssumption } from '@/lib/potential';
 
 // Golem's base stats, and an Adamant nature (+Attack, -Sp. Atk).
@@ -168,5 +168,39 @@ describe('a stat shows a range of EVs, and the plan can sit inside it', () => {
     const est = estimateEvRange(args).estimate.attack;
     const planned = estimateEvRange({ ...args, plan: { ...none, attack: 252 } }).estimate.attack;
     expect(planned).toBeGreaterThanOrEqual(est);
+  });
+});
+
+describe('hints that the level may be behind the game', () => {
+  const base = { hp: 90, attack: 100, defense: 60, specialAttack: 90, specialDefense: 60, speed: 80 };
+  const nature = { increased: 'attack', decreased: 'special-attack' };
+  const none = { hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 };
+
+  it('flags a stat that sits exactly at the most it can be at this level', () => {
+    const stats = { ...none, attack: statValue('attack', 100, 31, 252, 75, nature) };
+    const { estimate } = estimateEvRange({ stats, level: 75, baseStats: base, nature, ivsLow: 31 });
+    expect(levelHints({ stats, level: 75, baseStats: base, nature, estimate }).atMax).toEqual(['attack']);
+  });
+
+  it('flags stats that ask for more EVs than a Pokémon can have', () => {
+    // Stats read at level 80 but recorded as level 70: every stat reads as a lot of EVs.
+    const stats = {
+      hp: statValue('hp', 90, 31, 100, 80, nature),
+      attack: statValue('attack', 100, 31, 252, 80, nature),
+      defense: statValue('defense', 60, 31, 252, 80, nature),
+      specialAttack: statValue('specialAttack', 90, 31, 252, 80, nature),
+      specialDefense: statValue('specialDefense', 60, 31, 252, 80, nature),
+      speed: statValue('speed', 80, 31, 252, 80, nature),
+    };
+    const { estimate } = estimateEvRange({ stats, level: 74, baseStats: base, nature, ivsLow: 31 });
+    const total = Object.values(estimate).reduce((a, b) => a + b, 0);
+    expect(total).toBeGreaterThan(508);
+    expect(levelHints({ stats, level: 74, baseStats: base, nature, estimate }).overTotal).toBe(total);
+  });
+
+  it('says nothing at level 100', () => {
+    const stats = { ...none, attack: statValue('attack', 100, 31, 252, 100, nature) };
+    const { estimate } = estimateEvRange({ stats, level: 100, baseStats: base, nature, ivsLow: 31 });
+    expect(levelHints({ stats, level: 100, baseStats: base, nature, estimate })).toEqual({ overTotal: null, atMax: [] });
   });
 });

@@ -270,6 +270,8 @@ export const ES: Record<string, string> = {
   'Search the roster': 'Buscar en el equipo',
   'Clear search': 'Borrar búsqueda',
   'Mint given': 'Menta dada',
+  'These stats ask for {total} EVs, more than a Pokémon can have (508). If it has leveled up, change the level.': 'Estas estadísticas piden {total} EVs, más de los que puede tener un Pokémon (508). Si ha subido de nivel, cambia el nivel.',
+  '{stats} at the most it can be at level {level}. If the game does not show its EVs full, it may have leveled up: check the level.': '{stats}: lo máximo posible al nivel {level}. Si el juego no muestra sus EVs completos, puede que haya subido de nivel: revisa el nivel.',
   'These stats were read with {old}, and the game now applies {now}. Type the numbers it shows now, then confirm. Until then the EVs are worked out with {old}.': 'Estas estadísticas se leyeron con {old} y ahora el juego aplica {now}. Escribe los números que muestra ahora y confirma. Hasta entonces los EVs se calculan con {old}.',
   'The stats are up to date': 'Las estadísticas están al día',
   'Empty slot {n}': 'Vaciar el hueco {n}',

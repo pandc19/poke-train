@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { NO_EVS, STAT_LABELS, STAT_ORDER, cleanNumber } from './EvInputs';
 import { IV_RATINGS, ivRating, type IvRatingValue, type IvRatings } from '@/lib/iv-ratings';
-import { estimateEvRange, statsAboveMax, type NatureEffect } from '@/lib/ev-estimate';
+import { estimateEvRange, levelHints, statsAboveMax, type NatureEffect } from '@/lib/ev-estimate';
 import { ivAssumption } from '@/lib/potential';
 import { evTotal, type EvSpread } from '@/lib/import/evs';
 import { useT } from '@/lib/translate-client';
@@ -173,6 +173,10 @@ export function StatsEvsEditor({
   const above =
     hasStats && info ? statsAboveMax({ stats, level, baseStats: info.baseStats, nature: info.nature, ratings }) : {};
   const aboveKeys = Object.keys(above) as (keyof EvSpread)[];
+  const hints =
+    hasStats && info && range
+      ? levelHints({ stats, level, baseStats: info.baseStats, nature: info.nature, ratings, estimate: range.estimate })
+      : { overTotal: null, atMax: [] as (keyof EvSpread)[] };
   const live = range?.estimate ?? null;
   const evs = live ?? savedEvs;
   const estimated = live != null || savedEstimated;
@@ -314,6 +318,21 @@ export function StatsEvsEditor({
               })}
             </p>
           ))}
+          {hints.overTotal != null && (
+            <p role="alert" className="mt-1 text-center text-[11px] text-pending">
+              {t('These stats ask for {total} EVs, more than a Pokémon can have (508). If it has leveled up, change the level.', {
+                total: hints.overTotal,
+              })}
+            </p>
+          )}
+          {hints.atMax.length > 0 && (
+            <p className="mt-1 text-center text-[11px] text-star">
+              {t('{stats} at the most it can be at level {level}. If the game does not show its EVs full, it may have leveled up: check the level.', {
+                stats: hints.atMax.map((k) => STAT_LABELS[k][lang]).join(', '),
+                level,
+              })}
+            </p>
+          )}
           {estimated && (
             <div className="mt-0.5 space-y-0.5 text-center text-[10px] text-muted">
               <p>
