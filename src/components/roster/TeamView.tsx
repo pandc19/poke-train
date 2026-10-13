@@ -6,6 +6,7 @@ import { SearchInput } from '../SearchInput';
 import { TeraBadge, TypeBadge } from '../TypeBadge';
 import { STAT_LABELS } from '../EvInputs';
 import type { EvEstimateInfo } from '../StatsEvs';
+import { EvSourcesDialog } from '../EvSources';
 import { HEX_ORDER, HexChart } from './HexChart';
 import { PokemonSprite, progressOf } from './parts';
 import { estimateEvRange, statValue } from '@/lib/ev-estimate';
@@ -27,6 +28,10 @@ export function TeamView({
   selectedId,
   lang,
   accent,
+  gameId,
+  aiEnabled,
+  training,
+  onTraining,
   tera,
   estimateFor,
   onSelect,
@@ -40,6 +45,11 @@ export function TeamView({
   selectedId: string | null;
   lang: Lang;
   accent: string;
+  gameId: string;
+  aiEnabled: boolean;
+  /** The stat being trained, if one is chosen. */
+  training: keyof EvSpread | null;
+  onTraining: (stat: keyof EvSpread | null) => void;
   /** The game has Tera types. */
   tera: boolean;
   estimateFor: (p: RosterView) => EvEstimateInfo | undefined;
@@ -52,6 +62,7 @@ export function TeamView({
   const { t } = useT();
   const [picking, setPicking] = useState<number | null>(null);
   const [query, setQuery] = useState('');
+  const [fighting, setFighting] = useState(false);
 
   const byId = useMemo(() => new Map(roster.map((p) => [p.id, p])), [roster]);
   const members = team.map((id) => (id ? (byId.get(id) ?? null) : null));
@@ -78,6 +89,51 @@ export function TeamView({
   }, [roster, query, lang]);
 
   return (
+    <div>
+    {/* ---------- what the team is training now ---------- */}
+    <section className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line bg-surface px-3 py-2.5">
+      <h2 className="text-sm font-semibold">{t('Training')}</h2>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('Stat being trained')}>
+        {HEX_ORDER.map((key) => {
+          const on = training === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onTraining(on ? null : key)}
+              className={`rounded-full border px-3 py-1.5 text-xs ${
+                on ? 'border-done/60 bg-done/15 font-semibold text-done' : 'border-line text-muted hover:text-ink'
+              }`}
+            >
+              {STAT_LABELS[key][lang]}
+            </button>
+          );
+        })}
+      </div>
+      {training ? (
+        <button
+          type="button"
+          onClick={() => setFighting(true)}
+          className="ml-auto rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:border-done/50 hover:text-done"
+        >
+          {t('Who to battle for {stat}', { stat: STAT_LABELS[training][lang] })}
+        </button>
+      ) : (
+        <span className="ml-auto text-xs text-muted">{t('Choose a stat to see who to battle for it.')}</span>
+      )}
+    </section>
+    {training && (
+      <EvSourcesDialog
+        open={fighting}
+        onClose={() => setFighting(false)}
+        gameId={gameId}
+        stat={training}
+        statLabel={STAT_LABELS[training][lang]}
+        aiEnabled={aiEnabled}
+      />
+    )}
+
     <div className="grid gap-5 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
       {/* ---------- the six slots ---------- */}
       <ol className="grid grid-cols-2 content-start gap-2 lg:sticky lg:top-3 lg:-m-1 lg:max-h-[calc(100vh-1.5rem)] lg:grid-cols-1 lg:self-start lg:overflow-y-auto lg:p-1">
@@ -154,6 +210,7 @@ export function TeamView({
             onSaveStats={onSaveStats}
             onOpenDetails={() => onOpenDetails(shown.id)}
             slot={shownSlot + 1}
+            training={training}
             onRemove={() => onSetSlot(shownSlot + 1, null)}
           />
         ) : (
@@ -219,6 +276,7 @@ export function TeamView({
         </p>
       </Dialog>
     </div>
+    </div>
   );
 }
 
@@ -230,6 +288,7 @@ function TeamDetail({
   info,
   speciesName,
   slot,
+  training,
   onSaveStats,
   onOpenDetails,
   onRemove,
@@ -240,6 +299,7 @@ function TeamDetail({
   info: EvEstimateInfo | undefined;
   speciesName: string;
   slot: number;
+  training: keyof EvSpread | null;
   onSaveStats: (p: RosterView, stats: EvSpread | null, level: number, ratings: IvRatings) => void;
   onOpenDetails: () => void;
   onRemove: () => void;
@@ -435,7 +495,7 @@ function TeamDetail({
                   return (
                     <li
                       key={key}
-                      className={`rounded-lg border px-2 py-1.5 text-center leading-tight ${
+                      className={`rounded-lg border px-2 py-1.5 text-center leading-tight ${training === key ? 'ring-2 ring-offset-1 ring-offset-surface' : ''} ${
                         state === 'done'
                           ? 'border-done/50 bg-done/10'
                           : state === 'over'

@@ -11,7 +11,9 @@ import { getGame } from '@/lib/games';
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const game = getGame(params.get('gameId') ?? '');
-  const stat = (Object.keys(STAT_NAMES) as (keyof EvSpread)[]).find((k) => STAT_NAMES[k] === params.get('stat'));
+  // The stat by its key ('specialAttack') or by the name the audit uses ('Sp. Atk').
+  const asked = params.get('stat');
+  const stat = (Object.keys(STAT_NAMES) as (keyof EvSpread)[]).find((k) => k === asked || STAT_NAMES[k] === asked);
   if (!game || !stat) return apiError('Invalid query', 400);
   const [group] = await loadEvSources(game.id, [stat], Infinity, true);
   return Response.json({ species: group?.species ?? [] });

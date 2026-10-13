@@ -3,7 +3,7 @@ import { apiError } from '@/lib/api-error';
 import { LOCAL_USER_ID } from '@/lib/constants';
 import { prisma } from '@/lib/db';
 import { findProfileId } from '@/lib/profile';
-import { loadTeam } from '@/lib/team';
+import { TRAINING_STATS, loadTeam } from '@/lib/team';
 
 const Body = z.object({
   gameId: z.string(),
@@ -11,6 +11,22 @@ const Body = z.object({
   /** The roster Pokémon to put in the slot, or null to empty it. */
   rosterPokemonId: z.uuid().nullable(),
 });
+
+const Training = z.object({
+  gameId: z.string(),
+  /** The stat being trained, or null for none. */
+  trainingStat: z.enum(TRAINING_STATS).nullable(),
+});
+
+/** Chooses the stat the team is being trained in (or none). */
+export async function PATCH(request: Request) {
+  const parsed = Training.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return apiError('Invalid body', 400);
+  const profileId = await findProfileId(parsed.data.gameId);
+  if (!profileId) return apiError('Unknown game', 404);
+  await prisma.gameProfile.update({ where: { id: profileId }, data: { trainingStat: parsed.data.trainingStat } });
+  return Response.json({ trainingStat: parsed.data.trainingStat });
+}
 
 /** Puts a roster Pokémon in a team slot (swapping places when it is already in the team), or empties the slot. */
 export async function PUT(request: Request) {

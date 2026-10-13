@@ -3,15 +3,16 @@ import { configuredProviderName, getAiProvider } from '@/lib/ai';
 import { getLang, getT } from '@/lib/i18n';
 import { requireGameProfile } from '@/lib/profile';
 import { loadEditorOptions, loadRoster } from '@/lib/roster';
-import { loadTeam } from '@/lib/team';
+import { loadTeam, loadTrainingStat } from '@/lib/team';
 
 export default async function RosterPage({ params, searchParams }: PageProps<'/[game]/roster'>) {
   const { game: gameId } = await params;
   const { p: selected } = await searchParams;
   const { game, profileId } = await requireGameProfile(gameId);
-  const [roster, team, options, lang, t] = await Promise.all([
+  const [roster, team, trainingStat, options, lang, t] = await Promise.all([
     loadRoster(profileId, undefined, 'ROSTER'),
     loadTeam(profileId),
+    loadTrainingStat(profileId),
     loadEditorOptions(game),
     getLang(),
     getT(),
@@ -25,6 +26,7 @@ export default async function RosterPage({ params, searchParams }: PageProps<'/[
         gameId={game.id}
         initial={roster}
         initialTeam={team}
+        initialTraining={trainingStat}
         initialSelectedId={typeof selected === 'string' ? selected : null}
         options={options}
         lang={lang}

@@ -230,11 +230,13 @@ model User {
 }
 
 model GameProfile {
-  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  gameId    String   @map("game_id")
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
+  id           String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  gameId       String   @map("game_id")
+  name         String
+  /// The stat the team is being trained in right now ('attack', 'speed'...), or null.
+  trainingStat String?  @map("training_stat")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   game Game @relation(fields: [gameId], references: [id])

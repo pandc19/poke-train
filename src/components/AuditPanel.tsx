@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useCachedLocations } from './useCachedLocations';
 import { AiBadge } from './AiBadge';
 import { Dialog } from './Dialog';
-import { Sprite } from './Sprite';
+import { SourceRow, type EvSource } from './EvSources';
 import { TypeBadge } from './TypeBadge';
 import { activeMint, type AuditLocks } from '@/lib/audit-locks';
 import type { BuildAudit, LocationResult } from '@/lib/ai/schema';
@@ -12,100 +12,6 @@ import { useT } from '@/lib/translate-client';
 
 /** A stored audit. Audits saved by earlier versions hold other sections, which are no longer shown. */
 type StoredAudit = Partial<BuildAudit>;
-
-type EvSource = NonNullable<NonNullable<BuildAudit['evPlan']['sources']>[number]['species']>[number] & {
-  /** Sent when the full list is loaded; audits saved earlier do not have it. */
-  spriteUrl?: string | null;
-};
-
-/** One Pokémon to battle for EVs, with a button that researches where it lives in this game. */
-function SourceRow({
-  s,
-  gameId,
-  aiEnabled,
-  known,
-  card = false,
-}: {
-  s: EvSource;
-  gameId?: string;
-  aiEnabled?: boolean;
-  /** An answer saved earlier, so it survives a reload. */
-  known?: LocationResult;
-  /** A small card with the picture, instead of a bullet in a list. */
-  card?: boolean;
-}) {
-  const { t, lang } = useT();
-  const [state, setState] = useState<{ busy: boolean; result?: LocationResult; error?: string }>({ busy: false });
-  // A saved answer starts collapsed; a lookup you just made opens.
-  const [open, setOpen] = useState(false);
-  const result = state.result ?? known;
-
-  async function locate(refresh = false) {
-    setState({ busy: true });
-    try {
-      const res = await fetch('/api/ai/location', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId, speciesId: s.id, refresh }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error ?? t('Lookup failed.'));
-      setState({ busy: false, result: data.result });
-      setOpen(true);
-    } catch (e) {
-      setState({ busy: false, error: e instanceof Error ? e.message : t('Lookup failed.') });
-    }
-  }
-
-  const body = (
-    <>
-      <span className="font-medium">{lang === 'es' ? s.nameEs : s.nameEn}</span>
-      <span className="text-muted"> · +{s.amount}</span>
-      {gameId && (
-        <button
-          onClick={result ? () => setOpen(!open) : () => locate()}
-          disabled={!aiEnabled || state.busy}
-          title={aiEnabled ? t('Researched on the web with AI') : t('Add an API key to .env.local to enable location lookups')}
-          className="ml-2 rounded border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-ink disabled:opacity-40"
-        >
-          {state.busy ? t('Searching…') : result ? (open ? t('Hide') : t('Show')) : t('Where do I find it?')}
-        </button>
-      )}
-      {state.error && <p className="text-pending">{state.error}</p>}
-      {result && open && (
-        <div className="mt-1 rounded bg-surface p-2 text-muted">
-          <p className="mb-1">
-            <AiBadge />
-          </p>
-          {result.locations.map((l, i) => (
-            <p key={i}>
-              <span className="font-medium text-ink">{l.place}</span>
-              {l.nearby && ` · ${t('Near')}: ${l.nearby}`} · {l.details}
-            </p>
-          ))}
-          {result.notes && <p className="mt-1">{result.notes}</p>}
-          <button
-            onClick={() => locate(true)}
-            disabled={!aiEnabled || state.busy}
-            className="mt-1 text-[10px] underline disabled:opacity-40"
-          >
-            {state.busy ? t('Searching…') : t('Search again')}
-          </button>
-        </div>
-      )}
-    </>
-  );
-  return card ? (
-    <div className="flex items-start gap-2 rounded-lg border border-line bg-surface-2 p-2">
-      <span className="grid h-10 w-10 shrink-0 place-items-center">
-        <Sprite src={s.spriteUrl ?? null} alt="" size={40} />
-      </span>
-      <div className="min-w-0 flex-1">{body}</div>
-    </div>
-  ) : (
-    <li>{body}</li>
-  );
-}
 
 /** The Pokémon to battle for one stat: the best few, and a button for all of them. */
 function SourceGroup({

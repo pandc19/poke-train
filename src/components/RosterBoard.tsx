@@ -31,6 +31,7 @@ export function RosterBoard({
   gameId,
   initial,
   initialTeam,
+  initialTraining,
   initialSelectedId,
   options,
   lang,
@@ -46,6 +47,8 @@ export function RosterBoard({
   initial: RosterView[];
   /** Roster ids of the team being trained, by slot (null for an empty slot). */
   initialTeam: (string | null)[];
+  /** The stat the team is being trained in, if any. */
+  initialTraining: keyof EvSpread | null;
   /** The Pokémon named in the address, if any. */
   initialSelectedId: string | null;
   options: EditorOptions;
@@ -73,6 +76,7 @@ export function RosterBoard({
 
   const [roster, setRoster] = useState(initial);
   const [slots, setSlots] = useState(initialTeam);
+  const [training, setTraining] = useState(initialTraining);
   // The list of cards, or the team being trained. Remembered between visits.
   const [view, setView] = useState<'list' | 'team'>('list');
   const [filter, setFilter] = useState<Filter>('all');
@@ -297,6 +301,18 @@ export function RosterBoard({
     try {
       localStorage.setItem('roster-view', next);
     } catch {}
+  }
+
+  /** Chooses (or clears) the stat the team is training in. */
+  async function chooseTraining(stat: keyof EvSpread | null) {
+    const before = training;
+    setTraining(stat);
+    try {
+      await api('/api/team', 'PATCH', { gameId, trainingStat: stat });
+    } catch {
+      setTraining(before);
+      setError(t('Could not change the team. Try again.'));
+    }
   }
 
   /** Puts a roster Pokémon in a team slot (or empties it); the server answers with the team as it is. */
@@ -556,6 +572,10 @@ export function RosterBoard({
           selectedId={selectedId}
           lang={lang}
           accent={accent}
+          gameId={gameId}
+          aiEnabled={aiEnabled}
+          training={training}
+          onTraining={chooseTraining}
           tera={tera}
           estimateFor={estimateFor}
           onSelect={select}
