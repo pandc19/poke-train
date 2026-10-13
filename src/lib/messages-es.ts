@@ -274,6 +274,8 @@ export const ES: Record<string, string> = {
   'Search the roster': 'Buscar en el equipo',
   'Clear search': 'Borrar búsqueda',
   'Mint given': 'Menta dada',
+  'AI suggests, in order. Tap one to put it in that slot.': 'Sugerencias de la IA, en orden. Toca una para ponerla en ese hueco.',
+  'in another slot': 'en otro hueco',
   'No item': 'Sin objeto',
   'Matches the AI audit': 'Coincide con la auditoría',
   'AI suggests': 'La IA sugiere',

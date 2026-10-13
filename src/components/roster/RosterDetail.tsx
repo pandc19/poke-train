@@ -320,19 +320,19 @@ export function RosterDetail({
       : []),
   ];
 
-  /** Puts a suggested move in the first free slot, or over one the AI does not want. */
-  function applyMove(name: string) {
+  /**
+   * The n-th suggested move goes to the n-th slot. When the Pokémon already has it in another slot the two swap,
+   * so a move is never listed twice.
+   */
+  function applyMove(name: string, slot: number) {
     const move = moveOf(name);
     if (!move) return;
-    const wanted = new Set((sug.moves ?? []).map((m) => m.move.toLowerCase()));
-    const slotOf = (slot: number) => p.moves.find((x) => x.slot === slot);
-    const free = [1, 2, 3, 4].find((s) => !slotOf(s)?.move && !slotOf(s)?.rawName);
-    const replace = [1, 2, 3, 4].find((s) => {
-      const m = slotOf(s)?.move;
-      return m != null && !wanted.has(m.nameEn.toLowerCase());
-    });
-    const slot = free ?? replace;
-    if (slot) void save({ moves: [{ slot, moveId: move.id }] });
+    const slotOf = (n: number) => p.moves.find((x) => x.slot === n);
+    const there = [1, 2, 3, 4].find((n) => slotOf(n)?.move?.id === move.id);
+    const displaced = slotOf(slot)?.move;
+    const changes: { slot: number; moveId: number | null }[] = [{ slot, moveId: move.id }];
+    if (there != null && there !== slot) changes.push({ slot: there, moveId: displaced?.id ?? null });
+    void save({ moves: changes });
   }
 
   return (
@@ -633,25 +633,31 @@ export function RosterDetail({
             </div>
             {sug.moves && (
               <div className="rounded-md border border-line bg-bg p-2 text-[11px]">
-                <p className="mb-1 text-muted">{t('AI suggests')}:</p>
-                <ul className="flex flex-wrap gap-1.5">
-                  {sug.moves.map((m) => (
-                    <li key={m.move} title={m.reason}>
-                      {m.has ? (
-                        <span className="rounded border border-done/50 px-1.5 py-0.5 text-done">✓ {moveName(m.move)}</span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => applyMove(m.move)}
-                          className="rounded border border-pending/50 px-1.5 py-0.5 text-pending hover:bg-pending/10"
-                          title={m.reason}
-                        >
-                          + {moveName(m.move)}
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                <p className="mb-1 text-muted">{t('AI suggests, in order. Tap one to put it in that slot.')}</p>
+                <ol className="space-y-1">
+                  {sug.moves.slice(0, 4).map((m, i) => {
+                    const slot = i + 1;
+                    const current = p.moves.find((x) => x.slot === slot)?.move;
+                    const same = current != null && current.nameEn.toLowerCase() === m.move.toLowerCase();
+                    return (
+                      <li key={m.move} title={m.reason} className="flex items-center gap-2">
+                        <span className="w-4 shrink-0 text-center text-muted">{slot}</span>
+                        {same ? (
+                          <span className="flex-1 rounded border border-done/50 px-2 py-1 text-done">✓ {moveName(m.move)}</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => applyMove(m.move, slot)}
+                            className="flex-1 rounded border border-pending/50 px-2 py-1 text-left text-pending hover:bg-pending/10"
+                          >
+                            {moveName(m.move)}
+                            {m.has && <span className="ml-1 text-muted">({t('in another slot')})</span>}
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ol>
               </div>
             )}
             <p className="text-[11px] text-muted">{t('A move you change is marked pending until you tick it as learned.')}</p>
