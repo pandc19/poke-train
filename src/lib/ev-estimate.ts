@@ -39,7 +39,8 @@ export function statValue(
  * The stat depends on IVs too, which are not visible, so perfect IVs (31) are
  * assumed. A Pokémon with lower IVs has more EVs than this says; the result is
  * the smallest spread that produces the stat. Below level 100 several EVs can
- * give the same stat, and the smallest is returned. Values are multiples of 4
+ * give the same stat, and the smallest is returned, except a stat at its
+ * maximum, which reads as 252. Values are multiples of 4
  * (only each 4 EVs add a point) and never above 252.
  */
 export function estimateEvs(args: {
@@ -55,9 +56,16 @@ export function estimateEvs(args: {
   (Object.keys(out) as (keyof EvSpread)[]).forEach((key) => {
     const target = stats[key];
     if (!target) return;
+    const iv = typeof ivs === 'number' ? ivs : (ivs[key] ?? 31);
+    // A stat at its maximum for this level has 252 EVs: below level 100 a few
+    // fewer give the same number, but the stat could not tell them apart and
+    // the game shows it as full.
+    if (statValue(key, baseStats[key], iv, 252, level, nature) <= target) {
+      out[key] = 252;
+      return;
+    }
     // Smallest number of 4-EV steps that makes the shown stat.
     for (let steps = 0; steps <= 63; steps++) {
-      const iv = typeof ivs === 'number' ? ivs : (ivs[key] ?? 31);
       if (statValue(key, baseStats[key], iv, steps * 4, level, nature) >= target) {
         out[key] = steps * 4;
         return;

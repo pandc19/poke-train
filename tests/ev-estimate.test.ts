@@ -40,6 +40,14 @@ describe('estimating EVs from stats', () => {
     }
   });
 
+  it('reads a stat at its maximum as 252 at any level, not the fewest EVs that give the same number', () => {
+    for (const level of [50, 75, 76, 99, 100]) {
+      const stat = statValue('hp', GOLEM.hp, 31, 252, level, ADAMANT);
+      const stats = { hp: stat, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 };
+      expect(estimateEvs({ stats, level, baseStats: GOLEM, nature: ADAMANT }).hp).toBe(252);
+    }
+  });
+
   it('is exact where the nature does not scale the stat', () => {
     for (const ev of [0, 4, 100, 168, 252]) {
       for (const key of ['hp', 'defense', 'specialDefense', 'speed'] as const) {
