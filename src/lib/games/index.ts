@@ -44,6 +44,8 @@ export type GameConfig = {
     heldItems: boolean;
     abilities: boolean;
     teraType: boolean;
+    /** Has raid battles against a boss (Tera raids in Scarlet/Violet), so the Battle page offers a raid kind. */
+    raids: boolean;
     /** Egg moves can be copied at a picnic with a Mirror Herb (Scarlet/Violet). */
     mirrorHerb: boolean;
     /** Has a Judge ("Juez") that rates a Pokémon's potential. */
@@ -97,6 +99,7 @@ export const GAMES: GameConfig[] = [
       heldItems: true,
       abilities: true,
       teraType: true,
+      raids: true,
       mirrorHerb: true,
       judge: true,
     },

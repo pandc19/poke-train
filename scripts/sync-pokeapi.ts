@@ -86,6 +86,24 @@ async function main() {
   await mkdir(CACHE_DIR, { recursive: true });
   const versionGroups = new Set(GAMES.flatMap((g) => g.learnsetVersionGroups));
 
+  console.log('types');
+  const typeList = await get('type?limit=100');
+  const typeRefs: Json[] = typeList.results.filter((r: Json) => idFromUrl(r.url) < 10000); // not unknown/shadow
+  const types = await mapPool('types', typeRefs, (r: Json) => get(`type/${r.name}`));
+  const effects: { attacker: string; defender: string; multiplier: number }[] = [];
+  for (const ty of types) {
+    const rel = ty.damage_relations;
+    const add = (list: Json[], multiplier: number) =>
+      list.forEach((d) => effects.push({ attacker: ty.name, defender: d.name, multiplier }));
+    add(rel.no_damage_to, 0);
+    add(rel.half_damage_to, 0.5);
+    add(rel.double_damage_to, 2);
+  }
+  await prisma.typeEffect.deleteMany();
+  await prisma.typeEffect.createMany({ data: effects, skipDuplicates: true });
+  console.log(`  type effects: ${effects.length} rows`);
+  if (process.argv.includes('--only-types')) return;
+
   console.log('natures');
   const natureList = await get('nature?limit=100');
   const natures = await mapPool('natures', natureList.results, (r: Json) => get(`nature/${r.name}`));
