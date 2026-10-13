@@ -4,7 +4,9 @@ import type { IvStat } from './engine';
 /** Items a breeding plan tells you to hold, by the name the game shows (and the PokéAPI slug, for the sprite). */
 export const DESTINY_KNOT = { name: { en: 'Destiny Knot', es: 'Lazo Destino' }, slug: 'destiny-knot' } as const;
 export const EVERSTONE = { name: { en: 'Everstone', es: 'Piedra Eterna' }, slug: 'everstone' } as const;
-export const MIRROR_HERB = { name: { en: 'Mirror Herb', es: 'Hierba Espejo' }, slug: 'mirror-herb' } as const;
+export const MIRROR_HERB = { name: { en: 'Mirror Herb', es: 'Hierba Copia' }, slug: 'mirror-herb' } as const;
+
+export const ABILITY_PATCH = { name: { en: 'Ability Patch', es: 'Parche Habilidad' }, slug: 'ability-patch' } as const;
 
 /** The Power item that passes one stat's IV down, per stat. */
 export const POWER_ITEMS: Record<IvStat, { name: Localized; slug: string }> = {

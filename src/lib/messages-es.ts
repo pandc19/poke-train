@@ -495,4 +495,8 @@ export const ES: Record<string, string> = {
   'Choose a Pokémon to see the egg moves it can get in this game.': 'Elige un Pokémon para ver los movimientos huevo que puede conseguir en este juego.',
   'This list updates itself from what you record in your Pokédex, roster and breeders.': 'Esta lista se actualiza sola con lo que registres en tu Pokédex, tu equipo y tus criadores.',
   'Say which Pokémon you want, and optionally the egg moves, the IVs that must be 31, a nature and the hidden ability. The plan checks what you recorded in your Pokédex, roster and breeders, picks the best pair of parents, and lists what you already have and what you still need to catch or breed.': 'Di qué Pokémon quieres y, si quieres, los movimientos huevo, los IVs que deben ser 31, una naturaleza y la habilidad oculta. El plan revisa lo que registraste en tu Pokédex, tu equipo y tus criadores, elige la mejor pareja de padres y enumera lo que ya tienes y lo que aún necesitas capturar o criar.',
+  'on the Pokémon that gets the egg move, with a free move slot, for the picnic': 'en el Pokémon que recibirá el movimiento huevo, con un hueco libre en los movimientos, para el picnic',
+  'after hatching, to give it the hidden ability (no hidden-ability mother needed)': 'después de que nazca, para darle la habilidad oculta (no hace falta una madre con habilidad oculta)',
+  'No special items are needed for this plan.': 'Este plan no necesita objetos especiales.',
+  'A sandwich with Egg Power at the picnic makes the eggs appear sooner.': 'Un sándwich con Poder Huevo en el picnic hace que los huevos aparezcan antes.',
 };

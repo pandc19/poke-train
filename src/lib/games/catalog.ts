@@ -1,11 +1,13 @@
 import type { Localized } from '../translate';
-import { DESTINY_KNOT, EVERSTONE, MIRROR_HERB, POWER_ITEMS } from '../breeding/items';
+import { ABILITY_PATCH, DESTINY_KNOT, EVERSTONE, MIRROR_HERB, POWER_ITEMS } from '../breeding/items';
 
 /** One thing in a catalog: its name, what it does, and its sprite (a PokéAPI item slug). */
 export type CatalogEntry = {
   name: Localized;
   effect: Localized;
   sprite?: string;
+  /** The item's PokéAPI slug, to look its name up in the game data when it has no sprite of its own. */
+  item?: string;
   /** Shown when the item has no sprite. */
   icon?: string;
   /** Where to find it, when that is worth saying. */
@@ -167,7 +169,9 @@ export const SCARLET_VIOLET_BREEDING_CATALOG: CatalogSection[] = [
       },
       {
         name: MIRROR_HERB.name,
-        sprite: MIRROR_HERB.slug,
+        // PokéAPI has no picture for this item.
+        item: MIRROR_HERB.slug,
+        icon: '🌿',
         effect: {
           en: 'Held with a free move slot, it copies egg moves from the other Pokémon at a picnic, no egg needed.',
           es: 'Con un hueco libre en los movimientos, copia movimientos huevo de otro Pokémon en un picnic, sin necesidad de huevo.',
@@ -218,16 +222,18 @@ export const SCARLET_VIOLET_BREEDING_CATALOG: CatalogSection[] = [
         },
       },
       {
-        name: { en: 'Mints', es: 'Mentas' },
-        sprite: 'adamant-mint',
+        name: { en: 'Adamant Mint', es: 'Menta Firme' },
+        item: 'adamant-mint',
+        icon: '🌱',
         effect: {
-          en: 'Change which stat the nature raises or lowers, so the nature of the egg matters less. The real nature (what an Everstone passes) stays.',
-          es: 'Cambian qué estadística sube o baja la naturaleza, así la naturaleza del huevo importa menos. La naturaleza real (la que pasa una Piedra Eterna) no cambia.',
+          en: 'There is a mint for every nature (this is one). It changes which stat the nature raises or lowers, so the nature of the egg matters less. The real nature, the one an Everstone passes, stays.',
+          es: 'Hay una menta para cada naturaleza (esta es una). Cambia qué estadística sube o baja la naturaleza, así la naturaleza del huevo importa menos. La naturaleza real, la que pasa una Piedra Eterna, no cambia.',
         },
       },
       {
-        name: { en: 'Ability Patch', es: 'Parche Habilidad' },
-        sprite: 'ability-patch',
+        name: ABILITY_PATCH.name,
+        item: ABILITY_PATCH.slug,
+        icon: '🩹',
         effect: {
           en: 'Turns a normal ability into the hidden one, so you do not need a hidden-ability parent.',
           es: 'Cambia una habilidad normal por la oculta, así no necesitas un padre con habilidad oculta.',

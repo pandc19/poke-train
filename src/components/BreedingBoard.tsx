@@ -9,7 +9,7 @@ import { STAT_LABELS } from './EvInputs';
 import type { LocationResult } from '@/lib/ai/schema';
 import { IV_STATS, type IvStat, type MoveOption, type MovePlan, type ShoppingItem, type SpeciesRef, type Step } from '@/lib/breeding/engine';
 import type { BreedingGoalView } from '@/lib/breeding/goals';
-import { DESTINY_KNOT, EVERSTONE, POWER_ITEMS } from '@/lib/breeding/items';
+import { ABILITY_PATCH, DESTINY_KNOT, EVERSTONE, MIRROR_HERB, POWER_ITEMS } from '@/lib/breeding/items';
 import type { IvPlan, ParentPick } from '@/lib/breeding/ivs';
 import type { Lang } from '@/lib/i18n';
 import { useT } from '@/lib/translate-client';
@@ -390,12 +390,6 @@ export function BreedingBoard({
         </div>
       );
     }
-    const powerStat = ivs.items.powerItem;
-    const holder = (who: 'base' | 'partner' | null) => (who === 'base' ? ivs.base : ivs.partner);
-    const holderName = (who: 'base' | 'partner' | null) => {
-      const p = holder(who);
-      return p ? (p.label ?? name(p.species)) : '';
-    };
     return (
       <div className="mt-4">
         {heading}
@@ -403,28 +397,6 @@ export function BreedingBoard({
           {renderPick(ivs.base, t('the egg takes its species'))}
           {renderPick(ivs.partner, ivs.partner.species.id === 132 ? t('Ditto') : t('father'))}
         </ul>
-        <div className="mt-2 rounded-lg bg-surface-2 p-3 text-xs">
-          <p className="font-medium">{t('Bring')}:</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-5">
-            <li>
-              {DESTINY_KNOT.name[lang]} {t('(either parent holds it; 5 IVs are passed on instead of 3)')}
-            </li>
-            {powerStat && (
-              <li>
-                {POWER_ITEMS[powerStat].name[lang]} {t('on {name}, so its {stat} IV is always passed on', {
-                  name: holderName(ivs.items.powerHolder),
-                  stat: STAT_LABELS[powerStat][lang],
-                })}
-              </li>
-            )}
-            {ivs.items.everstone && (
-              <li>
-                {EVERSTONE.name[lang]} {t('on {name}, so the egg gets its nature', { name: holderName(ivs.items.everstone) })}
-              </li>
-            )}
-          </ul>
-          <p className="mt-2 text-muted">{t('Find them in the Catalog (button at the bottom right).')}</p>
-        </div>
         {ivs.targets.length > 0 && (
           <p className="mt-2 text-xs">
             {t('Chance that all of {stats} come out perfect:', { stats: statList(ivs.targets) })}{' '}
@@ -456,6 +428,66 @@ export function BreedingBoard({
             {t('The mother does not have the hidden ability recorded. Use one that has it, or an Ability Patch afterwards.')}
           </p>
         )}
+      </div>
+    );
+  };
+
+  /** Everything to hold or have ready for a plan, from the moves, the IV pair and the hidden ability. */
+  const renderBring = (goal: BreedingGoalView) => {
+    const plan = goal.plan;
+    if (!plan?.parents.canBreed) return null;
+    const lines: string[] = [];
+    const ivs = goal.ivs;
+    if (ivs?.base && ivs.partner) {
+      const who = (w: 'base' | 'partner' | null) => {
+        const p = w === 'base' ? ivs.base : ivs.partner;
+        return p ? (p.label ?? name(p.species)) : '';
+      };
+      lines.push(`${DESTINY_KNOT.name[lang]} ${t('(either parent holds it; 5 IVs are passed on instead of 3)')}`);
+      if (ivs.items.powerItem) {
+        lines.push(
+          `${POWER_ITEMS[ivs.items.powerItem].name[lang]} ${t('on {name}, so its {stat} IV is always passed on', {
+            name: who(ivs.items.powerHolder),
+            stat: STAT_LABELS[ivs.items.powerItem][lang],
+          })}`
+        );
+      }
+      if (ivs.items.everstone) {
+        lines.push(
+          `${EVERSTONE.name[lang]} ${t('on {name}, so the egg gets its nature', { name: who(ivs.items.everstone) })}`
+        );
+      }
+    }
+    // A picnic is the plan's best way for at least one egg move.
+    if (plan.moves.some((m) => m.kind === 'egg' && m.options[0]?.kind === 'mirror-herb')) {
+      lines.push(
+        `${MIRROR_HERB.name[lang]} ${t('on the Pokémon that gets the egg move, with a free move slot, for the picnic')}`
+      );
+    }
+    if (goal.hiddenAbility && (!ivs?.base || ivs.hiddenOk !== true)) {
+      lines.push(
+        `${ABILITY_PATCH.name[lang]} ${t('after hatching, to give it the hidden ability (no hidden-ability mother needed)')}`
+      );
+    }
+    const needsEgg =
+      ivs?.base != null || plan.moves.some((m) => m.kind === 'egg' && m.options.some((o) => o.kind !== 'mirror-herb'));
+    if (lines.length === 0 && !needsEgg) return null;
+    return (
+      <div className="mt-4 rounded-lg bg-surface-2 p-3 text-xs">
+        <p className="font-medium">{t('Bring')}:</p>
+        {lines.length > 0 ? (
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">
+            {lines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-1 text-muted">{t('No special items are needed for this plan.')}</p>
+        )}
+        {needsEgg && (
+          <p className="mt-2 text-muted">{t('A sandwich with Egg Power at the picnic makes the eggs appear sooner.')}</p>
+        )}
+        <p className="mt-1 text-muted">{t('Find them in the Catalog (button at the bottom right).')}</p>
       </div>
     );
   };
@@ -708,6 +740,7 @@ export function BreedingBoard({
                   )}
 
                   {goal.ivs && plan?.parents.canBreed && renderIvs(goal, goal.ivs)}
+                  {renderBring(goal)}
 
                   {plan && (natural.length > 0 || plan.moves.some((m) => m.kind !== 'natural')) && (
                     <div className="mt-4">

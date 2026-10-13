@@ -29,7 +29,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const lang = await getLang();
   // Item names come from the game data when it has them, so what the catalog says to search
   // for is what the game really calls the item (the names written in the catalog are a fallback).
-  const slugs = [...new Set(GAMES.flatMap((g) => g.catalog.flatMap((s) => s.entries.map((e) => e.sprite ?? ""))))].filter(Boolean);
+  const slugs = [...new Set(GAMES.flatMap((g) => g.catalog.flatMap((s) => s.entries.map((e) => e.item ?? e.sprite ?? ""))))].filter(Boolean);
   const items = await prisma.item
     .findMany({ where: { slug: { in: slugs } }, select: { slug: true, nameEn: true, nameEs: true } })
     .catch(() => []);
@@ -51,7 +51,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               catalog: g.catalog.map((section) => ({
                 ...section,
                 entries: section.entries.map((e) => {
-                  const item = e.sprite ? bySlug.get(e.sprite) : undefined;
+                  const slug = e.item ?? e.sprite;
+                  const item = slug ? bySlug.get(slug) : undefined;
                   return item?.nameEn && item.nameEs ? { ...e, name: { en: item.nameEn, es: item.nameEs } } : e;
                 }),
               })),

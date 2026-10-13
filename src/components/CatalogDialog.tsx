@@ -41,7 +41,7 @@ export function CatalogButton({ sections }: { sections: CatalogSection[] }) {
                       <p className="text-muted">{e.effect[lang]}</p>
                       {e.where && <p className="mt-0.5 text-[11px] text-muted">{e.where[lang]}</p>}
                       {/* The name in the other language, to search for in the game or the shop. */}
-                      {e.sprite && (
+                      {(e.item ?? e.sprite) && (
                         <p className="mt-0.5 text-[11px] text-muted">
                           {t('Search for')}: {e.name.es}
                           {e.name.es !== e.name.en ? ` / ${e.name.en}` : ''}
