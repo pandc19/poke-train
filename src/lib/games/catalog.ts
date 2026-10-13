@@ -110,6 +110,25 @@ export const SCARLET_VIOLET_CATALOG: CatalogSection[] = [
     ),
   },
   {
+    id: 'power-items',
+    title: { en: 'Power items', es: 'Objetos recios' },
+    note: {
+      en: 'Held while battling: each Pokémon defeated in a normal battle gives 8 extra EVs in one stat, on top of the EVs the opponent gives.',
+      es: 'Se llevan equipados al combatir: añaden 8 EVs adicionales de una estadística por cada Pokémon derrotado en un combate normal, además de los EVs que conceda el rival.',
+    },
+    entries: perStat(
+      [
+        ['Power Weight', 'Pesa Recia', 'power-weight'],
+        ['Power Bracer', 'Brazal Recio', 'power-bracer'],
+        ['Power Belt', 'Cinturón Recio', 'power-belt'],
+        ['Power Lens', 'Lente Recia', 'power-lens'],
+        ['Power Band', 'Banda Recia', 'power-band'],
+        ['Power Anklet', 'Franja Recia', 'power-anklet'],
+      ],
+      (st) => ({ en: `${st.en} · +8 EVs`, es: `${st.es} · +8 EVs` })
+    ),
+  },
+  {
     id: 'feathers',
     title: { en: 'Feathers', es: 'Plumas' },
     note: {
@@ -165,25 +184,6 @@ export const SCARLET_VIOLET_CATALOG: CatalogSection[] = [
       es: 'Una menta cambia qué estadísticas sube y baja la naturaleza (el juego y el gráfico de estadísticas muestran el efecto de la menta). La naturaleza real no cambia: es la que pasa una Piedra Eterna. Anótala en el campo «Menta dada» del Pokémon.',
     },
     entries: MINT_ENTRIES,
-  },
-  {
-    id: 'power-items',
-    title: { en: 'Power items', es: 'Objetos recios' },
-    note: {
-      en: 'Held while battling: each Pokémon defeated in a normal battle gives 8 extra EVs in one stat, on top of the EVs the opponent gives.',
-      es: 'Se llevan equipados al combatir: añaden 8 EVs adicionales de una estadística por cada Pokémon derrotado en un combate normal, además de los EVs que conceda el rival.',
-    },
-    entries: perStat(
-      [
-        ['Power Weight', 'Pesa Recia', 'power-weight'],
-        ['Power Bracer', 'Brazal Recio', 'power-bracer'],
-        ['Power Belt', 'Cinturón Recio', 'power-belt'],
-        ['Power Lens', 'Lente Recia', 'power-lens'],
-        ['Power Band', 'Banda Recia', 'power-band'],
-        ['Power Anklet', 'Franja Recia', 'power-anklet'],
-      ],
-      (st) => ({ en: `${st.en} · +8 EVs`, es: `${st.es} · +8 EVs` })
-    ),
   },
 ];
 
