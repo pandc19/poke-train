@@ -11,7 +11,7 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
   if (!ve) notFound();
 
   const dexNumbers = [...new Set(ve.groups.flatMap((g) => [...g.own, ...g.other].map((e) => e.dex)))];
-  const [species, entries, roster, lang, t] = await Promise.all([
+  const [species, links, entries, roster, lang, t] = await Promise.all([
     prisma.species.findMany({
       where: { id: { in: dexNumbers } },
       select: {
@@ -21,6 +21,7 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
         forms: { where: { isDefault: true }, select: { spriteUrl: true }, take: 1 },
       },
     }),
+    prisma.species.findMany({ select: { id: true, evolvesFromId: true } }),
     prisma.pokedexEntry.findMany({ where: { profileId, speciesId: { in: dexNumbers } }, select: { speciesId: true, owned: true } }),
     prisma.rosterPokemon.findMany({ where: { profileId, owned: true, speciesId: { in: dexNumbers } }, select: { speciesId: true } }),
     getLang(),
@@ -29,6 +30,23 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
   const byId = new Map(species.map((s) => [s.id, s]));
   const caught = new Map(entries.map((e) => [e.speciesId, e.owned]));
   const inRoster = new Set(roster.map((r) => r.speciesId));
+
+  // Evolution families stay together: first by the family's first stage, then by how far along the line.
+  const parent = new Map(links.map((l) => [l.id, l.evolvesFromId]));
+  const position = (dex: number) => {
+    let root = dex;
+    let depth = 0;
+    for (let next = parent.get(root); next != null; next = parent.get(root)) {
+      root = next;
+      depth++;
+    }
+    return { root, depth };
+  };
+  const byEvolution = (a: { dex: number }, b: { dex: number }) => {
+    const pa = position(a.dex);
+    const pb = position(b.dex);
+    return pa.root - pb.root || pa.depth - pb.depth || a.dex - b.dex;
+  };
 
   const tile = (e: { dex: number; form?: string }): ExclusiveTile => {
     const s = byId.get(e.dex);
@@ -48,8 +66,8 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
     id: g.id,
     label: g.label,
     note: g.note,
-    own: g.own.map(tile),
-    other: g.other.map(tile),
+    own: g.own.map(tile).sort(byEvolution),
+    other: g.other.map(tile).sort(byEvolution),
   }));
 
   return (

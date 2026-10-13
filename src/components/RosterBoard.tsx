@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDialog } from './Dialog';
+import { SearchInput } from './SearchInput';
 import { RosterDetail } from './roster/RosterDetail';
 import { PAGE_SIZE, RosterList } from './roster/RosterList';
 import { ComboInput, progressOf, withTask, type Gender } from './roster/parts';
@@ -17,6 +18,8 @@ import { useT } from '@/lib/translate-client';
 
 type Filter = 'all' | 'pending' | 'done';
 type Sort = 'complete' | 'progress' | 'dex' | 'national' | 'name';
+const SORTS: Sort[] = ['complete', 'progress', 'dex', 'national', 'name'];
+const SORT_KEY = 'roster-sort';
 
 /**
  * The trained roster: small cards with paging on the left, and everything about
@@ -64,12 +67,20 @@ export function RosterBoard({
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useState<Sort>('complete');
   const [query, setQuery] = useState('');
+  // Remembered between visits; read after mount so the server and first client render agree.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SORT_KEY) as Sort | null;
+      if (saved && SORTS.includes(saved)) setSort(saved);
+    } catch {}
+  }, []);
   const [page, setPage] = useState(() => {
     const index = initial.findIndex((p) => p.id === initialSelectedId);
     return index >= 0 ? Math.floor(index / PAGE_SIZE) : 0;
   });
-  const [selectedId, setSelectedId] = useState<string | null>(
-    initial.some((p) => p.id === initialSelectedId) ? initialSelectedId : (initial[0]?.id ?? null)
+  // Until the player picks one (or the address names one), the first in the current sort is shown.
+  const [pickedId, setSelectedId] = useState<string | null>(
+    initial.some((p) => p.id === initialSelectedId) ? initialSelectedId : null
   );
   const [removing, setRemoving] = useState<RosterView | null>(null);
   const [auditing, setAuditing] = useState<string | null>(null);
@@ -333,6 +344,7 @@ export function RosterBoard({
 
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
+  const selectedId = roster.some((p) => p.id === pickedId) ? pickedId : (visible[0]?.id ?? null);
   const selected = roster.find((p) => p.id === selectedId) ?? null;
 
   /** The number shown follows the active sort: the game's entry number, or the National one. */
@@ -459,15 +471,14 @@ export function RosterBoard({
         {/* ---------- the list ---------- */}
         <aside>
           <div className="mb-3 space-y-2">
-            <input
+            <SearchInput
               value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
+              onChange={(v) => {
+                setQuery(v);
                 setPage(0);
               }}
               placeholder={t('Search the roster')}
-              aria-label={t('Search the roster')}
-              className="w-full rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-muted"
+              label={t('Search the roster')}
             />
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex rounded-md border border-line text-xs">
@@ -489,8 +500,12 @@ export function RosterBoard({
                 <select
                   value={sort}
                   onChange={(e) => {
-                    setSort(e.target.value as Sort);
+                    const next = e.target.value as Sort;
+                    setSort(next);
                     setPage(0);
+                    try {
+                      localStorage.setItem(SORT_KEY, next);
+                    } catch {}
                   }}
                   className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-ink"
                 >

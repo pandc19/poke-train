@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ConfirmDialog } from './Dialog';
+import { SearchInput } from './SearchInput';
 import { TypeBadge } from './TypeBadge';
 import { STAT_LABELS } from './EvInputs';
 import { ComboInput, GenderControl, PokemonSprite, PotentialSelect, TaskToggle, type Gender } from './roster/parts';
@@ -249,15 +250,15 @@ export function BreedersBoard({
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,25rem)_minmax(0,1fr)]">
           <aside>
-            <input
+            <SearchInput
               value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
+              onChange={(v) => {
+                setQuery(v);
                 setPage(0);
               }}
               placeholder={t('Search the breeders')}
-              aria-label={t('Search the breeders')}
-              className="mb-3 w-full rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-muted"
+              label={t('Search the breeders')}
+              className="mb-3"
             />
             {shown.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted">{t('No Pokémon match this filter.')}</p>

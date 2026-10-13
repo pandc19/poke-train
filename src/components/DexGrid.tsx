@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { ConfirmDialog } from './Dialog';
 import { PokemonInfoDialog } from './PokemonInfoDialog';
 import { ScrollTopButton } from './ScrollTopButton';
+import { SearchInput } from './SearchInput';
 import { Sprite } from './Sprite';
 import { decodeKey } from '@/lib/dex-variant';
 import type { DexCell } from '@/lib/pokedex';
@@ -256,12 +257,12 @@ export function DexGrid({
           </div>
         </div>
 
-        <input
+        <SearchInput
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={setQuery}
           placeholder={t('Search name or number')}
-          aria-label={t('Search Pokémon')}
-          className="w-52 rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-muted"
+          label={t('Search Pokémon')}
+          className="w-52"
         />
 
         <div className="flex flex-wrap rounded-md border border-line text-xs">

@@ -280,6 +280,7 @@ export const ES: Record<string, string> = {
   'Search again': 'Volver a buscar',
   'Search name or number': 'Buscar por nombre o número',
   'Search the roster': 'Buscar en el equipo',
+  'Clear search': 'Borrar búsqueda',
   'Searching…': 'Buscando…',
   'Sections': 'Secciones',
   'Select a Pokémon to see and edit it.': 'Elige un Pokémon para verlo y editarlo.',
