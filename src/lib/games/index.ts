@@ -22,8 +22,11 @@ export type GameConfig = {
     slug: string;
     name: Localized;
     note: Localized;
-    /** Lists regional forms (Alolan, Galarian, Hisuian) as Pokémon of their own, tracked apart from the normal ones. */
-    regionalForms?: boolean;
+    /**
+     * Species this Pokédex lists as their regional form (Alolan, Galarian, Hisuian), shown and
+     * tracked apart from the normal one. Every other species is its own normal form.
+     */
+    regionalSpecies?: number[];
     /** The game's own Pokédex ends here; PokéAPI lists a few extra species after it. */
     lastEntry?: number;
   }[];
@@ -80,7 +83,9 @@ export const GAMES: GameConfig[] = [
         slug: 'blueberry',
         name: { en: 'Blueberry', es: 'Arándano' },
         note: { en: 'DLC: The Indigo Disk', es: 'DLC: El Disco Índigo' },
-        regionalForms: true,
+        // Alolan Sandshrew/Sandslash, Vulpix/Ninetales, Diglett/Dugtrio, Geodude line, Grimer/Muk, Exeggutor;
+        // Galarian Slowpoke/Slowbro/Slowking.
+        regionalSpecies: [27, 28, 37, 38, 50, 51, 74, 75, 76, 88, 89, 103, 79, 80, 199],
         lastEntry: 240,
       },
     ],

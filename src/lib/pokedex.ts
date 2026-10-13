@@ -105,16 +105,16 @@ export async function loadDex(
     prisma.species.findMany({ select: { id: true, evolvesFromId: true, nameEn: true, nameEs: true } }),
   ]);
   const inGame = gameSlots ? new Set(gameSlots.map((s) => s.speciesId)) : null;
-  const regionalForms = Boolean(
-    opts.gameId && getGame(opts.gameId)?.pokedexes.find((d) => d.slug === pokedexSlug)?.regionalForms
+  const regionalSpecies = new Set(
+    (opts.gameId && getGame(opts.gameId)?.pokedexes.find((d) => d.slug === pokedexSlug)?.regionalSpecies) || []
   );
 
   // Which form a card shows, and so which caught state it owns: a Pokédex that lists regional
   // forms shows those, the Paldea one shows the Paldean form, any other the species' own form.
   type Form = (typeof slots)[number]['species']['forms'][number];
-  const lookOf = (forms: Form[]): { look: Form | undefined; variant: Variant } => {
+  const lookOf = (speciesId: number, forms: Form[]): { look: Form | undefined; variant: Variant } => {
     const own = forms.find((f) => f.isDefault);
-    if (regionalForms) {
+    if (regionalSpecies.has(speciesId)) {
       for (const region of REGIONS) {
         const form = forms.find((f) => !f.isDefault && variantOfSlug(f.slug) === region);
         if (form) return { look: form, variant: region };
@@ -185,7 +185,7 @@ export async function loadDex(
   const exclusives = versions ? exclusiveBySpecies(versions) : null;
 
   return slots.map((s) => {
-    const { look, variant } = lookOf(s.species.forms);
+    const { look, variant } = lookOf(s.species.id, s.species.forms);
     const key = encodeKey(s.species.id, variant);
     const evo = evolvedInto(s.species.id, variant);
     const side = exclusives?.get(s.species.id);
