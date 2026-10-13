@@ -29,6 +29,7 @@ export function TeamView({
   selectedId,
   lang,
   accent,
+  viewSwitch,
   gameId,
   aiEnabled,
   training,
@@ -47,6 +48,8 @@ export function TeamView({
   selectedId: string | null;
   lang: Lang;
   accent: string;
+  /** The switch between the list and the team, kept in the bar at the top. */
+  viewSwitch: React.ReactNode;
   gameId: string;
   aiEnabled: boolean;
   /** The stat being trained, if one is chosen. */
@@ -157,7 +160,9 @@ export function TeamView({
   return (
     <div>
     {/* ---------- what the team is training now ---------- */}
-    <section className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line bg-surface px-3 py-2.5">
+    <div className="-mx-4 mb-4 bg-bg/95 px-4 py-2 backdrop-blur md:sticky md:top-0 md:z-30">
+    <section className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line bg-surface px-3 py-2.5">
+      {viewSwitch}
       <h2 className="text-sm font-semibold">{t('Training')}</h2>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('Stat being trained')}>
         {HEX_ORDER.map((key) => {
@@ -202,6 +207,7 @@ export function TeamView({
         <span className="ml-auto text-xs text-muted">{t('Choose a stat to see who to battle for it.')}</span>
       )}
     </section>
+    </div>
     {training && (
       <EvSourcesDialog
         open={fighting}
@@ -215,7 +221,7 @@ export function TeamView({
 
     <div className="grid gap-5 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
       {/* ---------- the six slots ---------- */}
-      <ol className="grid grid-cols-2 content-start gap-2 lg:sticky lg:top-3 lg:-m-1 lg:max-h-[calc(100vh-1.5rem)] lg:grid-cols-1 lg:self-start lg:overflow-y-auto lg:p-1">
+      <ol className="grid grid-cols-2 content-start gap-2 lg:sticky lg:top-24 lg:-m-1 lg:max-h-[calc(100vh-7rem)] lg:grid-cols-1 lg:self-start lg:overflow-y-auto lg:p-1">
         {order.map((i) => {
           const p = members[i];
           const slot = i + 1;

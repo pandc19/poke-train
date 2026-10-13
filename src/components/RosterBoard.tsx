@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { AiBadge } from './AiBadge';
 import { ConfirmDialog } from './Dialog';
 import { SearchInput } from './SearchInput';
 import { RosterDetail } from './roster/RosterDetail';
@@ -10,7 +9,6 @@ import { PAGE_SIZE, RosterList } from './roster/RosterList';
 import { TeamView } from './roster/TeamView';
 import { ComboInput, progressOf, withTask, type Gender } from './roster/parts';
 import type { EvEstimateInfo } from './StatsEvs';
-import type { TeamAudit } from '@/lib/ai/schema';
 import type { EvSpread } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
 import type { IvRatings } from '@/lib/iv-ratings';
@@ -40,7 +38,6 @@ export function RosterBoard({
   evTarget,
   tera,
   aiEnabled,
-  aiProvider,
   accent,
 }: {
   gameId: string;
@@ -62,7 +59,6 @@ export function RosterBoard({
   /** The game has Tera types. */
   tera: boolean;
   aiEnabled: boolean;
-  aiProvider: string;
   accent: string;
 }) {
   const { t } = useT();
@@ -111,7 +107,6 @@ export function RosterBoard({
       else next.add(id);
       return next;
     });
-  const [team, setTeam] = useState<{ busy: boolean; result: TeamAudit | null }>({ busy: false, result: null });
   const [adding, setAdding] = useState('');
   const [error, setError] = useState<string | null>(null);
   const detailRef = useRef<HTMLDivElement>(null);
@@ -362,18 +357,6 @@ export function RosterBoard({
     }
   }
 
-  async function auditTeam() {
-    setTeam({ busy: true, result: null });
-    setError(null);
-    try {
-      const data = await api<{ result: TeamAudit }>('/api/ai/team', 'POST', { gameId });
-      setTeam({ busy: false, result: data.result });
-    } catch (e) {
-      setTeam({ busy: false, result: null });
-      setError(e instanceof Error ? e.message : t('The roster audit failed.'));
-    }
-  }
-
   const complete = useMemo(() => roster.filter((p) => progressOf(p).complete).length, [roster]);
 
   const visible = useMemo(() => {
@@ -483,6 +466,23 @@ export function RosterBoard({
     </form>
   );
 
+  const viewSwitch = (
+    <div className="inline-flex rounded-md border border-line text-sm" role="tablist" aria-label={t('View')}>
+      {(['list', 'team'] as const).map((v) => (
+        <button
+          key={v}
+          type="button"
+          role="tab"
+          aria-selected={view === v}
+          onClick={() => changeView(v)}
+          className={`px-4 py-1.5 ${view === v ? 'bg-surface-2 font-semibold' : 'text-muted hover:text-ink'}`}
+        >
+          {v === 'list' ? t('List') : t('Team')}
+        </button>
+      ))}
+    </div>
+  );
+
   if (roster.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-line px-6 py-16 text-center">
@@ -502,48 +502,19 @@ export function RosterBoard({
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        {view === 'list' && (
+      {/* ---------- the switch between the list and the team ---------- */}
+      {view === 'list' && (
+        <div className="-mx-4 mb-3 flex flex-wrap items-center gap-3 bg-bg/95 px-4 py-2 backdrop-blur md:sticky md:top-0 md:z-30">
           <p className="text-sm">
             <span className="font-semibold text-done">{complete}</span>
             <span className="text-muted"> {t('of {total} fully trained', { total: roster.length })}</span>
           </p>
-        )}
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          {/* Adding Pokémon and the roster audit belong to the list; the team view keeps only the switch. */}
-          {view === 'list' && (
-            <>
-              {addBox}
-              <button
-                onClick={auditTeam}
-                disabled={!aiEnabled || team.busy}
-                title={
-                  aiEnabled
-                    ? t('One request that reviews your whole roster together ({provider})', { provider: aiProvider })
-                    : t('Add an API key to .env.local to enable AI audits')
-                }
-                className="rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
-              >
-                {team.busy ? t('Auditing roster…') : t('AI roster audit')}
-              </button>
-            </>
-          )}
-          <div className="inline-flex rounded-md border border-line text-sm" role="tablist" aria-label={t('View')}>
-            {(['list', 'team'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                role="tab"
-                aria-selected={view === v}
-                onClick={() => changeView(v)}
-                className={`px-4 py-1.5 ${view === v ? 'bg-surface-2 font-semibold' : 'text-muted hover:text-ink'}`}
-              >
-                {v === 'list' ? t('List') : t('Team')}
-              </button>
-            ))}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {addBox}
+            {viewSwitch}
           </div>
         </div>
-      </div>
+      )}
 
       {view === 'list' && !aiEnabled && (
         <p className="mb-3 text-xs text-muted">
@@ -557,24 +528,6 @@ export function RosterBoard({
           {error}
         </p>
       )}
-      {view === 'list' && team.result && (
-        <div className="mb-4 rounded-lg border border-line bg-surface p-4 text-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-semibold">
-              {t('Roster audit')} <AiBadge className="ml-1" />
-            </h2>
-            <button onClick={() => setTeam({ busy: false, result: null })} className="text-xs text-muted">
-              {t('Close')}
-            </button>
-          </div>
-          <p>{team.result.summary}</p>
-          <div className="mt-3 grid gap-4 md:grid-cols-3">
-            <AuditList title={t('Strengths')} items={team.result.strengths} />
-            <AuditList title={t('Weaknesses')} items={team.result.weaknesses} />
-            <AuditList title={t('Suggestions')} items={team.result.suggestions.map((s) => `${s.change}: ${s.reason}`)} />
-          </div>
-        </div>
-      )}
 
       {/* ---------- list of cards, or the team being trained ---------- */}
       {view === 'team' ? (
@@ -584,6 +537,7 @@ export function RosterBoard({
           selectedId={selectedId}
           lang={lang}
           accent={accent}
+          viewSwitch={viewSwitch}
           gameId={gameId}
           aiEnabled={aiEnabled}
           training={training}
@@ -603,7 +557,7 @@ export function RosterBoard({
       ) : (
       <div className="grid gap-5 lg:grid-cols-[minmax(0,25rem)_minmax(0,1fr)]">
         {/* ---------- the list: stays in view while the details scroll (it scrolls itself when taller than the screen) ---------- */}
-        <aside className="lg:sticky lg:top-3 lg:max-h-[calc(100vh-1.5rem)] lg:self-start lg:-m-1 lg:overflow-y-auto lg:p-1">
+        <aside className="lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:self-start lg:-m-1 lg:overflow-y-auto lg:p-1">
           <div className="mb-3 space-y-2">
             <SearchInput
               value={query}
@@ -702,20 +656,6 @@ export function RosterBoard({
       </div>
       )}
       {dialogs}
-    </div>
-  );
-}
-
-function AuditList({ title, items }: { title: string; items: string[] }) {
-  if (!items.length) return null;
-  return (
-    <div>
-      <h3 className="mb-1 text-xs font-semibold uppercase text-muted">{title}</h3>
-      <ul className="list-disc space-y-1 pl-4 text-xs">
-        {items.map((item, i) => (
-          <li key={i}>{item}</li>
-        ))}
-      </ul>
     </div>
   );
 }

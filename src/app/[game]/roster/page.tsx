@@ -1,5 +1,5 @@
 import { RosterBoard } from '@/components/RosterBoard';
-import { configuredProviderName, getAiProvider } from '@/lib/ai';
+import { getAiProvider } from '@/lib/ai';
 import { getLang, getT } from '@/lib/i18n';
 import { requireGameProfile } from '@/lib/profile';
 import { loadEditorOptions, loadRoster } from '@/lib/roster';
@@ -36,15 +36,6 @@ export default async function RosterPage({ params, searchParams }: PageProps<'/[
         tera={game.features.teraType}
         accent={game.theme.accent}
         aiEnabled={provider != null}
-        aiProvider={
-          provider
-            ? t('{provider}: {bulk} for single Pokémon, {deep} for the whole roster', {
-                provider: provider.name,
-                bulk: provider.modelFor('bulk'),
-                deep: provider.modelFor('deep'),
-              })
-            : configuredProviderName()
-        }
       />
     </div>
   );

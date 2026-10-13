@@ -12,7 +12,7 @@ import type { Lang } from '../i18n';
 import { ivRating } from '../iv-ratings';
 import { potentialLevel } from '../potential';
 import type { RosterView } from '../roster';
-import { type AuditAsk, type BuildAuditRaw, LocationSchema, buildAuditSchema, TeamAuditSchema } from './schema';
+import { type AuditAsk, type BuildAuditRaw, LocationSchema, buildAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
 const PROMPT_VERSION = 18;
@@ -297,21 +297,6 @@ export async function auditBuild(
         .join('\n\n'),
     }
   );
-}
-
-export function auditTeam(provider: AiProvider, game: GameConfig, lang: Lang, profileId: string, roster: RosterView[]) {
-  const team = roster.map((p) => describeBuild(p, game.features.evs));
-  return cached(provider, { kind: 'team', profileId, lang }, { team, lang }, {
-    system: system(game, lang),
-    schema: TeamAuditSchema,
-    schemaName: 'team_audit',
-    webSearch: false,
-    tier: 'deep',
-    prompt:
-      'This is the player\'s whole trained roster. Audit it as a pool to build teams from: shared weaknesses, ' +
-      'missing roles (speed control, hazards, pivots, walls), redundant picks, and the most valuable additions.\n\n' +
-      JSON.stringify(team, null, 2),
-  });
 }
 
 /** A location already researched for this Pokémon, or null. Never makes a request to the model. */

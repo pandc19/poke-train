@@ -93,14 +93,6 @@ export function buildAuditSchema(ask: AuditAsk, hasEvs: boolean) {
   return base.omit(Object.fromEntries(keys.map((k) => [k, true])) as never) as unknown as z.ZodType<Partial<BuildAuditRaw>>;
 }
 
-export const TeamAuditSchema = z.object({
-  summary: z.string(),
-  strengths: z.array(z.string()),
-  weaknesses: z.array(z.string()).describe('Shared type weaknesses, missing roles, speed control gaps'),
-  suggestions: z.array(z.object({ change: z.string(), reason: z.string() })),
-});
-export type TeamAudit = z.infer<typeof TeamAuditSchema>;
-
 export const LocationSchema = z.object({
   found: z.boolean(),
   locations: z
