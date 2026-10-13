@@ -127,7 +127,7 @@ export async function POST(request: Request) {
         const sides = genders.get(speciesId)!;
         const data = { ...(sides.male ? { hasMale: true } : {}), ...(sides.female ? { hasFemale: true } : {}) };
         await tx.pokedexEntry.upsert({
-          where: { profileId_speciesId: { profileId, speciesId } },
+          where: { profileId_speciesId_variant: { profileId, speciesId, variant: '' } },
           update: data,
           create: { profileId, speciesId, ...data },
         });

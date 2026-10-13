@@ -6,6 +6,7 @@ import { ConfirmDialog } from './Dialog';
 import { PokemonInfoDialog } from './PokemonInfoDialog';
 import { ScrollTopButton } from './ScrollTopButton';
 import { Sprite } from './Sprite';
+import { decodeKey } from '@/lib/dex-variant';
 import type { DexCell } from '@/lib/pokedex';
 import type { Lang } from '@/lib/i18n';
 import { useT } from '@/lib/translate-client';
@@ -61,14 +62,14 @@ export function DexGrid({
   const hasUnavailable = cells.some((c) => !c.inGame);
   const [onlyInGame, setOnlyInGame] = useState(true);
   const [caught, setCaught] = useState(
-    () => new Set(seed.filter((c) => c.caught || (readOnly && c.caughtIn.length > 0)).map((c) => c.speciesId))
+    () => new Set(seed.filter((c) => c.caught || (readOnly && c.caughtIn.length > 0)).map((c) => c.key))
   );
   /** Caught Pokémon the player has said they no longer have (evolved or released). */
   const [notOwned, setNotOwned] = useState(
-    () => new Set(seed.filter((c) => c.caught && !c.owned).map((c) => c.speciesId))
+    () => new Set(seed.filter((c) => c.caught && !c.owned).map((c) => c.key))
   );
   const [genders, setGenders] = useState<Record<number, Genders>>(() =>
-    Object.fromEntries(seed.map((c) => [c.speciesId, { male: c.hasMale, female: c.hasFemale }]))
+    Object.fromEntries(seed.map((c) => [c.key, { male: c.hasMale, female: c.hasFemale }]))
   );
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -82,17 +83,17 @@ export function DexGrid({
     lastIndex.current = null;
   }, [cells]);
 
-  const haveNow = (c: DexCell) => caught.has(c.speciesId) && (!notOwned.has(c.speciesId) || c.ownedViaRoster);
+  const haveNow = (c: DexCell) => caught.has(c.key) && (!notOwned.has(c.key) || c.ownedViaRoster);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return cells.filter((c) => {
       if (hasUnavailable && onlyInGame && !c.inGame) return false;
-      if (filter === 'missing' && caught.has(c.speciesId)) return false;
-      if (filter === 'caught' && !caught.has(c.speciesId)) return false;
-      const have = caught.has(c.speciesId) && (!notOwned.has(c.speciesId) || c.ownedViaRoster);
+      if (filter === 'missing' && caught.has(c.key)) return false;
+      if (filter === 'caught' && !caught.has(c.key)) return false;
+      const have = caught.has(c.key) && (!notOwned.has(c.key) || c.ownedViaRoster);
       if (filter === 'have' && !have) return false;
-      if (filter === 'registered' && !(caught.has(c.speciesId) && !have)) return false;
+      if (filter === 'registered' && !(caught.has(c.key) && !have)) return false;
       if (!q) return true;
       return (
         c.nameEn.toLowerCase().includes(q) ||
@@ -165,32 +166,32 @@ export function DexGrid({
     if (!res.ok) throw new Error(String(res.status));
   }
 
-  async function setHave(speciesId: number, value: boolean) {
+  async function setHave(key: number, value: boolean) {
     const toggle = (have: boolean) =>
       setNotOwned((prev) => {
         const next = new Set(prev);
-        if (have) next.delete(speciesId);
-        else next.add(speciesId);
+        if (have) next.delete(key);
+        else next.add(key);
         return next;
       });
     toggle(value);
     setError(null);
     try {
-      await patch({ speciesId, owned: value });
+      await patch({ speciesId: key, owned: value });
     } catch {
       toggle(!value);
       setError(t('Could not save that change. It has been undone; try again.'));
     }
   }
 
-  async function setGender(speciesId: number, which: keyof Genders, value: boolean) {
-    const before = genders[speciesId] ?? { male: false, female: false };
-    setGenders((prev) => ({ ...prev, [speciesId]: { ...before, [which]: value } }));
+  async function setGender(key: number, which: keyof Genders, value: boolean) {
+    const before = genders[key] ?? { male: false, female: false };
+    setGenders((prev) => ({ ...prev, [key]: { ...before, [which]: value } }));
     setError(null);
     try {
-      await patch({ speciesId, [which === 'male' ? 'hasMale' : 'hasFemale']: value });
+      await patch({ speciesId: key, [which === 'male' ? 'hasMale' : 'hasFemale']: value });
     } catch {
-      setGenders((prev) => ({ ...prev, [speciesId]: before }));
+      setGenders((prev) => ({ ...prev, [key]: before }));
       setError(t('Could not save that gender. It has been undone; try again.'));
     }
   }
@@ -199,15 +200,15 @@ export function DexGrid({
   const toggleCaught = (index: number, shift: boolean) => {
     if (readOnly) return;
     const cell = visible[index];
-    const mode = !caught.has(cell.speciesId);
+    const mode = !caught.has(cell.key);
     if (shift && lastIndex.current !== null) {
       const [a, b] = [lastIndex.current, index].sort((x, y) => x - y);
-      const ids = visible.slice(a, b + 1).map((c) => c.speciesId);
+      const ids = visible.slice(a, b + 1).map((c) => c.key);
       apply(ids, mode);
       void save(ids, mode);
     } else {
-      apply([cell.speciesId], mode);
-      void save([cell.speciesId], mode);
+      apply([cell.key], mode);
+      void save([cell.key], mode);
     }
     lastIndex.current = index;
   };
@@ -215,7 +216,7 @@ export function DexGrid({
   /** Bulk changes always go through a confirmation that says how many Pokémon are affected. */
   const askBulk = (mode: boolean) => {
     setMenuOpen(false);
-    setBulk({ mode, ids: visible.filter((c) => caught.has(c.speciesId) !== mode).map((c) => c.speciesId) });
+    setBulk({ mode, ids: visible.filter((c) => caught.has(c.key) !== mode).map((c) => c.key) });
   };
 
   const confirmBulk = () => {
@@ -227,7 +228,7 @@ export function DexGrid({
 
   const scoped = hasUnavailable && onlyInGame ? cells.filter((c) => c.inGame) : cells;
   const total = scoped.length;
-  const count = scoped.filter((c) => caught.has(c.speciesId)).length;
+  const count = scoped.filter((c) => caught.has(c.key)).length;
   const haveCount = scoped.filter(haveNow).length;
   const pct = total ? Math.round((count / total) * 100) : 0;
   const openCell = cells.find((c) => c.speciesId === openId) ?? null;
@@ -322,17 +323,17 @@ export function DexGrid({
       ) : (
         <ul className="grid grid-cols-[repeat(auto-fill,minmax(136px,1fr))] gap-3">
           {visible.map((c, i) => {
-            const isCaught = caught.has(c.speciesId);
+            const isCaught = caught.has(c.key);
             const name = lang === 'en' ? c.nameEn : c.nameEs;
             const elsewhere = isCaught ? [] : c.caughtIn;
             const mixed = c.genderRate > 0 && c.genderRate < 8;
-            const g = genders[c.speciesId] ?? { male: false, female: false };
+            const g = genders[c.key] ?? { male: false, female: false };
             const have = haveNow(c);
             const registeredOnly = isCaught && !have;
             const evo = c.evolvedInto ? (lang === 'en' ? c.evolvedInto.nameEn : c.evolvedInto.nameEs) : null;
             return (
               <li
-                key={c.speciesId}
+                key={c.key}
                 className={`relative flex flex-col rounded-lg border px-1.5 pb-9 pt-1.5 transition-colors ${
                   registeredOnly
                     ? 'border-dashed border-line bg-surface opacity-80'
@@ -390,6 +391,9 @@ export function DexGrid({
                     {name}
                   </span>
                   {/* Notes sit on their own line under the name, never on top of it. */}
+                  {c.formLabel && (
+                    <span className="w-full truncate text-center text-[11px] font-medium text-star">{c.formLabel}</span>
+                  )}
                   {registeredOnly && (
                     <span className="w-full truncate text-center text-[11px] text-pending">
                       {evo ? t('evolved → {name}', { name: evo }) : t('not in my box')}
@@ -430,7 +434,7 @@ export function DexGrid({
                             ? t('You have one right now. Click if it evolved or you released it')
                             : t('Not in your box (it evolved or was released). Click if you have one again')
                       }
-                      onClick={() => setHave(c.speciesId, !have)}
+                      onClick={() => setHave(c.key, !have)}
                       className={`h-6 rounded px-2 text-[11px] font-bold ${
                         have ? 'bg-done text-bg' : 'border border-pending/60 text-pending hover:bg-pending/10'
                       } disabled:cursor-default`}
@@ -443,7 +447,7 @@ export function DexGrid({
                           type="button"
                           aria-pressed={g.male}
                           title={g.male ? t('You have a male. Click to remove') : t('Click if you have a male')}
-                          onClick={() => setGender(c.speciesId, 'male', !g.male)}
+                          onClick={() => setGender(c.key, 'male', !g.male)}
                           className={`h-6 w-7 rounded text-sm font-bold ${
                             g.male ? 'bg-sky-500 text-white' : 'border border-line text-muted hover:text-sky-400'
                           }`}
@@ -454,7 +458,7 @@ export function DexGrid({
                           type="button"
                           aria-pressed={g.female}
                           title={g.female ? t('You have a female. Click to remove') : t('Click if you have a female')}
-                          onClick={() => setGender(c.speciesId, 'female', !g.female)}
+                          onClick={() => setGender(c.key, 'female', !g.female)}
                           className={`h-6 w-7 rounded text-sm font-bold ${
                             g.female ? 'bg-pink-500 text-white' : 'border border-line text-muted hover:text-pink-400'
                           }`}
@@ -483,9 +487,10 @@ export function DexGrid({
         speciesId={openId}
         gameId={gameId}
         lang={lang}
-        status={openCell ? { caught: caught.has(openCell.speciesId), have: haveNow(openCell) } : undefined}
+        status={openCell ? { caught: caught.has(openCell.key), have: haveNow(openCell) } : undefined}
         exclusive={openCell?.exclusive}
         entryNumber={openCell?.entryNumber}
+        variant={openCell ? decodeKey(openCell.key).variant : ''}
         onClose={() => setOpenId(null)}
       />
 

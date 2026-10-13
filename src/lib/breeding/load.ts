@@ -66,7 +66,17 @@ export async function loadOwned(profileId: string): Promise<Owned> {
   ]);
 
   // Registered-only entries (evolved or released) are not in the player's hands.
-  const held = entries.filter((e) => e.owned);
+  // A species can have an entry per regional form; breeding only cares about the species.
+  const heldBySpecies = new Map<number, { speciesId: number; hasMale: boolean; hasFemale: boolean }>();
+  for (const e of entries.filter((e) => e.owned)) {
+    const known = heldBySpecies.get(e.speciesId);
+    heldBySpecies.set(e.speciesId, {
+      speciesId: e.speciesId,
+      hasMale: Boolean(known?.hasMale || e.hasMale),
+      hasFemale: Boolean(known?.hasFemale || e.hasFemale),
+    });
+  }
+  const held = [...heldBySpecies.values()];
   const owned: OwnedPokemon[] = roster.map((p) => {
     const ratings = (p.ivRatings ?? {}) as Record<string, string | null>;
     const ivs: Partial<Record<(typeof IV_STATS)[number], IvKnowledge>> = {};

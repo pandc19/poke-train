@@ -18,7 +18,13 @@ export type GameConfig = {
   /** Every version group whose learnsets count as legal (base game + DLC). */
   learnsetVersionGroups: string[];
   /** PokéAPI pokedex slugs, in display order. `note` says where the dex comes from. */
-  pokedexes: { slug: string; name: Localized; note: Localized }[];
+  pokedexes: {
+    slug: string;
+    name: Localized;
+    note: Localized;
+    /** Lists regional forms (Alolan, Galarian, Hisuian) as Pokémon of their own, tracked apart from the normal ones. */
+    regionalForms?: boolean;
+  }[];
   /** The game has a National Dex. Scarlet/Violet do not: only their regional Pokédexes. */
   nationalDex: boolean;
   features: {
@@ -68,7 +74,12 @@ export const GAMES: GameConfig[] = [
     pokedexes: [
       { slug: 'paldea', name: { en: 'Paldea', es: 'Paldea' }, note: { en: 'Base game', es: 'Juego base' } },
       { slug: 'kitakami', name: { en: 'Kitakami', es: 'Noroteo' }, note: { en: 'DLC: The Teal Mask', es: 'DLC: La Máscara Turquesa' } },
-      { slug: 'blueberry', name: { en: 'Blueberry', es: 'Arándano' }, note: { en: 'DLC: The Indigo Disk', es: 'DLC: El Disco Índigo' } },
+      {
+        slug: 'blueberry',
+        name: { en: 'Blueberry', es: 'Arándano' },
+        note: { en: 'DLC: The Indigo Disk', es: 'DLC: El Disco Índigo' },
+        regionalForms: true,
+      },
     ],
     nationalDex: false,
     features: {

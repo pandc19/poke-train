@@ -109,6 +109,7 @@ export function PokemonInfoDialog({
   status,
   exclusive,
   entryNumber,
+  variant = '',
   onClose,
 }: {
   speciesId: number | null;
@@ -120,18 +121,21 @@ export function PokemonInfoDialog({
   exclusive?: { versionName: string; own: boolean } | null;
   /** Its number in the Pokédex being browsed; the National number is used when absent. */
   entryNumber?: number;
+  /** A regional form opened from its own card ('alola'...): only that form is shown. */
+  variant?: string;
   onClose: () => void;
 }) {
   const { t } = useT();
-  const key = speciesId == null ? null : `${gameId ?? ''}:${speciesId}`;
+  const key = speciesId == null ? null : `${gameId ?? ''}:${speciesId}:${variant}`;
   const [loaded, setLoaded] = useState<{ key: string; info: PokemonInfo | null; error: string | null } | null>(null);
 
   useEffect(() => {
     if (key == null || speciesId == null || cache.has(key)) return;
     const controller = new AbortController();
-    fetch(`/api/pokemon/${speciesId}${gameId ? `?gameId=${encodeURIComponent(gameId)}` : ''}`, {
-      signal: controller.signal,
-    })
+    const query = new URLSearchParams();
+    if (gameId) query.set('gameId', gameId);
+    if (variant) query.set('variant', variant);
+    fetch(`/api/pokemon/${speciesId}${query.size ? `?${query}` : ''}`, { signal: controller.signal })
       .then(async (res) => {
         const data = await res.json().catch(() => null);
         if (!res.ok) throw new Error(data?.error ?? t('Request failed ({status})', { status: res.status }));
@@ -142,7 +146,7 @@ export function PokemonInfoDialog({
         if (err?.name !== 'AbortError') setLoaded({ key, info: null, error: err.message ?? t('Could not load this Pokémon.') });
       });
     return () => controller.abort();
-  }, [key, speciesId, gameId, t]);
+  }, [key, speciesId, gameId, variant, t]);
 
   // A Pokémon already fetched this visit is shown straight from the cache.
   const cached = key ? cache.get(key) : undefined;
@@ -160,7 +164,7 @@ export function PokemonInfoDialog({
   const stages = info ? Math.max(...info.evolutions.map((e) => e.stage)) + 1 : 0;
 
   return (
-    <Dialog open={speciesId != null} onClose={onClose} wide title={info ? `#${String(entryNumber ?? info.id).padStart(3, '0')} ${name}` : 'Pokémon'}>
+    <Dialog open={speciesId != null} onClose={onClose} wide title={info ? `#${String(entryNumber ?? info.id).padStart(3, '0')} ${name}${variant ? ` (${variant[0].toUpperCase()}${variant.slice(1)})` : ''}` : 'Pokémon'}>
       {!current && <p className="py-10 text-center text-sm text-muted">{t('Loading…')}</p>}
       {current?.error && (
         <p role="alert" className="rounded-md border border-pending/40 bg-pending/10 px-3 py-2 text-sm text-pending">

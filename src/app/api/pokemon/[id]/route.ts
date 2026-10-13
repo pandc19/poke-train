@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { apiError } from '@/lib/api-error';
+import { REGIONS } from '@/lib/dex-variant';
 import { getGame } from '@/lib/games';
 import { loadPokemonInfo } from '@/lib/pokeapi/info';
 
@@ -11,9 +12,11 @@ export async function GET(request: Request, ctx: RouteContext<'/api/pokemon/[id]
   if (!parsed.success) return apiError('Invalid id', 400);
   const gameId = new URL(request.url).searchParams.get('gameId');
   const game = gameId ? getGame(gameId) : undefined;
+  const asked = new URL(request.url).searchParams.get('variant');
+  const variant = REGIONS.find((r) => r === asked) ?? '';
 
   try {
-    const info = await loadPokemonInfo(parsed.data.id, game);
+    const info = await loadPokemonInfo(parsed.data.id, game, variant);
     if (!info) return apiError('Unknown Pokémon', 404);
     return Response.json(info);
   } catch (error) {

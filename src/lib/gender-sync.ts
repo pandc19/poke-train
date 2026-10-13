@@ -1,4 +1,5 @@
 import type { Gender, Prisma, PrismaClient } from '@prisma/client';
+import type { Variant } from './dex-variant';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -38,14 +39,14 @@ const isMixed = (genderRate: number) => genderRate > 0 && genderRate < 8;
  */
 export async function rosterGenderToPokedex(
   db: Db,
-  args: { profileId: string; speciesId: number; rosterId: string; before: Gender; after: Gender }
+  args: { profileId: string; speciesId: number; variant?: Variant; rosterId: string; before: Gender; after: Gender }
 ): Promise<void> {
-  const { profileId, speciesId, rosterId, before, after } = args;
+  const { profileId, speciesId, variant = '', rosterId, before, after } = args;
   const species = await db.species.findUnique({ where: { id: speciesId }, select: { genderRate: true } });
   if (!species || !isMixed(species.genderRate)) return;
 
   const entry = await db.pokedexEntry.findUnique({
-    where: { profileId_speciesId: { profileId, speciesId } },
+    where: { profileId_speciesId_variant: { profileId, speciesId, variant } },
     select: { hasMale: true, hasFemale: true },
   });
   if (entry?.hasMale && entry.hasFemale) return;
@@ -68,12 +69,12 @@ export async function rosterGenderToPokedex(
 
   if (data.hasMale || data.hasFemale) {
     await db.pokedexEntry.upsert({
-      where: { profileId_speciesId: { profileId, speciesId } },
+      where: { profileId_speciesId_variant: { profileId, speciesId, variant } },
       update: data,
-      create: { profileId, speciesId, ...data },
+      create: { profileId, speciesId, variant, ...data },
     });
   } else {
     // Only clearing: never create a Pokédex entry just to say "no".
-    await db.pokedexEntry.updateMany({ where: { profileId, speciesId }, data });
+    await db.pokedexEntry.updateMany({ where: { profileId, speciesId, variant }, data });
   }
 }

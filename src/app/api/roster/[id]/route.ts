@@ -9,6 +9,7 @@ import { rosterGenderToPokedex } from '@/lib/gender-sync';
 import { getGame } from '@/lib/games';
 import { parseEvs } from '@/lib/import/evs';
 import { IV_RATING_VALUES, potentialFromRatings, type IvRatings } from '@/lib/iv-ratings';
+import { variantOfSlug } from '@/lib/dex-variant';
 import { TYPE_SLUGS } from '@/lib/pokemon-types';
 import { loadRoster, refreshLegality } from '@/lib/roster';
 
@@ -88,7 +89,7 @@ async function findOwned(rosterId: string) {
   if (!z.uuid().safeParse(rosterId).success) return null;
   return prisma.rosterPokemon.findFirst({
     where: { id: rosterId, profile: { userId: LOCAL_USER_ID } },
-    include: { moves: true, profile: { select: { gameId: true } } },
+    include: { moves: true, profile: { select: { gameId: true } }, form: { select: { slug: true } } },
   });
 }
 
@@ -99,6 +100,8 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
   const current = await findOwned(rosterId);
   if (!current) return apiError('Not found', 404);
   const { task, set } = parsed.data;
+  // The Pokédex keeps a regional form apart from the normal one.
+  const variant = variantOfSlug(current.form?.slug ?? '');
 
   if (task) {
     const { key, status } = task;
@@ -126,9 +129,9 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
       // A Pokémon you have is caught and in your box, so the Pokédex says so too.
       if (key === 'owned' && status === 'DONE') {
         await prisma.pokedexEntry.upsert({
-          where: { profileId_speciesId: { profileId: current.profileId, speciesId: current.speciesId } },
+          where: { profileId_speciesId_variant: { profileId: current.profileId, speciesId: current.speciesId, variant } },
           update: { owned: true },
-          create: { profileId: current.profileId, speciesId: current.speciesId, owned: true },
+          create: { profileId: current.profileId, speciesId: current.speciesId, variant, owned: true },
         });
       }
       // Giving it up leaves it caught, but no longer in the box unless another one is.
@@ -138,7 +141,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
         });
         if (others === 0) {
           await prisma.pokedexEntry.updateMany({
-            where: { profileId: current.profileId, speciesId: current.speciesId },
+            where: { profileId: current.profileId, speciesId: current.speciesId, variant },
             data: { owned: false },
           });
         }
@@ -148,6 +151,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
         await rosterGenderToPokedex(prisma, {
           profileId: current.profileId,
           speciesId: current.speciesId,
+          variant,
           rosterId,
           before: 'UNKNOWN',
           after: set?.gender ?? current.gender,

@@ -36,10 +36,10 @@ export function DexBrowser({
   const [slug, setSlug] = useState(dexes.some((d) => d.slug === initialSlug) ? initialSlug : dexes[0].slug);
   const current = dexes.find((d) => d.slug === slug) ?? dexes[0];
 
-  // One entry per species across all the tabs, so caught state starts right everywhere.
+  // One entry per card across all the tabs, so caught state starts right everywhere.
   const everySpecies = useMemo(() => {
     const bySpecies = new Map<number, DexCell>();
-    for (const cells of Object.values(cellsBySlug)) for (const c of cells) bySpecies.set(c.speciesId, c);
+    for (const cells of Object.values(cellsBySlug)) for (const c of cells) bySpecies.set(c.key, c);
     return [...bySpecies.values()];
   }, [cellsBySlug]);
 

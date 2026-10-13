@@ -1,6 +1,7 @@
 import { prisma } from '../db';
 import type { GameConfig } from '../games';
 import { getPokeApi } from './client';
+import { REGIONS, type Variant, variantOfSlug } from '../dex-variant';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -88,7 +89,9 @@ async function loadVariants(
   defaultArtwork: string | null,
   defaultPokemon: any,
   /** The variety shown first; it is the species' default one unless the game has a regional form. */
-  primaryName?: string
+  primaryName?: string,
+  /** Show that one look only (a regional form opened from its own Pokédex card). */
+  only = false
 ): Promise<PokemonInfo['variants']> {
   const out: PokemonInfo['variants'] = [];
   const varieties: { is_default: boolean; pokemon: { name: string } }[] = speciesJson.varieties ?? [];
@@ -105,6 +108,9 @@ async function loadVariants(
   const gendered = hasGender && (femaleSprite != null || femaleVariety);
 
   const primaryLabel = primary === baseName ? '' : titleCase(primary.slice(baseName.length + 1) || primary);
+  if (only) {
+    return defaultArtwork ? [{ label: primaryLabel, artwork: defaultArtwork, shiny: shinyOf(defaultPokemon) }] : [];
+  }
   if (defaultArtwork) out.push({ label: gendered ? '♂' : primaryLabel, artwork: defaultArtwork, shiny: shinyOf(defaultPokemon) });
   if (gendered && !femaleVariety && femaleSprite) out.push({ label: '♀', artwork: femaleSprite, shiny: defaultPokemon?.sprites?.front_shiny_female ?? null });
 
@@ -148,7 +154,12 @@ const STAT_KEYS = ['hp', 'attack', 'defense', 'specialAttack', 'specialDefense',
  * the description, genus, size and capture data come from PokéAPI itself
  * (via the shared cache). Nothing here depends on your roster.
  */
-export async function loadPokemonInfo(speciesId: number, game?: GameConfig): Promise<PokemonInfo | null> {
+export async function loadPokemonInfo(
+  speciesId: number,
+  game?: GameConfig,
+  /** A regional form opened from its own Pokédex card: only that form is described. */
+  variant: Variant = ''
+): Promise<PokemonInfo | null> {
   const species = await prisma.species.findUnique({
     where: { id: speciesId },
     select: {
@@ -159,7 +170,13 @@ export async function loadPokemonInfo(speciesId: number, game?: GameConfig): Pro
       genderRate: true,
       isBaby: true,
       forms: {
-        where: { OR: [{ isDefault: true }, { slug: { contains: '-paldea' } }] },
+        where: {
+          OR: [
+            { isDefault: true },
+            { slug: { contains: '-paldea' } },
+            ...REGIONS.map((r) => ({ slug: { contains: `-${r}` } })),
+          ],
+        },
         select: { id: true, slug: true, isDefault: true, types: true, baseStats: true, spriteUrl: true },
         orderBy: { id: 'asc' },
       },
@@ -167,7 +184,11 @@ export async function loadPokemonInfo(speciesId: number, game?: GameConfig): Pro
   });
   if (!species) return null;
   // Violet only has the Paldean form of Wooper and Tauros, so that one leads.
-  const regional = game?.id === 'violet' ? species.forms.find((f) => f.slug.includes('-paldea')) : undefined;
+  const regional = variant
+    ? species.forms.find((f) => !f.isDefault && variantOfSlug(f.slug) === variant)
+    : game?.id === 'violet'
+      ? species.forms.find((f) => f.slug.includes('-paldea'))
+      : undefined;
   const form = regional ?? species.forms.find((f) => f.isDefault);
 
   const [speciesJson, pokemonJson, family, slots] = await Promise.all([
@@ -180,7 +201,13 @@ export async function loadPokemonInfo(speciesId: number, game?: GameConfig): Pro
         nameEn: true,
         nameEs: true,
         forms: {
-          where: { OR: [{ isDefault: true }, { slug: { contains: '-paldea' } }] },
+          where: {
+            OR: [
+              { isDefault: true },
+              { slug: { contains: '-paldea' } },
+              ...REGIONS.map((r) => ({ slug: { contains: `-${r}` } })),
+            ],
+          },
           select: { slug: true, isDefault: true, spriteUrl: true },
           orderBy: { id: 'asc' },
         },
@@ -217,7 +244,7 @@ export async function loadPokemonInfo(speciesId: number, game?: GameConfig): Pro
   const artwork =
     pokemonJson?.sprites?.other?.['official-artwork']?.front_default ?? form?.spriteUrl ?? null;
 
-  const variants = await loadVariants(speciesJson, artwork, pokemonJson, pokemonJson?.name);
+  const variants = await loadVariants(speciesJson, artwork, pokemonJson, pokemonJson?.name, Boolean(variant && regional));
 
   return {
     id: species.id,
@@ -249,7 +276,12 @@ export async function loadPokemonInfo(speciesId: number, game?: GameConfig): Pro
       nameEs: byId.get(e.id)?.nameEs ?? String(e.id),
       spriteUrl: (() => {
         const forms = byId.get(e.id)?.forms ?? [];
-        const look = (game?.id === 'violet' ? forms.find((f) => f.slug.includes('-paldea')) : undefined) ?? forms.find((f) => f.isDefault);
+        const regionalLook = variant
+          ? forms.find((f) => !f.isDefault && variantOfSlug(f.slug) === variant)
+          : game?.id === 'violet'
+            ? forms.find((f) => f.slug.includes('-paldea'))
+            : undefined;
+        const look = regionalLook ?? forms.find((f) => f.isDefault);
         return look?.spriteUrl ?? null;
       })(),
     })),

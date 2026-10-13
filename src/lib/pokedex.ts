@@ -3,13 +3,18 @@ import { LOCAL_USER_ID } from './constants';
 import { NATIONAL_DEX_SLUG, getGame } from './games';
 import { exclusiveBySpecies } from './games/exclusives';
 import { rosterProgress } from './roster-status';
+import { type Variant, REGIONS, encodeKey, variantOfSlug } from './dex-variant';
 
 export type DexCell = {
   speciesId: number;
+  /** Identifies this card's own caught state: the species plus the regional form it shows. */
+  key: number;
   entryNumber: number;
   nameEn: string;
   nameEs: string;
   spriteUrl: string | null;
+  /** Set when the card shows a regional form (Alolan Dugtrio), tracked apart from the normal one. */
+  formLabel: string | null;
   types: string[];
   /** Caught in the profile being viewed. */
   caught: boolean;
@@ -60,7 +65,13 @@ export async function loadDex(
             nameEs: true,
             genderRate: true,
             forms: {
-              where: { OR: [{ isDefault: true }, { slug: { contains: '-paldea' } }] },
+              where: {
+                OR: [
+                  { isDefault: true },
+                  { slug: { contains: '-paldea' } },
+                  ...REGIONS.map((r) => ({ slug: { contains: `-${r}` } })),
+                ],
+              },
               select: { slug: true, isDefault: true, spriteUrl: true, types: true },
               orderBy: { id: 'asc' },
             },
@@ -74,6 +85,7 @@ export async function loadDex(
         speciesId: true,
         profileId: true,
         owned: true,
+        variant: true,
         hasMale: true,
         hasFemale: true,
         profile: { select: { gameId: true } },
@@ -90,6 +102,33 @@ export async function loadDex(
     prisma.species.findMany({ select: { id: true, evolvesFromId: true, nameEn: true, nameEs: true } }),
   ]);
   const inGame = gameSlots ? new Set(gameSlots.map((s) => s.speciesId)) : null;
+  const regionalForms = Boolean(
+    opts.gameId && getGame(opts.gameId)?.pokedexes.find((d) => d.slug === pokedexSlug)?.regionalForms
+  );
+
+  // Which form a card shows, and so which caught state it owns: a Pokédex that lists regional
+  // forms shows those, the Paldea one shows the Paldean form, any other the species' own form.
+  type Form = (typeof slots)[number]['species']['forms'][number];
+  const lookOf = (forms: Form[]): { look: Form | undefined; variant: Variant } => {
+    const own = forms.find((f) => f.isDefault);
+    if (regionalForms) {
+      for (const region of REGIONS) {
+        const form = forms.find((f) => !f.isDefault && variantOfSlug(f.slug) === region);
+        if (form) return { look: form, variant: region };
+      }
+    }
+    const paldean = pokedexSlug === 'paldea' ? forms.find((f) => f.slug.includes('-paldea')) : undefined;
+    return { look: paldean ?? own, variant: '' };
+  };
+
+  // Roster Pokémon count for the form they are.
+  const rosterFormIds = [...new Set(roster.map((p) => p.formId).filter((id): id is number => id != null))];
+  const rosterForms = rosterFormIds.length
+    ? await prisma.form.findMany({ where: { id: { in: rosterFormIds } }, select: { id: true, slug: true } })
+    : [];
+  const rosterVariant = new Map(rosterForms.map((f) => [f.id, variantOfSlug(f.slug)]));
+  const rosterKey = (p: (typeof roster)[number]) =>
+    encodeKey(p.speciesId, p.formId != null ? (rosterVariant.get(p.formId) ?? '') : '');
 
   const caughtHere = new Set<number>();
   const ownedHere = new Set<number>();
@@ -97,9 +136,10 @@ export async function loadDex(
   const caughtIn = new Map<number, Set<string>>();
   for (const e of entries) {
     if (e.profileId === profileId) {
-      caughtHere.add(e.speciesId);
-      if (e.owned) ownedHere.add(e.speciesId);
-      gendersHere.set(e.speciesId, { hasMale: e.hasMale, hasFemale: e.hasFemale });
+      const key = encodeKey(e.speciesId, e.variant as Variant);
+      caughtHere.add(key);
+      if (e.owned) ownedHere.add(key);
+      gendersHere.set(key, { hasMale: e.hasMale, hasFemale: e.hasFemale });
       continue;
     }
     const name = getGame(e.profile.gameId)?.shortName ?? e.profile.gameId;
@@ -110,9 +150,10 @@ export async function loadDex(
   const rosterOwned = new Set<number>();
   const rosterState = new Map<number, 'pending' | 'done'>();
   for (const p of roster) {
-    if (p.owned) rosterOwned.add(p.speciesId);
+    const key = rosterKey(p);
+    if (p.owned) rosterOwned.add(key);
     const complete = rosterProgress(p).complete;
-    if (!complete || !rosterState.has(p.speciesId)) rosterState.set(p.speciesId, complete ? 'done' : 'pending');
+    if (!complete || !rosterState.has(key)) rosterState.set(key, complete ? 'done' : 'pending');
   }
 
   // Evolution lines, to say which later stage the player holds instead of this one.
@@ -123,12 +164,15 @@ export async function loadDex(
     if (!children.has(l.evolvesFromId)) children.set(l.evolvesFromId, []);
     children.get(l.evolvesFromId)!.push(l.id);
   }
-  const holding = (id: number) => ownedHere.has(id) || rosterOwned.has(id);
-  const evolvedInto = (id: number) => {
+  const holding = (id: number, variant: Variant) => {
+    const key = encodeKey(id, variant);
+    return ownedHere.has(key) || rosterOwned.has(key);
+  };
+  const evolvedInto = (id: number, variant: Variant) => {
     // Breadth first, so the nearest evolution wins.
     const queue = [...(children.get(id) ?? [])];
     for (let i = 0; i < queue.length; i++) {
-      if (holding(queue[i])) return lineById.get(queue[i]) ?? null;
+      if (holding(queue[i], variant)) return lineById.get(queue[i]) ?? null;
       queue.push(...(children.get(queue[i]) ?? []));
     }
     return null;
@@ -137,32 +181,30 @@ export async function loadDex(
   const versions = opts.gameId ? getGame(opts.gameId)?.versionExclusives : undefined;
   const exclusives = versions ? exclusiveBySpecies(versions) : null;
 
-  // The Paldea Pokédex lists the Paldean form where there is one (Wooper, Tauros).
-  const lookOf = (forms: (typeof slots)[number]['species']['forms']) =>
-    (pokedexSlug === 'paldea' ? forms.find((f) => f.slug.includes('-paldea')) : undefined) ??
-    forms.find((f) => f.isDefault);
-
   return slots.map((s) => {
-    const look = lookOf(s.species.forms);
-    const evo = evolvedInto(s.species.id);
+    const { look, variant } = lookOf(s.species.forms);
+    const key = encodeKey(s.species.id, variant);
+    const evo = evolvedInto(s.species.id, variant);
     const side = exclusives?.get(s.species.id);
     return {
       speciesId: s.species.id,
+      key,
       entryNumber: s.entryNumber,
       nameEn: s.species.nameEn,
       nameEs: s.species.nameEs,
       spriteUrl: look?.spriteUrl ?? null,
+      formLabel: variant ? variant[0].toUpperCase() + variant.slice(1) : null,
       types: look?.types ?? [],
-      caught: caughtHere.has(s.species.id),
+      caught: caughtHere.has(key),
       inGame: inGame ? inGame.has(s.species.id) : true,
-      hasMale: gendersHere.get(s.species.id)?.hasMale ?? false,
-      hasFemale: gendersHere.get(s.species.id)?.hasFemale ?? false,
+      hasMale: gendersHere.get(key)?.hasMale ?? false,
+      hasFemale: gendersHere.get(key)?.hasFemale ?? false,
       genderRate: s.species.genderRate,
       caughtIn: [...(caughtIn.get(s.species.id) ?? [])],
-      roster: rosterState.get(s.species.id) ?? 'none',
+      roster: rosterState.get(key) ?? 'none',
       exclusive: side && versions ? { versionName: side === 'own' ? versions.ownName : versions.otherName, own: side === 'own' } : null,
-      owned: holding(s.species.id),
-      ownedViaRoster: rosterOwned.has(s.species.id),
+      owned: holding(s.species.id, variant),
+      ownedViaRoster: rosterOwned.has(key),
       evolvedInto: evo ? { nameEn: evo.nameEn, nameEs: evo.nameEs } : null,
     };
   });
