@@ -14,6 +14,11 @@ export type EvEstimateInfo = {
   nature: NatureEffect;
   /** Display name of the nature that is applied, when there is one. */
   natureName: string | null;
+  /**
+   * The nature effect in force now. `nature` is the one the recorded stats were read under; stats typed
+   * now are read under this one.
+   */
+  live?: { nature: NatureEffect; natureName: string | null };
 };
 
 const STAT_KEY: Record<string, keyof typeof STAT_LABELS> = {

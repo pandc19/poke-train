@@ -102,11 +102,21 @@ function StatsSection({
   p,
   info,
   onSave,
+  onStatsRead,
 }: {
   p: RosterView;
   info?: EvEstimateInfo;
   onSave: (stats: EvSpread | null, level: number, ratings: IvRatings) => void;
+  /** The numbers on record were read again under the nature effect in force now. */
+  onStatsRead: () => void;
 }) {
+  const { t, lang } = useT();
+  const pickName = (n: { nameEn: string; nameEs: string } | null) => (n ? (lang === 'en' ? n.nameEn : n.nameEs) : '');
+  const nowNature = p.mintNature ?? p.currentNature ?? p.targetNature;
+  // A Mint (or another nature) came after the stats were read: the numbers are not read under what the game applies now.
+  const staleStats = Boolean(p.currentStats && p.statsNature && nowNature && p.statsNature.id !== nowNature.id);
+  const statsNatureName = pickName(p.statsNature);
+  const nowNatureName = pickName(nowNature);
   const [stats, setStats] = useState<EvSpread | null>(p.currentStats);
   const [level, setLevel] = useState(p.level);
   const [ratings, setRatings] = useState<IvRatings>(p.ivRatings ?? {});
@@ -119,6 +129,24 @@ function StatsSection({
     if (changed) onSave(next, level, ratings);
   };
   return (
+    <div className="space-y-2">
+    {staleStats && (
+      <div className="rounded-md border border-star/40 bg-star/10 px-3 py-2 text-xs text-star">
+        <p>
+          {t('These stats were read with {old}, and the game now applies {now}. Type the numbers it shows now, then confirm. Until then the EVs are worked out with {old}.', {
+            old: statsNatureName,
+            now: nowNatureName,
+          })}
+        </p>
+        <button
+          type="button"
+          onClick={onStatsRead}
+          className="mt-1.5 rounded border border-star/50 px-2 py-1 font-medium hover:bg-star/10"
+        >
+          {t('The stats are up to date')}
+        </button>
+      </div>
+    )}
     <StatsEvsEditor
       stats={stats}
       level={level}
@@ -135,6 +163,7 @@ function StatsSection({
       savedEstimated={p.currentEvsEstimated}
       plan={p.evs}
     />
+    </div>
   );
 }
 
@@ -693,7 +722,14 @@ export function RosterDetail({
                   )}
                 </Field>
               )}
-              {evs && <StatsSection p={p} info={estimate} onSave={onSaveStats} />}
+              {evs && (
+                <StatsSection
+                  p={p}
+                  info={estimate}
+                  onSave={onSaveStats}
+                  onStatsRead={() => void save({ statsRead: true })}
+                />
+              )}
               {judge && (
                 <Field label={t('Potential')}>
                   <PotentialSelect p={p} onChange={onPotential} />

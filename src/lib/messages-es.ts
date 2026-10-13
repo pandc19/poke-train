@@ -270,6 +270,8 @@ export const ES: Record<string, string> = {
   'Search the roster': 'Buscar en el equipo',
   'Clear search': 'Borrar búsqueda',
   'Mint given': 'Menta dada',
+  'These stats were read with {old}, and the game now applies {now}. Type the numbers it shows now, then confirm. Until then the EVs are worked out with {old}.': 'Estas estadísticas se leyeron con {old} y ahora el juego aplica {now}. Escribe los números que muestra ahora y confirma. Hasta entonces los EVs se calculan con {old}.',
+  'The stats are up to date': 'Las estadísticas están al día',
   'Empty slot {n}': 'Vaciar el hueco {n}',
   'Drop from the team': 'Quitar del equipo',
   '{n} of 6 in the team': '{n} de 6 en el equipo',

@@ -37,6 +37,7 @@ export function TeamView({
   onSelect,
   onSetSlot,
   onSaveStats,
+  onStatsRead,
   onOpenDetails,
 }: {
   roster: RosterView[];
@@ -56,6 +57,8 @@ export function TeamView({
   onSelect: (id: string) => void;
   onSetSlot: (slot: number, id: string | null) => void;
   onSaveStats: (p: RosterView, stats: EvSpread | null, level: number, ratings: IvRatings) => void;
+  /** The stats on record are up to date under the nature effect in force now. */
+  onStatsRead: (p: RosterView) => void;
   /** Opens the full details of a Pokémon in the list view. */
   onOpenDetails: (id: string) => void;
 }) {
@@ -237,6 +240,7 @@ export function TeamView({
             info={estimateFor(shown)}
             speciesName={speciesName(shown)}
             onSaveStats={onSaveStats}
+            onStatsRead={() => onStatsRead(shown)}
             onOpenDetails={() => onOpenDetails(shown.id)}
             slot={shownSlot + 1}
             training={training}
@@ -338,6 +342,7 @@ function TeamDetail({
   slot,
   training,
   onSaveStats,
+  onStatsRead,
   onOpenDetails,
   onRemove,
 }: {
@@ -349,6 +354,7 @@ function TeamDetail({
   slot: number;
   training: keyof EvSpread | null;
   onSaveStats: (p: RosterView, stats: EvSpread | null, level: number, ratings: IvRatings) => void;
+  onStatsRead: () => void;
   onOpenDetails: () => void;
   onRemove: () => void;
 }) {
@@ -406,7 +412,15 @@ function TeamDetail({
   const range = useMemo(
     () =>
       stats && info
-        ? estimateEvRange({ stats, level, baseStats: info.baseStats, nature: info.nature, ivsLow: iv.low, ratings, plan: p.evs })
+        ? estimateEvRange({
+            stats,
+            level,
+            baseStats: info.baseStats,
+            nature: info.nature,
+            ivsLow: iv.low,
+            ratings,
+            plan: p.evs,
+          })
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [stats, level, info, iv.low, p.ivRatings, p.evs]
@@ -414,6 +428,7 @@ function TeamDetail({
   const evs = range?.estimate ?? p.currentEvs;
   const total = evs ? evTotal(evs) : 0;
   const natureShown = p.mintNature ?? p.currentNature ?? p.targetNature;
+  const nowNature = natureShown;
   const moves = p.moves.flatMap((m) => (m.move ? [m.move] : m.rawName ? [{ nameEn: m.rawName, nameEs: m.rawName, type: '' }] : []));
   const arrow =
     'grid h-9 w-11 place-items-center rounded-md border border-line bg-surface text-sm text-muted active:bg-surface-2 hover:text-ink';
@@ -464,6 +479,24 @@ function TeamDetail({
           </button>
         </div>
       </header>
+
+      {p.currentStats && p.statsNature && nowNature && p.statsNature.id !== nowNature.id && (
+        <div className="rounded-md border border-star/40 bg-star/10 px-3 py-2 text-xs text-star">
+          <p>
+            {t('These stats were read with {old}, and the game now applies {now}. Type the numbers it shows now, then confirm. Until then the EVs are worked out with {old}.', {
+              old: label(p.statsNature),
+              now: label(nowNature),
+            })}
+          </p>
+          <button
+            type="button"
+            onClick={onStatsRead}
+            className="mt-1.5 rounded border border-star/50 px-2 py-1 font-medium hover:bg-star/10"
+          >
+            {t('The stats are up to date')}
+          </button>
+        </div>
+      )}
 
       {!info || !stats ? (
         <p className="rounded-md border border-dashed border-line px-3 py-6 text-center text-sm text-muted">

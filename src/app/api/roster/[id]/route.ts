@@ -42,6 +42,8 @@ const Body = z.object({
       evs: z.string().max(200).nullable(),
       currentEvs: z.string().max(200).nullable(),
       currentEvsEstimated: z.boolean(),
+      /** The stats on record are up to date with the nature effect in force now (after a Mint, say). */
+      statsRead: z.boolean(),
       /** The stats the game shows; the EVs are worked out from them. */
       currentStats: z
         .object({
@@ -200,6 +202,18 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
             ? { itemId: set.itemId, itemStatus: 'PENDING' }
             : {}),
           ...(set.currentStats !== undefined ? { currentStats: set.currentStats ?? Prisma.DbNull } : {}),
+          // The nature effect the stats were read under. The first numbers recorded take the one in force;
+          // after that it only moves when the player says the stats are up to date (a Mint was given since),
+          // because a few typed numbers do not make a new reading of all six.
+          ...(set.currentStats === null ? { statsNatureId: null } : {}),
+          ...((set.currentStats != null && current.statsNatureId == null) || set.statsRead === true
+            ? {
+                statsNatureId:
+                  (set.mintNatureId !== undefined ? set.mintNatureId : current.mintNatureId) ??
+                  (set.currentNatureId !== undefined ? set.currentNatureId : current.currentNatureId) ??
+                  (set.targetNatureId !== undefined ? set.targetNatureId : current.targetNatureId),
+              }
+            : {}),
           ...(set.level !== undefined ? { level: set.level } : {}),
           ...(set.ivRatings !== undefined ? { ivRatings: set.ivRatings ?? Prisma.DbNull } : {}),
           ...(set.auditLocks !== undefined ? { auditLocks: set.auditLocks ?? Prisma.DbNull } : {}),
@@ -245,6 +259,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
         set.level !== undefined ||
         set.targetNatureId !== undefined ||
         set.mintNatureId !== undefined ||
+        set.statsRead !== undefined ||
         set.evs !== undefined ||
         set.ivRatings !== undefined)
     ) {

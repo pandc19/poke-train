@@ -164,6 +164,7 @@ model Nature {
   rosterTarget  RosterPokemon[] @relation("TargetNature")
   rosterCurrent RosterPokemon[] @relation("CurrentNature")
   rosterMint    RosterPokemon[] @relation("MintNature")
+  rosterStats   RosterPokemon[] @relation("StatsNature")
 
   @@map("natures")
 }
@@ -334,6 +335,9 @@ model RosterPokemon {
   natureStatus    TaskStatus @default(PENDING) @map("nature_status")
   /// The nature of the Mint it was given: the game then uses this one's stat effect (the real nature stays).
   mintNatureId    Int?       @map("mint_nature_id")
+  /// The nature effect the recorded stats were read under. The EVs are worked out with it, so a Mint given
+  /// afterwards does not change them until the stats are read again.
+  statsNatureId   Int?       @map("stats_nature_id")
 
   abilityId     Int?       @map("ability_id")
   abilityStatus TaskStatus @default(PENDING) @map("ability_status")
@@ -378,6 +382,7 @@ model RosterPokemon {
   targetNature  Nature?      @relation("TargetNature", fields: [targetNatureId], references: [id])
   currentNature Nature?      @relation("CurrentNature", fields: [currentNatureId], references: [id])
   mintNature    Nature?      @relation("MintNature", fields: [mintNatureId], references: [id])
+  statsNature   Nature?      @relation("StatsNature", fields: [statsNatureId], references: [id])
   ability       Ability?     @relation(fields: [abilityId], references: [id])
   item          Item?        @relation(fields: [itemId], references: [id])
   importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)

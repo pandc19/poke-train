@@ -188,12 +188,18 @@ export function RosterBoard({
   /** What the stats-to-EVs panel needs for this Pokémon: its base stats and the nature it really has. */
   const estimateFor = (p: RosterView): EvEstimateInfo | undefined => {
     if (!p.baseStats) return undefined;
-    const nature = p.mintNature ?? p.currentNature ?? p.targetNature;
-    const effect = nature ? options.natures.find((n) => n.id === nature.id) : null;
+    const effectOf = (n: { id: number } | null) => {
+      const found = n ? options.natures.find((x) => x.id === n.id) : null;
+      return found ? { increased: found.increased, decreased: found.decreased } : null;
+    };
+    // The nature effect in force now (a Mint's, else the nature it has), and the one the stats were read under.
+    const now = p.mintNature ?? p.currentNature ?? p.targetNature;
+    const read = p.currentStats && p.statsNature ? p.statsNature : now;
     return {
       baseStats: p.baseStats,
-      nature: effect ? { increased: effect.increased, decreased: effect.decreased } : null,
-      natureName: nature ? name(nature) : null,
+      nature: effectOf(read),
+      natureName: read ? name(read) : null,
+      live: { nature: effectOf(now), natureName: now ? name(now) : null },
     };
   };
 
@@ -587,6 +593,7 @@ export function RosterBoard({
           onSelect={select}
           onSetSlot={setSlot}
           onSaveStats={saveStats}
+          onStatsRead={(p) => void saveSet(p, { statsRead: true })}
           onOpenDetails={(id) => {
             changeView('list');
             setReveal(id);
