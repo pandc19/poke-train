@@ -164,12 +164,23 @@ export function RosterBoard({
   };
 
   /** Saves the stats and level; the server works the EVs out and sends the Pokémon back. */
-  async function saveStats(p: RosterView, stats: EvSpread | null, level: number, ivRatings: IvRatings) {
+  async function saveStats(
+    p: RosterView,
+    stats: EvSpread | null,
+    level: number,
+    ivRatings: IvRatings,
+    hiddenEvs: EvSpread | null
+  ) {
     setError(null);
-    replace({ ...p, currentStats: stats, level, ivRatings });
+    replace({ ...p, currentStats: stats, level, ivRatings, hiddenEvs });
     try {
       const data = await api<{ pokemon: RosterView }>(`/api/roster/${p.id}`, 'PATCH', {
-        set: { currentStats: stats, level, ivRatings: Object.values(ivRatings).some(Boolean) ? ivRatings : null },
+        set: {
+          currentStats: stats,
+          level,
+          hiddenEvs,
+          ivRatings: Object.values(ivRatings).some(Boolean) ? ivRatings : null,
+        },
       });
       replace(data.pokemon);
     } catch {
@@ -525,7 +536,7 @@ export function RosterBoard({
               onSet={(set) => saveSet(selected, set)}
               onGender={(g) => changeGender(selected, g)}
               onPotential={(v) => changePotential(selected, v)}
-              onSaveStats={(stats, level, ratings) => saveStats(selected, stats, level, ratings)}
+              onSaveStats={(stats, level, ratings, hidden) => saveStats(selected, stats, level, ratings, hidden)}
               onAudit={(refresh, deep) => audit(selected, refresh, deep)}
               onToggleAudit={() => setAuditShown(selected.id, hiddenAudits.has(selected.id))}
               onBreeder={(on) => setBreeder(selected, on)}

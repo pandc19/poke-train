@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimateEvRange, estimateEvs, statValue, statsAboveMax } from '@/lib/ev-estimate';
+import { addHiddenEvs, estimateEvRange, estimateEvs, statValue, statsAboveMax } from '@/lib/ev-estimate';
 import { ivAssumption } from '@/lib/potential';
 
 // Golem's base stats, and an Adamant nature (+Attack, -Sp. Atk).
@@ -118,5 +118,34 @@ describe('stats above what the level allows', () => {
   });
   it('accepts the same stat at the level where it is the maximum', () => {
     expect(statsAboveMax({ stats, level: 74, baseStats: LUCARIO, nature: null })).toEqual({});
+  });
+});
+
+describe('EVs the stats cannot show', () => {
+  const none = { hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 };
+
+  it('adds them on top of what the stats say', () => {
+    const spread = { ...none, hp: 252, attack: 252 };
+    expect(addHiddenEvs(spread, { ...none, defense: 6 })).toEqual({ ...spread, defense: 6 });
+  });
+
+  it('never goes past 252 in a stat or 510 in total', () => {
+    const spread = { ...none, hp: 252, attack: 252 };
+    expect(addHiddenEvs(spread, { ...none, defense: 20 }).defense).toBe(6);
+    expect(addHiddenEvs(spread, { ...none, hp: 4 }).hp).toBe(252);
+  });
+
+  it('is applied to the estimate and to the high end', () => {
+    const stats = { hp: 0, attack: 0, defense: 125, specialAttack: 0, specialDefense: 0, speed: 0 };
+    const range = estimateEvRange({
+      stats,
+      level: 76,
+      baseStats: GOLEM,
+      nature: null,
+      ivsLow: 31,
+      hidden: { ...none, speed: 6 },
+    });
+    expect(range.estimate.speed).toBe(6);
+    expect(range.high.speed).toBe(6);
   });
 });

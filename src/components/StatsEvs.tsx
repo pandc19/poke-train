@@ -140,6 +140,8 @@ export function StatsEvsEditor({
   potential,
   savedEvs,
   savedEstimated,
+  hidden,
+  onHiddenChange,
 }: {
   stats: EvSpread | null;
   level: number;
@@ -154,13 +156,16 @@ export function StatsEvsEditor({
   /** The EVs on record, shown when no stats are typed. */
   savedEvs: EvSpread | null;
   savedEstimated: boolean;
+  /** EVs gained that the stats cannot show, added to what the stats say. */
+  hidden: EvSpread | null;
+  onHiddenChange: (hidden: EvSpread | null) => void;
 }) {
   const { t, lang } = useT();
   const hasStats = stats != null && evTotal(stats) > 0;
   const iv = ivAssumption(potential);
   const range =
     hasStats && info
-      ? estimateEvRange({ stats, level, baseStats: info.baseStats, nature: info.nature, ivsLow: iv.low, ratings })
+      ? estimateEvRange({ stats, level, baseStats: info.baseStats, nature: info.nature, ivsLow: iv.low, ratings, hidden })
       : null;
   const above =
     hasStats && info ? statsAboveMax({ stats, level, baseStats: info.baseStats, nature: info.nature, ratings }) : {};
@@ -178,6 +183,7 @@ export function StatsEvsEditor({
       return r != null && r.low === r.high;
     });
   const total = evs ? evTotal(evs) : 0;
+  const hiddenTotal = hidden ? evTotal(hidden) : 0;
 
   const [copied, setCopied] = useState(false);
   /** The level, the stats and the EVs as plain text, to paste somewhere else. */
@@ -292,6 +298,45 @@ export function StatsEvsEditor({
               })}
             </p>
           ))}
+          {hasStats && (
+            <details className="mt-1 text-[11px]" open={hiddenTotal > 0}>
+              <summary className="cursor-pointer text-center text-muted">
+                {hiddenTotal > 0
+                  ? t('{n} EVs the stats cannot show', { n: hiddenTotal })
+                  : t('Add EVs the stats cannot show')}
+              </summary>
+              <p className="mt-1 text-center text-[10px] text-muted">
+                {t('A few EVs do not move a stat, so they are invisible in the numbers. Add the ones it gained here.')}
+              </p>
+              <div className="mt-1 grid grid-cols-3 gap-x-1.5 gap-y-1">
+                {STAT_ORDER.map((key) => (
+                  <label key={key} className="block min-w-0">
+                    <span className="block truncate text-[10px] text-muted">{STAT_LABELS[key][lang]}</span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={252}
+                      placeholder="0"
+                      value={(hidden ?? NO_EVS)[key] || ''}
+                      onChange={(e) => {
+                        const next = {
+                          ...(hidden ?? NO_EVS),
+                          [key]: Math.min(252, cleanNumber(e.target.value)),
+                        };
+                        onHiddenChange(evTotal(next) > 0 ? next : null);
+                      }}
+                      onBlur={onCommit}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.currentTarget.blur();
+                      }}
+                      className="w-full rounded border border-line bg-bg px-1 py-0.5 text-xs"
+                    />
+                  </label>
+                ))}
+              </div>
+            </details>
+          )}
           {estimated && (
             <div className="mt-0.5 space-y-0.5 text-center text-[10px] text-muted">
               <p>
@@ -304,6 +349,9 @@ export function StatsEvsEditor({
                       })
                     : t('The fewest EVs that give these stats. Rate its IVs or set its potential to see how many more it could have.')}
               </p>
+              {hiddenTotal > 0 && (
+                <p>{t('Includes {n} EVs you added that the stats cannot show.', { n: hiddenTotal })}</p>
+              )}
               {info && (
                 <p>
                   {info.natureName

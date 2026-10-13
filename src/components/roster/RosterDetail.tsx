@@ -68,18 +68,20 @@ function StatsSection({
 }: {
   p: RosterView;
   info?: EvEstimateInfo;
-  onSave: (stats: EvSpread | null, level: number, ratings: IvRatings) => void;
+  onSave: (stats: EvSpread | null, level: number, ratings: IvRatings, hidden: EvSpread | null) => void;
 }) {
   const [stats, setStats] = useState<EvSpread | null>(p.currentStats);
   const [level, setLevel] = useState(p.level);
   const [ratings, setRatings] = useState<IvRatings>(p.ivRatings ?? {});
+  const [hidden, setHidden] = useState<EvSpread | null>(p.hiddenEvs);
   const commit = () => {
     const next = stats && evTotal(stats) > 0 ? stats : null;
     const changed =
       JSON.stringify(next) !== JSON.stringify(p.currentStats) ||
       level !== p.level ||
-      JSON.stringify(ratings) !== JSON.stringify(p.ivRatings ?? {});
-    if (changed) onSave(next, level, ratings);
+      JSON.stringify(ratings) !== JSON.stringify(p.ivRatings ?? {}) ||
+      JSON.stringify(hidden) !== JSON.stringify(p.hiddenEvs);
+    if (changed) onSave(next, level, ratings, hidden);
   };
   return (
     <StatsEvsEditor
@@ -96,6 +98,8 @@ function StatsSection({
       potential={p.potential}
       savedEvs={p.currentEvs}
       savedEstimated={p.currentEvsEstimated}
+      hidden={hidden}
+      onHiddenChange={setHidden}
     />
   );
 }
@@ -145,7 +149,7 @@ export function RosterDetail({
   onSet: (set: Record<string, unknown>) => Promise<string | null>;
   onGender: (g: Gender) => void;
   onPotential: (v: RosterView['potential']) => void;
-  onSaveStats: (stats: EvSpread | null, level: number, ratings: IvRatings) => void;
+  onSaveStats: (stats: EvSpread | null, level: number, ratings: IvRatings, hidden: EvSpread | null) => void;
   onAudit: (refresh: boolean, deep: boolean) => void;
   onToggleAudit: () => void;
   /** Adds it to, or takes it off, the breeders. */

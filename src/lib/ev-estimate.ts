@@ -76,6 +76,25 @@ export function estimateEvs(args: {
   return out;
 }
 
+export const MAX_EV_TOTAL = 510;
+
+/**
+ * Adds EVs the stats cannot show (a few EVs below the point where a stat
+ * moves) to a spread worked out from the stats. A stat never goes past 252 and
+ * the total never past 510, as in the game: what does not fit is dropped.
+ */
+export function addHiddenEvs(spread: EvSpread, hidden: Partial<EvSpread> | null | undefined): EvSpread {
+  if (!hidden) return spread;
+  const out = { ...spread };
+  let room = MAX_EV_TOTAL - (Object.values(out) as number[]).reduce((a, b) => a + b, 0);
+  for (const key of Object.keys(out) as (keyof EvSpread)[]) {
+    const extra = Math.max(0, Math.min(hidden[key] ?? 0, 252 - out[key], room));
+    out[key] += extra;
+    room -= extra;
+  }
+  return out;
+}
+
 /**
  * The fewest EVs that fit the stats (`estimate`) and the most they could be
  * (`high`).
@@ -94,8 +113,10 @@ export function estimateEvRange(args: {
   /** The lowest average IV the overall potential allows, for stats not judged. */
   ivsLow: number;
   ratings?: IvRatings | null;
+  /** EVs known to be there that the stats do not show; added to both ends. */
+  hidden?: Partial<EvSpread> | null;
 }): { estimate: EvSpread; high: EvSpread } {
-  const { ivsLow, ratings, ...rest } = args;
+  const { ivsLow, ratings, hidden, ...rest } = args;
   const keys = Object.keys(args.stats) as (keyof EvSpread)[];
   const best: Partial<Record<keyof EvSpread, number>> = {};
   const worst: Partial<Record<keyof EvSpread, number>> = {};
@@ -105,8 +126,8 @@ export function estimateEvRange(args: {
     worst[key] = bounds.low;
   }
   return {
-    estimate: estimateEvs({ ...rest, ivs: best }),
-    high: estimateEvs({ ...rest, ivs: worst }),
+    estimate: addHiddenEvs(estimateEvs({ ...rest, ivs: best }), hidden),
+    high: addHiddenEvs(estimateEvs({ ...rest, ivs: worst }), hidden),
   };
 }
 

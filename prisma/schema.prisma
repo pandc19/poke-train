@@ -329,6 +329,9 @@ model RosterPokemon {
   currentEvs Json? @map("current_evs")
   /// True when those EVs were worked out from the stats rather than read off the game.
   currentEvsEstimated Boolean @default(false) @map("current_evs_estimated")
+  /// EVs the player knows it gained that the stats cannot show (below the point where a stat moves),
+  /// same shape. Added on top of the EVs worked out from the stats.
+  hiddenEvs Json? @map("hidden_evs")
   /// The stats the game shows (the blue graph), same shape as EVs. The EVs are worked out from these.
   currentStats Json? @map("current_stats")
   /// Its level, which the stats depend on.
