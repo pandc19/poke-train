@@ -6,7 +6,7 @@ import { SearchInput } from '../SearchInput';
 import { TeraBadge, TypeBadge } from '../TypeBadge';
 import { STAT_LABELS } from '../EvInputs';
 import type { EvEstimateInfo } from '../StatsEvs';
-import { HexChart } from './HexChart';
+import { HEX_ORDER, HexChart } from './HexChart';
 import { PokemonSprite, progressOf } from './parts';
 import { estimateEvRange, statValue } from '@/lib/ev-estimate';
 import { evTotal, type EvSpread } from '@/lib/import/evs';
@@ -424,6 +424,53 @@ function TeamDetail({
                 );
               }}
             />
+            {/* The plan in numbers: what is still to train in each stat, and which ones to stop at. */}
+            {p.evs ? (
+              <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                {HEX_ORDER.map((key) => {
+                  const have = evs?.[key] ?? 0;
+                  const target = p.evs![key];
+                  const left = target - have;
+                  const state = target === 0 && have === 0 ? 'none' : left > 0 ? 'todo' : left === 0 ? 'done' : 'over';
+                  return (
+                    <li
+                      key={key}
+                      className={`rounded-lg border px-2 py-1.5 text-center leading-tight ${
+                        state === 'done'
+                          ? 'border-done/50 bg-done/10'
+                          : state === 'over'
+                            ? 'border-red-400/60 bg-red-400/10'
+                            : state === 'todo'
+                              ? 'border-pending/50 bg-pending/10'
+                              : 'border-line'
+                      }`}
+                    >
+                      <span className="block text-[10px] font-semibold uppercase text-muted">{STAT_LABELS[key][lang]}</span>
+                      <span className="block text-sm font-bold tabular-nums">
+                        {have} <span className="font-normal text-muted">/ {target}</span>
+                      </span>
+                      <span
+                        className={`block text-[11px] font-medium ${
+                          state === 'done' ? 'text-done' : state === 'over' ? 'text-red-400' : state === 'todo' ? 'text-pending' : 'text-muted'
+                        }`}
+                      >
+                        {state === 'done'
+                          ? `✓ ${t('Done')}`
+                          : state === 'over'
+                            ? t('{n} over the plan', { n: -left })
+                            : state === 'todo'
+                              ? t('{n} to go', { n: left })
+                              : '—'}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="mt-3 rounded-md border border-dashed border-line px-3 py-2 text-center text-xs text-muted">
+                {t('No EV plan yet. Fix one in the audit or set a target in the full details.')}
+              </p>
+            )}
             <p className="mt-1 text-center text-[11px] text-muted">
               {range ? t('Worked out from the stats above.') : t('The EVs on record.')}
               {p.evs ? ` ${t('The dashed line is your plan.')}` : ''}
