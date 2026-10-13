@@ -428,11 +428,6 @@ export function RosterDetail({
           <Section title={t('Build')}>
             <Field
               label={t('Nature')}
-              action={
-                p.targetNature && (
-                  <TaskToggle status={p.natureStatus} onToggle={() => onToggle('nature', p.natureStatus)} />
-                )
-              }
               hint={
                 p.currentNature && p.targetNature && p.currentNature.id !== p.targetNature.id
                   ? t('It has {current} now; you are aiming for {target}.', {

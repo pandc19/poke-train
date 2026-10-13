@@ -1,16 +1,14 @@
 /**
  * The pending/complete status engine. A roster Pokémon is a checklist of
- * micro-tasks (obtain it, nature, ability, item, EVs, each move); it turns
+ * micro-tasks (obtain it, ability, item, Tera type, EVs, each move); it turns
  * green only when every task that applies to it is DONE.
  */
 export type TaskStatus = 'PENDING' | 'DONE';
 
-export type TaskKey = 'owned' | 'nature' | 'ability' | 'item' | 'tera' | 'evs' | `move:${number}`;
+export type TaskKey = 'owned' | 'ability' | 'item' | 'tera' | 'evs' | `move:${number}`;
 
 export type RosterTaskSource = {
   owned: boolean;
-  targetNatureId: number | null;
-  natureStatus: TaskStatus;
   abilityId: number | null;
   abilityStatus: TaskStatus;
   itemId: number | null;
@@ -25,10 +23,9 @@ export type RosterTaskSource = {
 
 export type RosterTask = { key: TaskKey; status: TaskStatus };
 
-/** The tasks that apply to this Pokémon. Aspects with no target set are not tasks. */
+/** The tasks that apply to this Pokémon. Aspects with no target set are not tasks, and neither is the nature (nothing to complete). */
 export function rosterTasks(p: RosterTaskSource): RosterTask[] {
   const tasks: RosterTask[] = [{ key: 'owned', status: p.owned ? 'DONE' : 'PENDING' }];
-  if (p.targetNatureId != null) tasks.push({ key: 'nature', status: p.natureStatus });
   if (p.abilityId != null) tasks.push({ key: 'ability', status: p.abilityStatus });
   if (p.itemId != null || p.itemNote) tasks.push({ key: 'item', status: p.itemStatus });
   if (p.teraType) tasks.push({ key: 'tera', status: p.teraStatus });

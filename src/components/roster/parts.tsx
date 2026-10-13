@@ -13,8 +13,6 @@ export type Gender = RosterView['gender'];
 export const progressOf = (p: RosterView) =>
   rosterProgress({
     owned: p.owned,
-    targetNatureId: p.targetNature?.id ?? null,
-    natureStatus: p.natureStatus,
     abilityId: p.ability?.id ?? null,
     abilityStatus: p.abilityStatus,
     itemId: p.item?.id ?? null,
@@ -36,8 +34,6 @@ export function withTask(p: RosterView, key: TaskKey, status: TaskStatus): Roste
   switch (key) {
     case 'owned':
       return { ...p, owned: status === 'DONE' };
-    case 'nature':
-      return { ...p, natureStatus: status };
     case 'ability':
       return { ...p, abilityStatus: status };
     case 'item':

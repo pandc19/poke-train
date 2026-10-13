@@ -3,8 +3,6 @@ import { rosterProgress, rosterTasks, type RosterTaskSource } from '@/lib/roster
 
 const base: RosterTaskSource = {
   owned: true,
-  targetNatureId: 1,
-  natureStatus: 'DONE',
   abilityId: 1,
   abilityStatus: 'DONE',
   itemId: 1,
@@ -22,7 +20,7 @@ const base: RosterTaskSource = {
 
 describe('roster status engine', () => {
   it('is complete only when every applicable task is done', () => {
-    expect(rosterProgress(base)).toEqual({ done: 6, total: 6, complete: true });
+    expect(rosterProgress(base)).toEqual({ done: 5, total: 5, complete: true });
     expect(rosterProgress({ ...base, itemStatus: 'PENDING' }).complete).toBe(false);
   });
   it('ignores aspects with no target (EVs not planned are not a task)', () => {
@@ -31,7 +29,7 @@ describe('roster status engine', () => {
   });
   it('counts obtaining the Pokémon and unmatched moves as tasks', () => {
     const p = { ...base, owned: false, moves: [{ slot: 1, moveId: null, rawName: 'Cuerpo Cósmico', status: 'PENDING' as const }] };
-    expect(rosterProgress(p)).toMatchObject({ done: 3, total: 5, complete: false });
+    expect(rosterProgress(p)).toMatchObject({ done: 2, total: 4, complete: false });
   });
   it('orders move tasks by slot', () => {
     expect(rosterTasks(base).filter((t) => t.key.startsWith('move')).map((t) => t.key)).toEqual(['move:1', 'move:2']);
