@@ -475,28 +475,49 @@ export function RosterBoard({
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <p className="text-sm">
-          <span className="font-semibold text-done">{complete}</span>
-          <span className="text-muted"> {t('of {total} fully trained', { total: roster.length })}</span>
-        </p>
+        {view === 'list' && (
+          <p className="text-sm">
+            <span className="font-semibold text-done">{complete}</span>
+            <span className="text-muted"> {t('of {total} fully trained', { total: roster.length })}</span>
+          </p>
+        )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {addBox}
-          <button
-            onClick={auditTeam}
-            disabled={!aiEnabled || team.busy}
-            title={
-              aiEnabled
-                ? t('One request that reviews your whole roster together ({provider})', { provider: aiProvider })
-                : t('Add an API key to .env.local to enable AI audits')
-            }
-            className="rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
-          >
-            {team.busy ? t('Auditing roster…') : t('AI roster audit')}
-          </button>
+          {/* Adding Pokémon and the roster audit belong to the list; the team view keeps only the switch. */}
+          {view === 'list' && (
+            <>
+              {addBox}
+              <button
+                onClick={auditTeam}
+                disabled={!aiEnabled || team.busy}
+                title={
+                  aiEnabled
+                    ? t('One request that reviews your whole roster together ({provider})', { provider: aiProvider })
+                    : t('Add an API key to .env.local to enable AI audits')
+                }
+                className="rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
+              >
+                {team.busy ? t('Auditing roster…') : t('AI roster audit')}
+              </button>
+            </>
+          )}
+          <div className="inline-flex rounded-md border border-line text-sm" role="tablist" aria-label={t('View')}>
+            {(['list', 'team'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                role="tab"
+                aria-selected={view === v}
+                onClick={() => changeView(v)}
+                className={`px-4 py-1.5 ${view === v ? 'bg-surface-2 font-semibold' : 'text-muted hover:text-ink'}`}
+              >
+                {v === 'list' ? t('List') : t('Team')}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {!aiEnabled && (
+      {view === 'list' && !aiEnabled && (
         <p className="mb-3 text-xs text-muted">
           {t(
             'AI audits are off: no API key is configured. Move legality checks still run, since they use game data rather than AI.'
@@ -508,7 +529,7 @@ export function RosterBoard({
           {error}
         </p>
       )}
-      {team.result && (
+      {view === 'list' && team.result && (
         <div className="mb-4 rounded-lg border border-line bg-surface p-4 text-sm">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="font-semibold">
@@ -528,21 +549,6 @@ export function RosterBoard({
       )}
 
       {/* ---------- list of cards, or the team being trained ---------- */}
-      <div className="mb-4 inline-flex rounded-md border border-line text-sm" role="tablist" aria-label={t('View')}>
-        {(['list', 'team'] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            role="tab"
-            aria-selected={view === v}
-            onClick={() => changeView(v)}
-            className={`px-4 py-1.5 ${view === v ? 'bg-surface-2 font-semibold' : 'text-muted hover:text-ink'}`}
-          >
-            {v === 'list' ? t('List') : t('Team')}
-          </button>
-        ))}
-      </div>
-
       {view === 'team' ? (
         <TeamView
           roster={roster}
