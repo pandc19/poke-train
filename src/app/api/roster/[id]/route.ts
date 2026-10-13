@@ -75,7 +75,9 @@ const Body = z.object({
       teraType: z.enum(TYPE_SLUGS as [string, ...string[]]).nullable(),
       potential: z.enum(['DECENT', 'ABOVE_AVERAGE', 'RELATIVELY_SUPERIOR', 'OUTSTANDING']).nullable(),
       notes: z.string().max(4000).nullable(),
-      moves: z.array(z.object({ slot: z.number().int().min(1).max(4), moveId: id })).max(4),
+      moves: z
+        .array(z.object({ slot: z.number().int().min(1).max(4), moveId: id, status: Status.optional() }))
+        .max(4),
     })
     .partial()
     .optional(),
@@ -222,11 +224,13 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
         if (m.moveId == null) {
           if (existing) await tx.rosterMove.delete({ where: { id: existing.id } });
         } else if (!existing) {
-          await tx.rosterMove.create({ data: { rosterPokemonId: rosterId, slot: m.slot, moveId: m.moveId } });
+          await tx.rosterMove.create({
+            data: { rosterPokemonId: rosterId, slot: m.slot, moveId: m.moveId, ...(m.status ? { status: m.status } : {}) },
+          });
         } else if (existing.moveId !== m.moveId) {
           await tx.rosterMove.update({
             where: { id: existing.id },
-            data: { moveId: m.moveId, rawName: null, status: 'PENDING', legal: null },
+            data: { moveId: m.moveId, rawName: null, status: m.status ?? 'PENDING', legal: null },
           });
         }
       }

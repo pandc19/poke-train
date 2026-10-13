@@ -111,11 +111,13 @@ export function BreedingBoard({
         setOptions(data);
         const build = rosterBuilds.find((b) => b.speciesId === targetId);
         if (!build) return;
-        const legal = new Set([...data.egg, ...data.other].map((m) => m.id));
-        const usable = build.moves.map((m) => m.id).filter((id) => legal.has(id)).slice(0, 4);
+        // Only egg moves need breeding; the rest the Pokémon learns normally, so they are not slots to fill.
+        const eggIds = new Set(data.egg.map((m) => m.id));
+        const usable = build.moves.map((m) => m.id).filter((id) => eggIds.has(id)).slice(0, 4);
         setWanted([0, 1, 2, 3].map((i) => usable[i] ?? null));
         setSkipped(build.moves.length - usable.length);
-        setFilledFromRoster(true);
+        // Only "filled in" when something went into a slot.
+        setFilledFromRoster(usable.length > 0);
       })
       .catch((err) => {
         if (err?.name !== 'AbortError') setError(t('Could not load the moves for that Pokémon. Try again.'));
@@ -521,15 +523,6 @@ export function BreedingBoard({
                       ))}
                     </optgroup>
                   )}
-                  {options && list(options.other).length > 0 && (
-                    <optgroup label={t('Learned normally')}>
-                      {list(options.other).map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {name(m)}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
                 </select>
               </label>
             );
@@ -567,26 +560,33 @@ export function BreedingBoard({
               className={inputClass}
             />
           </label>
-          <label className="flex items-end gap-2 pb-1.5 text-xs text-muted">
+          <label
+            className="flex items-end gap-2 pb-1.5 text-xs text-muted"
+            title={t('The plan looks for a mother with the hidden ability recorded in Breeders. An Ability Patch is the alternative.')}
+          >
             <input type="checkbox" checked={hiddenAbility} onChange={(e) => setHiddenAbility(e.target.checked)} />
             {t('Hidden ability')}
           </label>
         </div>
         <p className="mt-2 text-xs text-muted">
           {!targetId
-            ? t('Choose a Pokémon to see the moves it can have in this game.')
+            ? t('Choose a Pokémon to see the egg moves it can get in this game.')
             : !options
               ? t('Loading its moves…')
-              : filledFromRoster
-                ? `${t('Moves filled in from the build you are training in your roster.')}${
-                    skipped > 0
-                      ? ` ${t('{count} of them cannot be learned by this Pokémon in this game, so they were left out.', { count: skipped })}`
-                      : ''
-                  }`
-                : t('{egg} egg moves (these need breeding) and {other} it learns normally. Moves are optional.', {
-                    egg: options.egg.length,
-                    other: options.other.length,
-                  })}
+              : [
+                  filledFromRoster
+                    ? t('Egg moves filled in from the build you are training in your roster.')
+                    : options.egg.length === 0
+                      ? t('This Pokémon has no egg moves in this game: everything it can have it learns normally.')
+                      : t('{egg} egg moves this Pokémon can get from breeding. Pick the ones you want (up to 4); they are optional.', {
+                          egg: options.egg.length,
+                        }),
+                  skipped > 0
+                    ? t('{count} of its other moves are learned normally (or cannot be learned here), so they need no breeding and were left out.', { count: skipped })
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button disabled={busy} className="rounded-md bg-done px-4 py-2 text-sm font-semibold text-bg disabled:opacity-40">
@@ -680,7 +680,7 @@ export function BreedingBoard({
                       <p className="mt-2 text-xs text-muted">
                         {t('The egg hatches as')} <span className="text-ink">{name(plan.parents.hatchesAs)}</span>
                         {plan.parents.needsDitto ? `. ${t('This Pokémon can only breed with Ditto.')}` : '.'}{' '}
-                        {t('This list updates itself from the genders you record in your Pokédex and roster.')}
+                        {t('This list updates itself from what you record in your Pokédex, roster and breeders.')}
                       </p>
                       <div className="mt-3 grid gap-4 lg:grid-cols-2">
                         <div>

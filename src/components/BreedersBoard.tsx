@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ConfirmDialog } from './Dialog';
 import { TypeBadge } from './TypeBadge';
 import { STAT_LABELS } from './EvInputs';
@@ -316,6 +316,7 @@ export function BreedersBoard({
             {selected ? (
               <BreederDetail
                 key={selected.id}
+                gameId={gameId}
                 p={selected}
                 options={options}
                 lang={lang}
@@ -387,6 +388,7 @@ const NATURE_STAT: Record<string, { en: string; es: string }> = {
 };
 
 function BreederDetail({
+  gameId,
   p,
   options,
   lang,
@@ -398,6 +400,7 @@ function BreederDetail({
   onRoster,
   onRemove,
 }: {
+  gameId: string;
   p: RosterView;
   options: EditorOptions;
   lang: Lang;
@@ -416,6 +419,18 @@ function BreederDetail({
   const [moveError, setMoveError] = useState<string | null>(null);
   const perfect = perfectCount(p);
 
+  // What this species can have: egg moves are the ones worth passing on, so they head the suggestions.
+  const [learnable, setLearnable] = useState<{ egg: Named[]; other: Named[] } | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/breeding/moves?gameId=${encodeURIComponent(gameId)}&speciesId=${p.species.id}`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setLearnable(data))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [gameId, p.species.id]);
+  const eggIds = useMemo(() => new Set((learnable?.egg ?? []).map((m) => m.id)), [learnable]);
+
   const setRating = (stat: (typeof IV_STATS)[number], value: string) => {
     const next: IvRatings = { ...(p.ivRatings ?? {}), [stat]: value || null };
     const any = Object.values(next).some(Boolean);
@@ -430,13 +445,15 @@ function BreederDetail({
     if (text.trim() === savedMove(slot).trim()) return;
     setMoveError(null);
     if (!text.trim()) return onSave({ moves: [{ slot, moveId: null }] });
+    const known = learnable ? [...learnable.egg, ...learnable.other] : options.moves;
     const q = text.trim().toLowerCase();
-    const move = options.moves.find((m) => m.nameEn.toLowerCase() === q || m.nameEs.toLowerCase() === q);
+    const move = known.find((m) => m.nameEn.toLowerCase() === q || m.nameEs.toLowerCase() === q);
     if (!move) {
       setMoveError(t('Move {n}: "{name}" is not a known move. Pick one from the suggestions.', { n: slot, name: text }));
       return;
     }
-    await onSave({ moves: [{ slot, moveId: move.id }] });
+    // Recorded here means it knows it now, so the planner counts it as a father or picnic donor.
+    await onSave({ moves: [{ slot, moveId: move.id, status: 'DONE' }] });
   }
 
   return (
@@ -566,19 +583,35 @@ function BreederDetail({
           </section>
 
           <section>
-            <h3 className="mb-2 text-sm font-semibold">{t('Egg moves it knows')}</h3>
+            <h3 className="mb-1 text-sm font-semibold">{t('Moves it knows')}</h3>
+            <p className="mb-2 text-[11px] text-muted">
+              {t('These are its four moves, the same ones the roster shows. The ones marked “egg move” can be passed on to the offspring.')}
+            </p>
             <div className="space-y-2">
-              {[1, 2, 3, 4].map((slot) => (
-                <ComboInput
-                  key={slot}
-                  list="breeder-moves"
-                  value={savedMove(slot)}
-                  placeholder={t('Move {n}', { n: slot })}
-                  aria-label={t('Move {n}', { n: slot })}
-                  onCommit={(text) => commitMove(slot, text)}
-                  className={inputClass}
-                />
-              ))}
+              {[1, 2, 3, 4].map((slot) => {
+                const m = p.moves.find((x) => x.slot === slot);
+                return (
+                  <div key={slot} className="flex items-center gap-2">
+                    <ComboInput
+                      list="breeder-moves"
+                      value={savedMove(slot)}
+                      placeholder={t('Move {n}', { n: slot })}
+                      aria-label={t('Move {n}', { n: slot })}
+                      onCommit={(text) => commitMove(slot, text)}
+                      className={inputClass}
+                    />
+                    {m?.move && learnable && (
+                      <span
+                        className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] ${
+                          eggIds.has(m.move.id) ? 'border-star/50 bg-star/10 text-star' : 'border-line text-muted'
+                        }`}
+                      >
+                        {eggIds.has(m.move.id) ? t('egg move') : t('not an egg move')}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             {moveError && <p className="mt-1 text-xs text-pending">{moveError}</p>}
           </section>
@@ -595,7 +628,7 @@ function BreederDetail({
         </div>
       </div>
       <datalist id="breeder-moves">
-        {options.moves.map((m) => (
+        {(learnable ? [...learnable.egg, ...learnable.other] : options.moves).map((m) => (
           <option key={m.id} value={label(m)} label={lang === 'en' ? m.nameEs : m.nameEn} />
         ))}
       </datalist>

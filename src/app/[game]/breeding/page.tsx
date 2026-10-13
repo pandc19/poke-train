@@ -32,7 +32,7 @@ export default async function BreedingPage({ params }: PageProps<'/[game]/breedi
       <h1 className="text-xl font-bold">{t('Breeding assistant')}</h1>
       <p className="mb-5 mt-1 max-w-3xl text-sm text-muted">
         {t(
-          'Say which Pokémon you want. The plan checks the Pokémon and genders you recorded in your Pokédex, roster and breeders, then lists what you already have and what you still need to catch or breed.'
+          'Say which Pokémon you want, and optionally the egg moves, the IVs that must be 31, a nature and the hidden ability. The plan checks what you recorded in your Pokédex, roster and breeders, picks the best pair of parents, and lists what you already have and what you still need to catch or breed.'
         )}
         {game.features.mirrorHerb &&
           ` ${t('In this game a Mirror Herb picnic can copy egg moves without hatching anything.')}`}

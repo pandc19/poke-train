@@ -16,7 +16,7 @@ import type { TaskKey, TaskStatus } from '@/lib/roster-status';
 import { useT } from '@/lib/translate-client';
 
 type Filter = 'all' | 'pending' | 'done';
-type Sort = 'import' | 'dex' | 'national' | 'name' | 'progress';
+type Sort = 'complete' | 'progress' | 'dex' | 'national' | 'name';
 
 /**
  * The trained roster: small cards with paging on the left, and everything about
@@ -53,7 +53,7 @@ export function RosterBoard({
 }) {
   const { t } = useT();
   const sortLabels: Record<Sort, string> = {
-    import: t('Spreadsheet order'),
+    complete: t('Most finished first'),
     dex: t('Pokédex order (this game)'),
     national: t('National Dex number'),
     name: t('Name'),
@@ -62,7 +62,7 @@ export function RosterBoard({
 
   const [roster, setRoster] = useState(initial);
   const [filter, setFilter] = useState<Filter>('all');
-  const [sort, setSort] = useState<Sort>('import');
+  const [sort, setSort] = useState<Sort>('complete');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(() => {
     const index = initial.findIndex((p) => p.id === initialSelectedId);
@@ -303,7 +303,6 @@ export function RosterBoard({
         String(p.nationalNumber) === q
       );
     });
-    if (sort === 'import') return filtered;
     const byName = (a: RosterView, b: RosterView) =>
       name(a.species).localeCompare(name(b.species), lang) || a.nationalNumber - b.nationalNumber;
     const ratio = (p: RosterView) => {
@@ -323,6 +322,9 @@ export function RosterBoard({
           return a.nationalNumber - b.nationalNumber || byName(a, b);
         case 'name':
           return byName(a, b);
+        case 'complete':
+          // Fully trained first, then by how much is done; the rest in Pokédex order.
+          return ratio(b) - ratio(a) || a.nationalNumber - b.nationalNumber || byName(a, b);
         default:
           return ratio(a) - ratio(b) || a.nationalNumber - b.nationalNumber;
       }
