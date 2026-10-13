@@ -162,7 +162,6 @@ export function TeamView({
     {/* ---------- what the team is training now ---------- */}
     <div className="-mx-4 mb-4 bg-bg/95 px-4 py-2 backdrop-blur md:sticky md:top-[var(--nav-h)] md:z-30">
     <section className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line bg-surface px-3 py-2.5">
-      {viewSwitch}
       <h2 className="text-sm font-semibold">{t('Training')}</h2>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('Stat being trained')}>
         {HEX_ORDER.map((key) => {
@@ -199,13 +198,14 @@ export function TeamView({
         <button
           type="button"
           onClick={() => setFighting(true)}
-          className="ml-auto rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:border-done/50 hover:text-done"
+          className="rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:border-done/50 hover:text-done"
         >
           {t('Who to battle for {stat}', { stat: STAT_LABELS[training][lang] })}
         </button>
       ) : (
-        <span className="ml-auto text-xs text-muted">{t('Choose a stat to see who to battle for it.')}</span>
+        <span className="text-xs text-muted">{t('Choose a stat to see who to battle for it.')}</span>
       )}
+      <span className="ml-auto">{viewSwitch}</span>
     </section>
     </div>
     {training && (
