@@ -19,6 +19,8 @@ export type GameConfig = {
   learnsetVersionGroups: string[];
   /** PokéAPI pokedex slugs, in display order. `note` says where the dex comes from. */
   pokedexes: { slug: string; name: Localized; note: Localized }[];
+  /** The game has a National Dex. Scarlet/Violet do not: only their regional Pokédexes. */
+  nationalDex: boolean;
   features: {
     breeding: boolean;
     /** EV training exists. When false the app hides EVs and the AI gives no EV advice. */
@@ -68,6 +70,7 @@ export const GAMES: GameConfig[] = [
       { slug: 'kitakami', name: { en: 'Kitakami', es: 'Noroteo' }, note: { en: 'DLC: The Teal Mask', es: 'DLC: La Máscara Turquesa' } },
       { slug: 'blueberry', name: { en: 'Blueberry', es: 'Arándano' }, note: { en: 'DLC: The Indigo Disk', es: 'DLC: El Disco Índigo' } },
     ],
+    nationalDex: false,
     features: {
       breeding: true,
       evs: true,
