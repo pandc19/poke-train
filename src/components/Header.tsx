@@ -34,9 +34,8 @@ export function Header({ games }: { games: GameLink[] }) {
 
   const tabs = [
     { href: `/${current.id}/pokedex`, label: t('Pokédex') },
-    { href: `/${current.id}/national`, label: t('National Dex') },
-    { href: `/${current.id}/roster`, label: t('Roster') },
     ...(current.exclusives ? [{ href: `/${current.id}/exclusives`, label: t('Exclusives') }] : []),
+    { href: `/${current.id}/roster`, label: t('Roster') },
     ...(current.breeding
       ? [
           { href: `/${current.id}/breeders`, label: t('Breeders') },

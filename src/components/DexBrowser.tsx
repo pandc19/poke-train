@@ -8,7 +8,7 @@ import { pick } from '@/lib/translate';
 import { useT } from '@/lib/translate-client';
 
 /**
- * A game's regional Pokédexes behind tabs. Switching tabs happens in place, so
+ * A game's regional Pokédexes, and its National Dex, behind tabs. Switching tabs happens in place, so
  * the search text and the filter stay as they are, and a Pokémon that is in
  * two Pokédexes is the same one in both (the caught state is shared).
  */
@@ -26,7 +26,8 @@ export function DexBrowser({
   gameName: string;
   accent: string;
   tabColor: string;
-  dexes: { slug: string; name: Localized; note: Localized }[];
+  /** The National Dex has `national` set: it lists every species and has its own note. */
+  dexes: { slug: string; name: Localized; note: Localized; national?: boolean }[];
   cellsBySlug: Record<string, DexCell[]>;
   initialSlug: string;
   lang: Lang;
@@ -69,15 +70,25 @@ export function DexBrowser({
           ))}
         </div>
       </div>
-      <p className="-mt-3 mb-5 text-sm text-muted">
-        <span className="font-medium text-ink">{pick(current.name, lang)}</span>: {pick(current.note, lang)}.{' '}
-        {current.slug !== 'paldea' && t('You only need this dex if you own the expansion.')}
-      </p>
+      {current.national ? (
+        <p className="-mt-3 mb-5 max-w-3xl text-sm text-muted">
+          {t(
+            'Every Pokémon, numbered by National Dex number. This is your {game} save only: the same caught list as the regional Pokédexes, so marking one here marks it there. Pokémon caught in your other games show a badge but do not count as caught here.',
+            { game: gameName }
+          )}
+        </p>
+      ) : (
+        <p className="-mt-3 mb-5 text-sm text-muted">
+          <span className="font-medium text-ink">{pick(current.name, lang)}</span>: {pick(current.note, lang)}.{' '}
+          {current.slug !== 'paldea' && t('You only need this dex if you own the expansion.')}
+        </p>
+      )}
       <DexGrid
         cells={cellsBySlug[current.slug] ?? []}
         stateCells={everySpecies}
         lang={lang}
         gameId={gameId}
+        gameName={gameName}
         accent={accent}
       />
     </div>
