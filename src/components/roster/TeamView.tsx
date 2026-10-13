@@ -80,7 +80,7 @@ export function TeamView({
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
       {/* ---------- the six slots ---------- */}
-      <ol className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+      <ol className="grid grid-cols-2 content-start gap-2 lg:sticky lg:top-3 lg:-m-1 lg:max-h-[calc(100vh-1.5rem)] lg:grid-cols-1 lg:self-start lg:overflow-y-auto lg:p-1">
         {members.map((p, i) => {
           const slot = i + 1;
           if (!p) {
