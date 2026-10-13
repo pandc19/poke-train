@@ -245,6 +245,11 @@ export function RosterDetail({
   async function commitItem(item: string) {
     const current = itemText;
     if (item.trim() === current.trim()) return;
+    // "No item" in either language takes the item (and any note) away.
+    if (['no item', 'sin objeto'].includes(item.trim().toLowerCase())) {
+      if (p.item || p.itemNote) await save({ itemId: null, itemNote: null });
+      return;
+    }
     const matched = item.trim() ? find(options.items, item) : undefined;
     await save({
       itemId: matched?.id ?? null,
@@ -549,6 +554,7 @@ export function RosterDetail({
                 <ComboInput
                   list="detail-items"
                   value={itemText}
+                  placeholder={t('No item')}
                   onCommit={commitItem}
                   className={inputClass}
                 />
@@ -741,6 +747,7 @@ export function RosterDetail({
         ))}
       </datalist>
       <datalist id="detail-items">
+        <option value={t('No item')} />
         {options.items.map((it) => (
           <option key={it.id} value={label(it)} label={other(it)} />
         ))}

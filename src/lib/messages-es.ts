@@ -274,6 +274,7 @@ export const ES: Record<string, string> = {
   'Search the roster': 'Buscar en el equipo',
   'Clear search': 'Borrar búsqueda',
   'Mint given': 'Menta dada',
+  'No item': 'Sin objeto',
   'Matches the AI audit': 'Coincide con la auditoría',
   'AI suggests': 'La IA sugiere',
   'Apply': 'Aplicar',
