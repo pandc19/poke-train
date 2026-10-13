@@ -33,6 +33,8 @@ const isMixed = (genderRate: number) => genderRate > 0 && genderRate < 8;
  * Roster -> Pokédex. A gender you add is marked in the Pokédex (which also
  * registers the species as caught). A gender you remove is cleared there
  * unless another obtained roster Pokémon of that species still has it.
+ * When the Pokédex already has both genders nothing changes: you have one of
+ * each, and this Pokémon cannot tell which of them it was.
  */
 export async function rosterGenderToPokedex(
   db: Db,
@@ -41,6 +43,12 @@ export async function rosterGenderToPokedex(
   const { profileId, speciesId, rosterId, before, after } = args;
   const species = await db.species.findUnique({ where: { id: speciesId }, select: { genderRate: true } });
   if (!species || !isMixed(species.genderRate)) return;
+
+  const entry = await db.pokedexEntry.findUnique({
+    where: { profileId_speciesId: { profileId, speciesId } },
+    select: { hasMale: true, hasFemale: true },
+  });
+  if (entry?.hasMale && entry.hasFemale) return;
 
   const b = sidesOf(before);
   const a = sidesOf(after);

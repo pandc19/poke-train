@@ -94,24 +94,25 @@ export function TaskToggle({
   );
 }
 
-/** ♂ / ♀ toggles; both on means "I have both". Fixed for single-gender and genderless species. */
+/** ♂ / ♀: a Pokémon is one or the other, so choosing one replaces the other. Fixed for single-gender and genderless species. */
 export function GenderControl({ p, onChange }: { p: RosterView; onChange: (g: Gender) => void }) {
   const { t } = useT();
   if (p.genderRate === -1) return <span className="text-xs text-muted">{t('Genderless')}</span>;
   if (p.genderRate === 0) return <span className="text-xs text-sky-400">♂ {t('always male')}</span>;
   if (p.genderRate === 8) return <span className="text-xs text-pink-400">♀ {t('always female')}</span>;
 
-  const male = p.gender === 'MALE' || p.gender === 'BOTH';
-  const female = p.gender === 'FEMALE' || p.gender === 'BOTH';
-  const set = (m: boolean, f: boolean) => onChange(m && f ? 'BOTH' : m ? 'MALE' : f ? 'FEMALE' : 'UNKNOWN');
+  const male = p.gender === 'MALE';
+  const female = p.gender === 'FEMALE';
+  // Older records may say "both": that is not a real Pokémon, so ask which one it is.
+  const legacyBoth = p.gender === 'BOTH';
 
   return (
     <div className="flex items-center gap-1.5">
       <button
         type="button"
         aria-pressed={male}
-        onClick={() => set(!male, female)}
-        title={male ? t('You have a male. Click to remove') : t('Click if you have a male')}
+        onClick={() => onChange(male ? 'UNKNOWN' : 'MALE')}
+        title={male ? t('It is a male. Click to clear') : t('Click if it is a male')}
         className={`h-7 w-9 rounded text-sm font-bold ${
           male ? 'bg-sky-500 text-white' : 'border border-line text-muted hover:text-sky-400'
         }`}
@@ -121,8 +122,8 @@ export function GenderControl({ p, onChange }: { p: RosterView; onChange: (g: Ge
       <button
         type="button"
         aria-pressed={female}
-        onClick={() => set(male, !female)}
-        title={female ? t('You have a female. Click to remove') : t('Click if you have a female')}
+        onClick={() => onChange(female ? 'UNKNOWN' : 'FEMALE')}
+        title={female ? t('It is a female. Click to clear') : t('Click if it is a female')}
         className={`h-7 w-9 rounded text-sm font-bold ${
           female ? 'bg-pink-500 text-white' : 'border border-line text-muted hover:text-pink-400'
         }`}
@@ -130,7 +131,13 @@ export function GenderControl({ p, onChange }: { p: RosterView; onChange: (g: Ge
         ♀
       </button>
       <span className="text-[11px] text-muted">
-        {male && female ? t('have both') : male ? t('male') : female ? t('female') : t('not set')}
+        {legacyBoth
+          ? t('It was saved as both a male and a female. Pick the one it really is.')
+          : male
+            ? t('male')
+            : female
+              ? t('female')
+              : t('not set')}
       </span>
     </div>
   );

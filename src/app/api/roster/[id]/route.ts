@@ -27,7 +27,8 @@ const Body = z.object({
   set: z
     .object({
       nickname: z.string().max(60).nullable(),
-      gender: z.enum(['MALE', 'FEMALE', 'BOTH', 'GENDERLESS', 'UNKNOWN']),
+      // One Pokémon has one gender; "both" is only a Pokédex notion (you have one of each).
+      gender: z.enum(['MALE', 'FEMALE', 'GENDERLESS', 'UNKNOWN']),
       targetNatureId: id,
       /** The nature it really has (breeders record this one). */
       currentNatureId: id,
