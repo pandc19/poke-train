@@ -17,8 +17,8 @@ import type { TaskKey, TaskStatus } from '@/lib/roster-status';
 import { useT } from '@/lib/translate-client';
 
 type Filter = 'all' | 'pending' | 'done';
-type Sort = 'complete' | 'progress' | 'dex' | 'national' | 'name';
-const SORTS: Sort[] = ['complete', 'progress', 'dex', 'national', 'name'];
+type Sort = 'complete' | 'progress' | 'name' | 'level' | 'levelLow';
+const SORTS: Sort[] = ['complete', 'progress', 'name', 'level', 'levelLow'];
 const SORT_KEY = 'roster-sort';
 
 /**
@@ -56,11 +56,11 @@ export function RosterBoard({
 }) {
   const { t } = useT();
   const sortLabels: Record<Sort, string> = {
-    complete: t('Most finished first'),
-    dex: t('Pokédex order (this game)'),
-    national: t('National Dex number'),
-    name: t('Name'),
-    progress: t('Least finished first'),
+    complete: t('Completed first'),
+    progress: t('Unfinished first'),
+    name: t('Name (A–Z)'),
+    level: t('Level (high to low)'),
+    levelLow: t('Level (low to high)'),
   };
 
   const [roster, setRoster] = useState(initial);
@@ -322,22 +322,18 @@ export function RosterBoard({
     };
     return [...filtered].sort((a, b) => {
       switch (sort) {
-        case 'dex':
-          // Pokémon the game does not list go last, in National order.
-          return (
-            (a.dexOrder ?? Infinity) - (b.dexOrder ?? Infinity) ||
-            a.nationalNumber - b.nationalNumber ||
-            byName(a, b)
-          );
-        case 'national':
-          return a.nationalNumber - b.nationalNumber || byName(a, b);
         case 'name':
           return byName(a, b);
+        case 'level':
+          return b.level - a.level || byName(a, b);
+        case 'levelLow':
+          return a.level - b.level || byName(a, b);
         case 'complete':
-          // Fully trained first, then by how much is done; the rest in Pokédex order.
-          return ratio(b) - ratio(a) || a.nationalNumber - b.nationalNumber || byName(a, b);
+          // Fully trained first, then by how much is done; ties by name.
+          return ratio(b) - ratio(a) || byName(a, b);
         default:
-          return ratio(a) - ratio(b) || a.nationalNumber - b.nationalNumber;
+          // The least finished first.
+          return ratio(a) - ratio(b) || byName(a, b);
       }
     });
   }, [roster, filter, sort, query, lang, name]);
@@ -357,9 +353,7 @@ export function RosterBoard({
   const selectedId = roster.some((p) => p.id === pickedId) ? pickedId : (visible[0]?.id ?? null);
   const selected = roster.find((p) => p.id === selectedId) ?? null;
 
-  /** The number shown follows the active sort: the game's entry number, or the National one. */
-  const numberLabel = (p: RosterView) =>
-    `#${String(sort === 'dex' && p.entryNumber != null ? p.entryNumber : p.nationalNumber).padStart(3, '0')}`;
+  const numberLabel = (p: RosterView) => `#${String(p.nationalNumber).padStart(3, '0')}`;
 
   const dialogs = (
     <>
