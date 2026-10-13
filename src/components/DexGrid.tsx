@@ -4,56 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { ConfirmDialog } from './Dialog';
 import { PokemonInfoDialog } from './PokemonInfoDialog';
+import { ScrollTopButton } from './ScrollTopButton';
 import { Sprite } from './Sprite';
 import type { DexCell } from '@/lib/pokedex';
 import type { Lang } from '@/lib/i18n';
 import { useT } from '@/lib/translate-client';
-
-/**
- * Floating button, bottom right. Scrolled down it jumps to the top; once
- * there it offers to return to where you were.
- */
-function ScrollTopButton({ topLabel, backLabel }: { topLabel: string; backLabel: string }) {
-  const [y, setY] = useState(0);
-  const [returnTo, setReturnTo] = useState<number | null>(null);
-  const lastY = useRef(0);
-  useEffect(() => {
-    const onScroll = () => {
-      const now = window.scrollY;
-      // Scrolling down on your own makes the remembered spot stale; the smooth jump up must not clear it.
-      if (now > 600 && now > lastY.current) setReturnTo(null);
-      lastY.current = now;
-      setY(now);
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-  const effectiveReturn = returnTo != null && y < 300 ? returnTo : null;
-
-  const away = y > 600;
-  if (!away && effectiveReturn == null) return null;
-  const label = away ? topLabel : backLabel;
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={() => {
-        if (away) {
-          setReturnTo(window.scrollY);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        } else if (effectiveReturn != null) {
-          window.scrollTo({ top: effectiveReturn, behavior: 'smooth' });
-          setReturnTo(null);
-        }
-      }}
-      className="fixed bottom-4 right-4 z-40 grid h-11 w-11 place-items-center rounded-full border border-line bg-surface text-lg text-ink shadow-lg hover:bg-surface-2"
-    >
-      <span aria-hidden>{away ? '↑' : '↓'}</span>
-    </button>
-  );
-}
 
 type Filter = 'all' | 'missing' | 'caught' | 'have' | 'registered';
 
@@ -522,7 +477,7 @@ export function DexGrid({
         </p>
       )}
 
-      <ScrollTopButton topLabel={t('Back to top')} backLabel={t('Back to where I was')} />
+      <ScrollTopButton />
 
       <PokemonInfoDialog
         speciesId={openId}

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { PokemonInfoDialog } from './PokemonInfoDialog';
+import { ScrollTopButton } from './ScrollTopButton';
 import { Sprite } from './Sprite';
 import type { Lang, Localized } from '@/lib/i18n';
 import { pick } from '@/lib/translate';
@@ -137,6 +138,8 @@ export function ExclusivesBoard({
           </section>
         ))}
       </div>
+
+      <ScrollTopButton />
 
       <PokemonInfoDialog
         speciesId={open?.tile.dex ?? null}
