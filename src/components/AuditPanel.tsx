@@ -302,7 +302,7 @@ export function AuditPanel({
               <button
                 onClick={() => onLockPlan(audit.evPlan!.spread)}
                 title={t('Saves this spread as your plan. The checklist marks it done once the Pokémon reaches it.')}
-                className="mt-1 rounded border border-done/50 px-2 py-0.5 text-[11px] font-medium text-done"
+                className="mt-1 rounded border border-line px-2 py-0.5 text-[11px] font-medium text-muted hover:text-ink"
               >
                 {t('Fix this plan')}
               </button>
