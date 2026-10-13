@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { AiBadge } from './AiBadge';
 import { Dialog } from './Dialog';
+import { SearchInput } from './SearchInput';
 import { Sprite } from './Sprite';
 import { useCachedLocations } from './useCachedLocations';
 import type { BuildAudit, LocationResult } from '@/lib/ai/schema';
@@ -104,6 +105,15 @@ export function SourceRow({
 }
 
 
+const plain = (text: string) =>
+  text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’‘]/g, "'").trim().toLowerCase();
+
+/** The Pokémon whose name (in either language) has what was typed in it. */
+export function filterSources<T extends { nameEn: string; nameEs: string }>(list: T[], query: string): T[] {
+  const q = plain(query);
+  return q ? list.filter((s) => plain(s.nameEn).includes(q) || plain(s.nameEs).includes(q)) : list;
+}
+
 // Lists fetched this visit, by game and stat.
 const loaded = new Map<string, EvSource[]>();
 
@@ -128,6 +138,7 @@ export function EvSourcesDialog({
   const { t } = useT();
   const key = `${gameId}:${stat}`;
   const [fetched, setFetched] = useState<{ key: string; species: EvSource[] | null; error: string | null } | null>(null);
+  const [query, setQuery] = useState('');
   const species = loaded.get(key) ?? (fetched?.key === key ? fetched.species : null);
   const error = fetched?.key === key ? fetched.error : null;
   const known = useCachedLocations(gameId, species?.map((x) => x.id) ?? []);
@@ -154,8 +165,14 @@ export function EvSourcesDialog({
       {error && <p className="text-sm text-pending">{error}</p>}
       {!species && !error && <p className="py-8 text-center text-sm text-muted">{t('Searching…')}</p>}
       {species && species.length === 0 && <p className="py-8 text-center text-sm text-muted">{t('Nothing found.')}</p>}
+      {species && species.length > 0 && (
+        <SearchInput value={query} onChange={setQuery} placeholder={t('Search a Pokémon')} label={t('Search a Pokémon')} className="mb-3" />
+      )}
+      {species && species.length > 0 && filterSources(species, query).length === 0 && (
+        <p className="py-6 text-center text-sm text-muted">{t('No Pokémon match this filter.')}</p>
+      )}
       <div className="grid gap-2 text-xs sm:grid-cols-2">
-        {(species ?? []).map((sp) => (
+        {filterSources(species ?? [], query).map((sp) => (
           <SourceRow key={sp.id} s={sp} gameId={gameId} aiEnabled={aiEnabled} known={known[sp.id]} card />
         ))}
       </div>

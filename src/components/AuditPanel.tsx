@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useCachedLocations } from './useCachedLocations';
 import { AiBadge } from './AiBadge';
 import { Dialog } from './Dialog';
-import { SourceRow, type EvSource } from './EvSources';
+import { SourceRow, filterSources, type EvSource } from './EvSources';
+import { SearchInput } from './SearchInput';
 import { TypeBadge } from './TypeBadge';
 import { activeMint, type AuditLocks } from '@/lib/audit-locks';
 import type { BuildAudit, LocationResult } from '@/lib/ai/schema';
@@ -30,6 +31,7 @@ function SourceGroup({
     busy: false,
     open: false,
   });
+  const [query, setQuery] = useState('');
   const extraSaved = useCachedLocations(gameId, (all.species ?? []).map((x) => x.id));
   const known = { ...saved, ...extraSaved };
 
@@ -69,8 +71,12 @@ function SourceGroup({
         wide
       >
         <p className="mb-3 text-xs text-muted">{t('Best to battle first, each evolution line in order.')}</p>
+        <SearchInput value={query} onChange={setQuery} placeholder={t('Search a Pokémon')} label={t('Search a Pokémon')} className="mb-3" />
+        {filterSources(all.species ?? [], query).length === 0 && (
+          <p className="py-6 text-center text-sm text-muted">{t('No Pokémon match this filter.')}</p>
+        )}
         <div className="grid gap-2 text-xs sm:grid-cols-2">
-          {(all.species ?? []).map((sp) => (
+          {filterSources(all.species ?? [], query).map((sp) => (
             <SourceRow key={sp.id} s={sp} gameId={gameId} aiEnabled={aiEnabled} known={known[sp.id]} card />
           ))}
         </div>
