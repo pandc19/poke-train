@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { POTENTIAL_LEVELS, potentialLevel } from '@/lib/potential';
 import type { RosterView } from '@/lib/roster';
@@ -197,11 +198,24 @@ export function PotentialSelect({ p, onChange }: { p: RosterView; onChange: (v: 
   );
 }
 
+const MAX_SUGGESTIONS = 40;
+const plain = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+/** The options of a <datalist> on the page, as plain data. */
+function readDatalist(id: string): { value: string; label: string }[] {
+  const el = document.getElementById(id) as HTMLDataListElement | null;
+  return el ? Array.from(el.options, (o) => ({ value: o.value, label: o.label && o.label !== o.value ? o.label : '' })) : [];
+}
+
 /**
  * A text box with a list of suggestions that is easy to change: clicking into
  * it empties it (the current value stays visible as the placeholder), so the
  * list is not filtered by the old choice. Leaving it untouched keeps the old
  * value.
+ *
+ * `list` names a <datalist> whose options are the suggestions. They are drawn
+ * here rather than by the browser, because the browser's own list does not
+ * show up reliably on an iPad.
  *
  * Without `onChange` it is a "saved value" box: it shows `value`, and
  * `onCommit` gets the text typed once you click away.
@@ -211,6 +225,7 @@ export function ComboInput({
   onChange,
   onCommit,
   placeholder,
+  list,
   ...rest
 }: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> & {
   value: string;
@@ -220,14 +235,14 @@ export function ComboInput({
   // null = not being edited: show `value`.
   const [typing, setTyping] = useState<string | null>(null);
   const touched = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Set when a suggestion was chosen: the blur that follows has nothing left to save.
+  const picked = useRef(false);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const [box, setBox] = useState<{ left: number; width: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
 
-  async function finish() {
-    const text = typing;
-    if (text === null) return;
-    if (!touched.current) {
-      setTyping(null);
-      return;
-    }
+  async function commit(text: string) {
     // Keep showing what was typed while it saves, so it does not flash back.
     try {
       await onCommit?.(text);
@@ -236,29 +251,143 @@ export function ComboInput({
     }
   }
 
+  async function finish() {
+    setOpen(false);
+    if (picked.current) {
+      picked.current = false;
+      return;
+    }
+    const text = typing;
+    if (text === null) return;
+    if (!touched.current) {
+      setTyping(null);
+      return;
+    }
+    await commit(text);
+  }
+
+  const suggestions = useMemo(() => {
+    if (!open || !list || typeof document === 'undefined') return [];
+    const q = plain((typing ?? '').trim());
+    const all = readDatalist(list);
+    if (!q) return all.slice(0, MAX_SUGGESTIONS);
+    const starts: typeof all = [];
+    const contains: typeof all = [];
+    for (const o of all) {
+      const v = plain(o.value);
+      if (v.startsWith(q)) starts.push(o);
+      else if (v.includes(q) || plain(o.label).includes(q)) contains.push(o);
+    }
+    return [...starts, ...contains].slice(0, MAX_SUGGESTIONS);
+  }, [open, list, typing]);
+
+  // Place the list under the box, or above it when the keyboard leaves no room below.
+  useEffect(() => {
+    if (!open || suggestions.length === 0) return;
+    const place = () => {
+      const el = inputRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const viewport = window.visualViewport?.height ?? window.innerHeight;
+      const below = viewport - r.bottom - 8;
+      if (below >= 180 || below >= r.top) {
+        setBox({ left: r.left, width: r.width, top: r.bottom + 4, maxHeight: Math.min(288, below) });
+      } else {
+        setBox({ left: r.left, width: r.width, bottom: window.innerHeight - r.top + 4, maxHeight: Math.min(288, r.top - 8) });
+      }
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    window.visualViewport?.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+      window.visualViewport?.removeEventListener('resize', place);
+    };
+  }, [open, suggestions.length]);
+
+  function pick(text: string) {
+    touched.current = true;
+    setTyping(text);
+    onChange?.(text);
+    setOpen(false);
+    setActive(-1);
+    picked.current = true;
+    void commit(text);
+    inputRef.current?.blur();
+  }
+
   return (
-    <input
-      {...rest}
-      value={typing ?? value}
-      placeholder={typing === '' && value ? value : placeholder}
-      onFocus={(e) => {
-        touched.current = false;
-        setTyping('');
-        rest.onFocus?.(e);
-      }}
-      onChange={(e) => {
-        touched.current = true;
-        setTyping(e.target.value);
-        onChange?.(e.target.value);
-      }}
-      onBlur={(e) => {
-        void finish();
-        rest.onBlur?.(e);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') e.currentTarget.blur();
-        rest.onKeyDown?.(e);
-      }}
-    />
+    <>
+      <input
+        {...rest}
+        ref={inputRef}
+        autoComplete="off"
+        value={typing ?? value}
+        placeholder={typing === '' && value ? value : placeholder}
+        onFocus={(e) => {
+          touched.current = false;
+          picked.current = false;
+          setTyping('');
+          setOpen(Boolean(list));
+          setActive(-1);
+          rest.onFocus?.(e);
+        }}
+        onChange={(e) => {
+          touched.current = true;
+          setTyping(e.target.value);
+          setOpen(Boolean(list));
+          setActive(-1);
+          onChange?.(e.target.value);
+        }}
+        onBlur={(e) => {
+          void finish();
+          rest.onBlur?.(e);
+        }}
+        onKeyDown={(e) => {
+          if (open && suggestions.length > 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            e.preventDefault();
+            const step = e.key === 'ArrowDown' ? 1 : -1;
+            setActive((a) => (a + step + suggestions.length) % suggestions.length);
+          } else if (e.key === 'Enter' && open && active >= 0 && suggestions[active]) {
+            e.preventDefault();
+            pick(suggestions[active].value);
+            return;
+          } else if (e.key === 'Escape') {
+            setOpen(false);
+          } else if (e.key === 'Enter') {
+            e.currentTarget.blur();
+          }
+          rest.onKeyDown?.(e);
+        }}
+      />
+      {open && box && suggestions.length > 0 &&
+        createPortal(
+          <ul
+            role="listbox"
+            style={{ position: 'fixed', left: box.left, width: Math.max(box.width, 180), top: box.top, bottom: box.bottom, maxHeight: box.maxHeight }}
+            className="z-[100] overflow-y-auto rounded-md border border-line bg-surface py-1 text-sm shadow-lg"
+          >
+            {suggestions.map((o, i) => (
+              <li
+                key={o.value}
+                role="option"
+                aria-selected={i === active}
+                // Keep the focus in the box; choose when the finger or pointer lifts (a scroll cancels it).
+                onPointerDown={(e) => e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()}
+                onPointerUp={() => pick(o.value)}
+                onPointerEnter={() => setActive(i)}
+                className={`flex cursor-pointer items-baseline justify-between gap-2 px-3 py-2 ${i === active ? 'bg-surface-2' : ''}`}
+              >
+                <span className="truncate">{o.value}</span>
+                {o.label && <span className="shrink-0 text-xs text-muted">{o.label}</span>}
+              </li>
+            ))}
+          </ul>,
+          document.body
+        )}
+    </>
   );
 }

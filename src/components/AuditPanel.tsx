@@ -176,7 +176,6 @@ export function AuditPanel({
   locks,
   onLocksChange,
   currentTera,
-  mintGiven,
   onMint,
   lockedPlan,
   onLockPlan,
@@ -197,8 +196,6 @@ export function AuditPanel({
   onLocksChange?: (locks: AuditLocks | null) => void;
   /** The Tera type it has now, to show beside the suggestion. */
   currentTera?: string | null;
-  /** The nature (English name) of the Mint it was given, if any. */
-  mintGiven?: string | null;
   /** Records the suggested Mint as given (true) or takes it back (false). */
   onMint?: (nature: string, given: boolean) => void;
   /** The EV spread the player has fixed as the plan, if any. */
@@ -391,14 +388,12 @@ export function AuditPanel({
               // A Mint the player fixed is the one a re-run keeps, so it is the one shown.
               const shown = mintFixed ?? audit.mint!;
               const keep = mintFixed ? true : audit.mint!.keep;
-              const given = mintGiven?.toLowerCase() === shown.nature.toLowerCase();
-              return (
+                return (
                 <p>
                   <span className="font-medium">
                     {keep ? t('Keep it: {nature}', { nature: shown.nature }) : t('Change to {nature}', { nature: shown.nature })}
                   </span>
-                  {given && <span className="text-done"> ✓ {t('Mint given')}</span>}
-                  <span className="text-muted"> · {shown.reason}</span>
+                    <span className="text-muted"> · {shown.reason}</span>
                 </p>
               );
             })()}

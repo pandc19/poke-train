@@ -349,6 +349,15 @@ export function RosterDetail({
             </Field>
             <Field
               label={t('Mint given')}
+              action={
+                p.mintNature && (
+                  <TaskToggle
+                    status="DONE"
+                    onToggle={() => save({ mintNatureId: null })}
+                    title={t('Mint given. Click to remove it')}
+                  />
+                )
+              }
               hint={
                 mintEffect
                   ? t('The game now shows the effect of {nature}; its real nature stays {real}. The stats chart uses the mint.', {
@@ -538,7 +547,6 @@ export function RosterDetail({
           locks={p.auditLocks}
           onLocksChange={(locks) => void save({ auditLocks: locks })}
           currentTera={p.teraType}
-          mintGiven={p.mintNature?.nameEn ?? null}
           onMint={(nature, given) => {
             const match = options.natures.find((n) => n.nameEn.toLowerCase() === nature.toLowerCase());
             if (match) void save({ mintNatureId: given ? match.id : null });
