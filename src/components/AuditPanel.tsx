@@ -169,6 +169,47 @@ function SourceGroup({
   );
 }
 
+/** One part of the audit in its own box, with a button that fixes it (and takes the fix away). */
+function Box({
+  title,
+  fixed,
+  onToggle,
+  fixTitle,
+  children,
+}: {
+  title: string;
+  fixed: boolean;
+  /** Without it the part cannot be fixed. */
+  onToggle?: () => void;
+  fixTitle?: string;
+  children: React.ReactNode;
+}) {
+  const { t } = useT();
+  return (
+    <section className={`rounded-lg border bg-surface p-3 ${fixed ? 'border-done/50' : 'border-line'}`}>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <h4 className="font-semibold uppercase text-muted">
+          {fixed && <span className="mr-1 text-done">✓</span>}
+          {title}
+        </h4>
+        {onToggle && (
+          <button
+            type="button"
+            onClick={onToggle}
+            title={fixed ? t('Fixed parts stay the same when you run the audit again.') : fixTitle ?? t('Fixed parts stay the same when you run the audit again.')}
+            className={`rounded border px-2 py-0.5 text-[11px] font-medium ${
+              fixed ? 'border-done/50 text-done hover:bg-done/10' : 'border-line text-muted hover:text-ink'
+            }`}
+          >
+            {fixed ? t('Unfix') : t('Fix')}
+          </button>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 /** Shows a stored AI audit of one Pokémon. */
 export function AuditPanel({
   gameId,
@@ -238,24 +279,40 @@ export function AuditPanel({
   const staleMint =
     !mintFixed && audit.mint != null && !hasMint && audit.mint.keep && !sameNature(audit.mint.nature, realNature);
   const mintShown = mintFixed ? { ...mintFixed, keep: true } : audit.mint && !staleMint ? audit.mint : undefined;
-  const anyFixed = itemFixed || movesFixed.length > 0 || Boolean(teraFixed) || Boolean(mintFixed);
   const recommended = audit.recommendedMoves ?? [];
-  // One button fixes the held item and all the moves together, or lets them all go.
-  const toggleFixed = () => {
-    if (anyFixed) return setLocks({});
+  const without = (key: keyof AuditLocks): AuditLocks => {
+    const rest = { ...locks };
+    delete rest[key];
+    return rest;
+  };
+  // Each part is fixed on its own; a fixed part stays as it is when the audit runs again, and is not asked of the AI.
+  const toggleItem = () =>
+    setLocks(
+      itemFixed || !audit.heldItem
+        ? without('heldItem')
+        : { ...locks, heldItem: { item: audit.heldItem.item, reason: audit.heldItem.reason } }
+    );
+  const toggleMoves = () =>
+    setLocks(
+      movesFixed.length > 0 || recommended.length === 0
+        ? without('moves')
+        : { ...locks, moves: recommended.slice(0, 4).map((m) => ({ move: m.move, reason: m.reason })) }
+    );
+  const toggleTera = () =>
+    setLocks(
+      teraFixed || !audit.teraType
+        ? without('teraType')
+        : { ...locks, teraType: { type: audit.teraType.type, reason: audit.teraType.reason } }
+    );
+  const toggleMint = () => {
+    if (mintFixed || !mintShown) return setLocks(without('mint'));
     // A Mint that is to change is recorded as given when it is fixed (the same as marking it by hand).
-    if (mintShown && !mintShown.keep) onMint?.(mintShown.nature, true);
-    setLocks({
-      mint: mintShown ? { nature: mintShown.nature, reason: mintShown.reason } : undefined,
-      heldItem: audit.heldItem ? { item: audit.heldItem.item, reason: audit.heldItem.reason } : undefined,
-      moves: recommended.slice(0, 4).map((m) => ({ move: m.move, reason: m.reason })),
-      teraType: audit.teraType ? { type: audit.teraType.type, reason: audit.teraType.reason } : undefined,
-    });
+    if (!mintShown.keep) onMint?.(mintShown.nature, true);
+    setLocks({ ...locks, mint: { nature: mintShown.nature, reason: mintShown.reason } });
   };
   const languageName = (code: string) => (code === 'en' ? t('English') : t('Spanish'));
   // The saved answer is never translated: switching language keeps it until it is re-run.
   const otherLanguage = auditLang != null && auditLang !== lang;
-  const heading = 'mb-1 font-semibold uppercase text-muted';
 
   return (
     <div className="mt-3 space-y-3 rounded-lg bg-surface-2 p-3 text-xs">
@@ -280,8 +337,18 @@ export function AuditPanel({
       )}
 
       {audit.evPlan && (
-        <div>
-          <h4 className={heading}>{t('EV plan')}</h4>
+        <Box
+          title={t('EV plan')}
+          fixed={Boolean(lockedPlan)}
+          onToggle={
+            lockedPlan
+              ? onUnlockPlan
+              : onLockPlan && audit.evPlan.spread !== 'nothing' && audit.evPlan.spread !== 'nada'
+                ? () => onLockPlan(audit.evPlan!.spread)
+                : undefined
+          }
+          fixTitle={t('Saves this spread as your plan. The checklist marks it done once the Pokémon reaches it.')}
+        >
           <dl className="space-y-1">
             <div>
               <dt className="inline text-muted">{t('Finish with')}: </dt>
@@ -292,34 +359,6 @@ export function AuditPanel({
               <dd className="inline">{audit.evPlan.toTrain === 'nothing' || audit.evPlan.toTrain === 'nada' ? t('Nothing') : audit.evPlan.toTrain}</dd>
             </div>
           </dl>
-          {lockedPlan ? (
-            <p className="mt-1 flex flex-wrap items-center gap-2">
-              <span className="rounded border border-done/50 px-2 py-0.5 text-[11px] font-medium text-done">
-                ✓ {t('Plan fixed')}
-              </span>
-              {onUnlockPlan && (
-                <button
-                  onClick={onUnlockPlan}
-                  title={t('Fixed parts stay the same when you run the audit again.')}
-                  className="rounded border border-line px-2 py-0.5 text-[11px] text-muted hover:text-ink"
-                >
-                  {t('Unfix')}
-                </button>
-              )}
-            </p>
-          ) : (
-            onLockPlan &&
-            audit.evPlan.spread !== 'nothing' &&
-            audit.evPlan.spread !== 'nada' && (
-              <button
-                onClick={() => onLockPlan(audit.evPlan!.spread)}
-                title={t('Saves this spread as your plan. The checklist marks it done once the Pokémon reaches it.')}
-                className="mt-1 rounded border border-line px-2 py-0.5 text-[11px] font-medium text-muted hover:text-ink"
-              >
-                {t('Fix this plan')}
-              </button>
-            )
-          )}
           {audit.evPlan.items && audit.evPlan.items.length > 0 && (
             <ul className="mt-1 list-disc space-y-1 pl-4">
               {audit.evPlan.items.map((it, i) => (
@@ -340,110 +379,71 @@ export function AuditPanel({
               ))}
             </ul>
           )}
-        </div>
+        </Box>
       )}
 
       {!audit.evPlan && !audit.heldItem && !(audit.recommendedMoves ?? []).length && !audit.teraType && (
         <p className="text-muted">{t('This audit is in an older format. Re-run it to get the EV plan, held item and moves.')}</p>
       )}
 
-      <div className={`space-y-3 rounded-lg border p-3 ${anyFixed ? 'border-done/50' : 'border-line'}`}>
-        {audit.heldItem && (
-          <div>
-            <h4 className={heading}>{t('Held item')}</h4>
-            <p>
-              <span className="font-medium">{audit.heldItem.item}</span>
-              <span className="text-muted"> · {audit.heldItem.reason}</span>
-            </p>
-          </div>
-        )}
-
-        {(audit.recommendedMoves ?? []).length > 0 && (
-          <div>
-            <h4 className={heading}>{t('Recommended moves')}</h4>
-            <ul className="space-y-1">
-              {audit.recommendedMoves!.map((m, i) => (
-                <li key={i}>
-                  <span className="font-medium">{m.move}</span>
-                  <span className="text-muted"> · {m.reason}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {(audit.teraType || teraFixed) && (
-          <div>
-            <h4 className={heading}>{t('Tera type')}</h4>
-            {(() => {
-              // A type the player fixed is the one a re-run keeps, so it is the one shown.
-              const shown = teraFixed ?? audit.teraType!;
-              return (
-                <p className="flex flex-wrap items-center gap-2">
-                  <TypeBadge type={shown.type} lang={lang} />
-                  {shown.reason && <span className="text-muted">· {shown.reason}</span>}
-                </p>
-              );
-            })()}
-            {currentTera && currentTera !== (teraFixed ?? audit.teraType)?.type && (
-              <p className="mt-1 flex items-center gap-2 text-muted">
-                {t('Current Tera type')}: <TypeBadge type={currentTera} lang={lang} />
-              </p>
-            )}
-          </div>
-        )}
-
-        {mintShown && (
-          <div>
-            <h4 className={heading}>{t('Mint')}</h4>
-            {(() => {
-              const shown = mintShown;
-              const keep = shown.keep;
-                return (
-                <p>
-                  <span className="font-medium">
-                    {keep
-                    ? hasMint
-                      ? t('Keep it: {nature}', { nature: shown.nature })
-                      : t('No Mint needed: {nature} is already the best', { nature: shown.nature })
-                    : hasMint
-                      ? t('Change to {nature}', { nature: shown.nature })
-                      : t('Use a {nature} Mint', { nature: shown.nature })}
-                  </span>
-                    <span className="text-muted"> · {shown.reason}</span>
-                </p>
-              );
-            })()}
-          </div>
-        )}
-
-        {onLocksChange && (audit.heldItem || recommended.length > 0 || audit.teraType || mintShown) && (
-          <p className="flex flex-wrap items-center gap-2">
-            {anyFixed ? (
-              <>
-                <span className="rounded border border-done/50 px-2 py-0.5 text-[11px] font-medium text-done">
-                  ✓ {t('Fixed')}
-                </span>
-                <button
-                  onClick={toggleFixed}
-                  title={t('Fixed parts stay the same when you run the audit again.')}
-                  className="rounded border border-line px-2 py-0.5 text-[11px] text-muted hover:text-ink"
-                >
-                  {t('Unfix')}
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={toggleFixed}
-                title={t('Fixes the item, moves, Tera type and Mint shown here, so they stay when you run the audit again.')}
-                className="rounded border border-line px-2 py-0.5 text-[11px] font-medium text-muted hover:text-ink"
-              >
-                {t('Fix')}
-              </button>
-            )}
+      {audit.heldItem && (
+        <Box title={t('Held item')} fixed={itemFixed} onToggle={onLocksChange ? toggleItem : undefined}>
+          <p>
+            <span className="font-medium">{audit.heldItem.item}</span>
+            <span className="text-muted"> · {audit.heldItem.reason}</span>
           </p>
-        )}
-      </div>
+        </Box>
+      )}
+
+      {recommended.length > 0 && (
+        <Box title={t('Recommended moves')} fixed={movesFixed.length > 0} onToggle={onLocksChange ? toggleMoves : undefined}>
+          <ul className="space-y-1">
+            {recommended.map((m, i) => (
+              <li key={i}>
+                <span className="font-medium">{m.move}</span>
+                <span className="text-muted"> · {m.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </Box>
+      )}
+
+      {(audit.teraType || teraFixed) && (
+        <Box title={t('Tera type')} fixed={Boolean(teraFixed)} onToggle={onLocksChange ? toggleTera : undefined}>
+          {(() => {
+            // A type the player fixed is the one a re-run keeps, so it is the one shown.
+            const shown = teraFixed ?? audit.teraType!;
+            return (
+              <p className="flex flex-wrap items-center gap-2">
+                <TypeBadge type={shown.type} lang={lang} />
+                {shown.reason && <span className="text-muted">· {shown.reason}</span>}
+              </p>
+            );
+          })()}
+          {currentTera && currentTera !== (teraFixed ?? audit.teraType)?.type && (
+            <p className="mt-1 flex items-center gap-2 text-muted">
+              {t('Current Tera type')}: <TypeBadge type={currentTera} lang={lang} />
+            </p>
+          )}
+        </Box>
+      )}
+
+      {mintShown && (
+        <Box title={t('Mint')} fixed={Boolean(mintFixed)} onToggle={onLocksChange ? toggleMint : undefined}>
+          <p>
+            <span className="font-medium">
+              {mintShown.keep
+                ? hasMint
+                  ? t('Keep it: {nature}', { nature: mintShown.nature })
+                  : t('No Mint needed: {nature} is already the best', { nature: mintShown.nature })
+                : hasMint
+                  ? t('Change to {nature}', { nature: mintShown.nature })
+                  : t('Use a {nature} Mint', { nature: mintShown.nature })}
+            </span>
+            <span className="text-muted"> · {mintShown.reason}</span>
+          </p>
+        </Box>
+      )}
 
       <p className="flex items-center justify-between text-[10px] text-muted">
         <span>

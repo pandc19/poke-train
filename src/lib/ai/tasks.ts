@@ -3,7 +3,7 @@ import type { z } from 'zod';
 import { prisma } from '../db';
 import type { GameConfig } from '../games';
 import { learnableMoves } from '../breeding/moves';
-import { evGap, evTotal, formatEvs } from '../import/evs';
+import { evGap, evTotal, formatEvs, type EvSpread } from '../import/evs';
 import { activeMint, withFixedMoves } from '../audit-locks';
 import { STAT_NAMES, loadEvSources } from '../ev-catalog';
 import { describePlan, legalPlan, trainingItemsFor } from '../ev-plan';
@@ -12,10 +12,10 @@ import type { Lang } from '../i18n';
 import { ivRating } from '../iv-ratings';
 import { potentialLevel } from '../potential';
 import type { RosterView } from '../roster';
-import { type BuildAudit, type BuildAuditRaw, LocationSchema, buildAuditSchema, TeamAuditSchema } from './schema';
+import { type AuditAsk, type BuildAuditRaw, LocationSchema, buildAuditSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 17;
+const PROMPT_VERSION = 18;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -177,9 +177,25 @@ export async function auditBuild(
   const mintLock = hasMint
     ? activeMint(locks, p.mintNature?.nameEn, (p.currentNature ?? p.targetNature)?.nameEn)
     : undefined;
-  const allFixed = Boolean(
-    locks?.heldItem && (locks.moves?.length ?? 0) >= 4 && (!hasEvs || p.evs) && (!hasTera || locks.teraType) && (!hasMint || mintLock)
-  );
+  // What the player has fixed is not asked of the model again: it is kept, and the rest of the audit is worked out in code.
+  const planFixed = hasEvs && p.evs != null;
+  const ask: AuditAsk = {
+    evPlan: hasEvs && !planFixed,
+    heldItem: !locks?.heldItem,
+    moves: (locks?.moves?.length ?? 0) < 4,
+    tera: hasTera && !locks?.teraType,
+    mint: hasMint && !mintLock,
+  };
+  const nothingToAsk = !Object.values(ask).some(Boolean);
+
+  /** What is fixed, said once so the model chooses the rest to go with it. */
+  const fixedNotes = [
+    planFixed ? 'EV plan (fixed): targetEvs is the spread it finishes with. Choose the rest for those EVs.' : '',
+    locks?.heldItem ? `Held item (fixed): ${locks.heldItem.item}.` : '',
+    (locks?.moves?.length ?? 0) >= 4 ? `Moves (fixed): ${locks!.moves!.map((m) => m.move).join(', ')}.` : '',
+    hasTera && locks?.teraType ? `Tera type (fixed): ${locks.teraType.type}.` : '',
+    mintLock ? `Mint (fixed): ${mintLock.nature}.` : '',
+  ].filter(Boolean);
 
   return cached(
     provider,
@@ -187,27 +203,20 @@ export async function auditBuild(
     { build, illegal, legalMovePool, lang, locks: p.auditLocks },
     {
       system: system(game, lang),
-      schema: buildAuditSchema(hasEvs, hasTera, hasMint),
+      schema: buildAuditSchema(ask, hasEvs),
       finish: async (raw) => {
         const locks = p.auditLocks;
-        // What the player fixed is kept as it is; the model only fills the rest.
-        const fixed = (r: {
-          heldItem: BuildAudit['heldItem'];
-          recommendedMoves: BuildAudit['recommendedMoves'];
-          teraType?: BuildAudit['teraType'];
-          mint?: BuildAudit['mint'];
-        }) => ({
-          heldItem: locks?.heldItem ?? r.heldItem,
-          recommendedMoves: withFixedMoves(locks?.moves, r.recommendedMoves),
-          ...(hasTera ? { teraType: locks?.teraType ?? r.teraType } : {}),
-          ...(hasMint ? { mint: mintLock ? { ...mintLock, keep: true } : r.mint } : {}),
-        });
-        if (!hasEvs) return { ...(raw as BuildAudit), ...fixed(raw as BuildAudit) };
-        // The spread is the model's proposal; what it means for this Pokémon is worked out here.
-        const withPlan = raw as BuildAuditRaw;
-        // A plan the player has fixed is kept, only made legal again (amounts in fours, 252 and 508 caps);
-        // otherwise it is the model's proposal made legal.
-        const plan = legalPlan(p.evs ?? withPlan.evPlan.spread, p.currentEvs, !hasTarget);
+        // What the player fixed is kept as it is; the model only filled the rest.
+        const parts = {
+          heldItem: locks?.heldItem ?? raw.heldItem,
+          recommendedMoves: withFixedMoves(locks?.moves, raw.recommendedMoves ?? []),
+          ...(hasTera ? { teraType: locks?.teraType ?? raw.teraType } : {}),
+          ...(hasMint ? { mint: mintLock ? { ...mintLock, keep: true } : raw.mint } : {}),
+        };
+        if (!hasEvs) return parts;
+        // The spread is the model's proposal (or the player's fixed plan); what it means for this Pokémon is worked out here.
+        // A fixed plan is kept, only made legal again (amounts in fours, 252 and 508 caps).
+        const plan = legalPlan((p.evs ?? raw.evPlan?.spread) as EvSpread, p.currentEvs, !hasTarget);
         if (p.evs && formatEvs(plan) !== formatEvs(p.evs)) {
           // The fixed plan was saved before these rules: save it as it now reads.
           await prisma.rosterPokemon.update({ where: { id: p.id }, data: { evs: plan } });
@@ -217,7 +226,7 @@ export async function auditBuild(
         const gap = evGap(plan, p.currentEvs);
         const missing = (Object.keys(gap) as (keyof typeof gap)[]).filter((k) => gap[k] > 0);
         return {
-          ...fixed(withPlan),
+          ...parts,
           evPlan: {
             spread,
             toTrain,
@@ -228,32 +237,22 @@ export async function auditBuild(
         };
       },
       schemaName: 'build_audit',
-      // Plan, item and moves all fixed: nothing is left for the model to decide.
-      local: allFixed
-        ? ({
-            heldItem: p.auditLocks!.heldItem,
-            recommendedMoves: p.auditLocks!.moves,
-            ...(hasTera ? { teraType: p.auditLocks!.teraType } : {}),
-            ...(hasMint ? { mint: { ...mintLock!, keep: true } } : {}),
-            ...(hasEvs ? { evPlan: { spread: p.evs } } : {}),
-          } as never)
-        : undefined,
+      // Everything is fixed: nothing is left for the model to decide.
+      local: nothingToAsk ? ({} as Partial<BuildAuditRaw>) : undefined,
       // Item and EV advice depends on how this game works, so let it look things up.
       webSearch: true,
       // One Pokémon at a time is the everyday request; "deeper" is the user's choice.
       tier: deep ? 'deep' : 'bulk',
       prompt: [
         'Give exactly what the player needs for this Pokémon as it is right now, and nothing else. ' +
-          'Work with what it already has: its nature, ability, potential, current EVs, held item and known moves are the starting point. Do not propose rebuilding it.',
+          'Work with what it already has: its nature, ability, potential, current EVs, held item and known moves are the starting point. Do not propose rebuilding it. ' +
+          'Answer only the parts asked for below.',
         JSON.stringify({ pokemon: build, legalMovePool }, null, 2),
-        hasEvs
+        fixedNotes.length ? `The player has fixed these parts, so they are not asked again:\n${fixedNotes.join('\n')}` : '',
+        ask.evPlan
           ? 'evPlan: currentStats are the numbers the game shows (HP 331, Attack 328…). They are NOT EVs, so never use them for the plan. ' +
             'currentEvs are the EVs it has trained, per stat, and evsLeftToTrain is how many of the 508 are still free. ' +
             'spread is the EVs it should finish with, as numbers per stat: multiples of 4 only (the game counts EVs in fours, so 6 is no better than 4), at most 252 each and 508 in total. ' +
-            (p.evs
-              ? 'The player has fixed the EV plan: targetEvs is the spread it finishes with, so use it exactly as spread. ' +
-                'Choose the held item and the moves for those EVs. '
-              : '') +
             (hasTarget
               ? 'EVs are easy to retrain in this game, so choose the best spread for its role, nature, base stats and moves; currentEvs only says where it starts. '
               : 'Its EVs are hard to change in this game, so every stat must stay at or above its currentEvs: only add to them with the evsLeftToTrain still free, and never start over. ') +
@@ -261,24 +260,24 @@ export async function auditBuild(
             'put them only into the stats its role really needs (a physical attacker needs no Sp. Atk, and a slow bulky Pokémon rarely needs Speed). ' +
             'Do not say which Pokémon to battle, or give vitamin counts or EV arithmetic: the app works those out.' +
             (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
-          : `${game.name} has no EV training, so there is no EV plan.`,
-        p.auditLocks?.heldItem
-          ? `heldItem: the player has fixed ${p.auditLocks.heldItem.item}. Return exactly that item with its reason.`
-          : 'heldItem: the best held item for it as it is now. If the one it holds is already the best, name it and say to keep it.',
-        p.auditLocks?.moves?.length
-          ? `The player has fixed these moves, so they stay: ${p.auditLocks.moves.map((m) => m.move).join(', ')}. ` +
-            `recommendedMoves lists only the other ${4 - p.auditLocks.moves.length} to add, chosen to work with the fixed ones (no duplicated role).`
           : '',
-        `recommendedMoves: the best four moves for it given its nature${hasEvs ? ' and the EVs it will finish with' : ''}, chosen ONLY from legalMovePool. ` +
-          'Prefer moves it already knows over ones it would have to get. ' +
-          'Do not recommend moves that use a stat it is not investing in: no special attacks when its Sp. Atk gets no EVs and its nature does not raise it, ' +
-          'and no physical attacks when its Attack gets none. Status and setup moves are fine. ' +
-          'Use the type, category and power given; do not invent move effects. Keep each reason to one short sentence.',
-        hasMint && mintLock
-          ? `mint: the player has fixed ${mintLock.nature}. Return exactly that nature with keep true and a one-sentence reason.`
-          : hasMint
+        ask.heldItem
+          ? 'heldItem: the best held item for it as it is now. If the one it holds is already the best, name it and say to keep it.'
+          : '',
+        ask.moves
+          ? (locks?.moves?.length
+              ? `The player has fixed these moves, so they stay: ${locks.moves.map((m) => m.move).join(', ')}. ` +
+                `recommendedMoves lists only the other ${4 - locks.moves.length} to add, chosen to work with the fixed ones (no duplicated role). `
+              : '') +
+            `recommendedMoves: the best four moves for it given its nature${hasEvs ? ' and the EVs it will finish with' : ''}, chosen ONLY from legalMovePool. ` +
+            'Prefer moves it already knows over ones it would have to get. ' +
+            'Do not recommend moves that use a stat it is not investing in: no special attacks when its Sp. Atk gets no EVs and its nature does not raise it, ' +
+            'and no physical attacks when its Attack gets none. Status and setup moves are fine. ' +
+            'Use the type, category and power given; do not invent move effects. Keep each reason to one short sentence.'
+          : '',
+        ask.mint
           ? 'mint: a Mint changes which stats a nature raises and lowers without changing the nature. The effect the game applies is mintNature when it is given, otherwise currentNature (or targetNature when currentNature is unknown). ' +
-            'Judge that effect against its role, base stats and the moves you recommend: the raised stat should be the one it attacks or speeds with, and the lowered one a stat it never uses (Attack for a special attacker, Sp. Atk for a physical one). ' +
+            'Judge that effect against its role, base stats and the moves it will have: the raised stat should be the one it attacks or speeds with, and the lowered one a stat it never uses (Attack for a special attacker, Sp. Atk for a physical one). ' +
             'If the effect it has is already the best one, set keep to true and nature to that nature. Otherwise set keep to false and nature to the better one, in English. ' +
             (p.mintNature
               ? 'It holds a Mint now, so keep true means to leave it as it is. '
@@ -286,13 +285,11 @@ export async function auditBuild(
                 'otherwise set keep to false and suggest using that nature’s Mint. ') +
             'Give a one-sentence reason.'
           : '',
-        hasTera
-          ? p.auditLocks?.teraType
-            ? `teraType: the player has fixed ${p.auditLocks.teraType.type}. Return exactly that type with a one-sentence reason.`
-            : 'teraType: the best Tera type for it, given its ability, held item and moves: one that covers a weakness or powers up its main attacks. ' +
-              'teraType in the data is the one the player has now; if it is already the best, return it and say to keep it. Give the type as its English lowercase name and a one-sentence reason.'
+        ask.tera
+          ? 'teraType: the best Tera type for it, given its ability, held item and moves: one that covers a weakness or powers up its main attacks. ' +
+            'teraType in the data is the one the player has now; if it is already the best, return it and say to keep it. Give the type as its English lowercase name and a one-sentence reason.'
           : '',
-        illegal.length
+        ask.moves && illegal.length
           ? `Game data says this Pokémon cannot learn: ${illegal.join(', ')}. Replace each with a move from legalMovePool.`
           : '',
       ]

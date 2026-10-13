@@ -74,11 +74,23 @@ export const BuildAuditRawSchema = BuildAuditSchema.omit({ evPlan: true }).exten
 });
 export type BuildAuditRaw = z.infer<typeof BuildAuditRawSchema>;
 
-/** The answer to ask for, for a game with or without EV training and a Tera type. */
-export function buildAuditSchema(hasEvs: boolean, hasTera: boolean, hasMint = false) {
+/** Which parts of the audit the model is asked for: the ones the player has not fixed, and the game has. */
+export type AuditAsk = { evPlan: boolean; heldItem: boolean; moves: boolean; tera: boolean; mint: boolean };
+
+/**
+ * The answer to ask for. Only the parts in `ask` are in it, so a fixed part is never
+ * decided (or paid for) again; the rest of the audit is put together in code.
+ */
+export function buildAuditSchema(ask: AuditAsk, hasEvs: boolean) {
   const base = hasEvs ? BuildAuditRawSchema : BuildAuditNoEvSchema;
-  const schema = (hasMint ? base : base.omit({ mint: true })) as typeof base;
-  return (hasTera ? schema : schema.omit({ teraType: true })) as typeof schema;
+  const omit: Record<string, true> = {};
+  if (!ask.evPlan) omit.evPlan = true;
+  if (!ask.heldItem) omit.heldItem = true;
+  if (!ask.moves) omit.recommendedMoves = true;
+  if (!ask.tera) omit.teraType = true;
+  if (!ask.mint) omit.mint = true;
+  const keys = Object.keys(omit).filter((k) => k in base.shape);
+  return base.omit(Object.fromEntries(keys.map((k) => [k, true])) as never) as unknown as z.ZodType<Partial<BuildAuditRaw>>;
 }
 
 export const TeamAuditSchema = z.object({
