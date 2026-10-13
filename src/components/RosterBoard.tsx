@@ -7,6 +7,7 @@ import { ConfirmDialog } from './Dialog';
 import { SearchInput } from './SearchInput';
 import { RosterDetail } from './roster/RosterDetail';
 import { PAGE_SIZE, RosterList } from './roster/RosterList';
+import { TeamView } from './roster/TeamView';
 import { ComboInput, progressOf, withTask, type Gender } from './roster/parts';
 import type { EvEstimateInfo } from './StatsEvs';
 import type { TeamAudit } from '@/lib/ai/schema';
@@ -29,18 +30,22 @@ const SORT_KEY = 'roster-sort';
 export function RosterBoard({
   gameId,
   initial,
+  initialTeam,
   initialSelectedId,
   options,
   lang,
   judge,
   evs,
   evTarget,
+  tera,
   aiEnabled,
   aiProvider,
   accent,
 }: {
   gameId: string;
   initial: RosterView[];
+  /** Roster ids of the team being trained, by slot (null for an empty slot). */
+  initialTeam: (string | null)[];
   /** The Pokémon named in the address, if any. */
   initialSelectedId: string | null;
   options: EditorOptions;
@@ -51,6 +56,8 @@ export function RosterBoard({
   evs: boolean;
   /** A target spread is planned too (EVs are easy to retrain in this game). */
   evTarget: boolean;
+  /** The game has Tera types. */
+  tera: boolean;
   aiEnabled: boolean;
   aiProvider: string;
   accent: string;
@@ -65,6 +72,9 @@ export function RosterBoard({
   };
 
   const [roster, setRoster] = useState(initial);
+  const [slots, setSlots] = useState(initialTeam);
+  // The list of cards, or the team being trained. Remembered between visits.
+  const [view, setView] = useState<'list' | 'team'>('list');
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useState<Sort>('complete');
   const [query, setQuery] = useState('');
@@ -75,6 +85,7 @@ export function RosterBoard({
       // Read after mount on purpose: the server render has no localStorage.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (saved && SORTS.includes(saved)) setSort(saved);
+      if (localStorage.getItem('roster-view') === 'team') setView('team');
     } catch {}
   }, []);
   const [page, setPage] = useState(() => {
@@ -224,6 +235,7 @@ export function RosterBoard({
       const index = roster.findIndex((x) => x.id === p.id);
       const rest = roster.filter((x) => x.id !== p.id);
       setRoster(rest);
+      setSlots((prev) => prev.map((id) => (id === p.id ? null : id)));
       if (selectedId === p.id) {
         const next = rest[Math.min(index, rest.length - 1)];
         setSelectedId(next?.id ?? null);
@@ -277,6 +289,34 @@ export function RosterBoard({
       select(data.pokemon.id);
     } catch {
       setError(t('Could not add that Pokémon. Try again.'));
+    }
+  }
+
+  function changeView(next: 'list' | 'team') {
+    setView(next);
+    try {
+      localStorage.setItem('roster-view', next);
+    } catch {}
+  }
+
+  /** Puts a roster Pokémon in a team slot (or empties it); the server answers with the team as it is. */
+  async function setSlot(slot: number, id: string | null) {
+    const before = slots;
+    setError(null);
+    setSlots((prev) => {
+      const next = [...prev];
+      const from = id ? next.indexOf(id) : -1;
+      if (from >= 0) next[from] = next[slot - 1];
+      next[slot - 1] = id;
+      return next;
+    });
+    try {
+      const data = await api<{ team: (string | null)[] }>('/api/team', 'PUT', { gameId, slot, rosterPokemonId: id });
+      setSlots(data.team);
+      if (id) select(id);
+    } catch {
+      setSlots(before);
+      setError(t('Could not change the team. Try again.'));
     }
   }
 
@@ -487,6 +527,41 @@ export function RosterBoard({
         </div>
       )}
 
+      {/* ---------- list of cards, or the team being trained ---------- */}
+      <div className="mb-4 inline-flex rounded-md border border-line text-sm" role="tablist" aria-label={t('View')}>
+        {(['list', 'team'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="tab"
+            aria-selected={view === v}
+            onClick={() => changeView(v)}
+            className={`px-4 py-1.5 ${view === v ? 'bg-surface-2 font-semibold' : 'text-muted hover:text-ink'}`}
+          >
+            {v === 'list' ? t('List') : t('Team')}
+          </button>
+        ))}
+      </div>
+
+      {view === 'team' ? (
+        <TeamView
+          roster={roster}
+          team={slots}
+          selectedId={selectedId}
+          lang={lang}
+          accent={accent}
+          tera={tera}
+          estimateFor={estimateFor}
+          onSelect={select}
+          onSetSlot={setSlot}
+          onSaveStats={saveStats}
+          onOpenDetails={(id) => {
+            changeView('list');
+            setReveal(id);
+            select(id);
+          }}
+        />
+      ) : (
       <div className="grid gap-5 lg:grid-cols-[minmax(0,25rem)_minmax(0,1fr)]">
         {/* ---------- the list: stays in view while the details scroll (it scrolls itself when taller than the screen) ---------- */}
         <aside className="lg:sticky lg:top-3 lg:max-h-[calc(100vh-1.5rem)] lg:self-start lg:-m-1 lg:overflow-y-auto lg:p-1">
@@ -586,6 +661,7 @@ export function RosterBoard({
           )}
         </div>
       </div>
+      )}
       {dialogs}
     </div>
   );

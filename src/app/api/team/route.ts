@@ -1,0 +1,44 @@
+import { z } from 'zod';
+import { apiError } from '@/lib/api-error';
+import { LOCAL_USER_ID } from '@/lib/constants';
+import { prisma } from '@/lib/db';
+import { findProfileId } from '@/lib/profile';
+import { loadTeam } from '@/lib/team';
+
+const Body = z.object({
+  gameId: z.string(),
+  slot: z.number().int().min(1).max(6),
+  /** The roster Pokémon to put in the slot, or null to empty it. */
+  rosterPokemonId: z.uuid().nullable(),
+});
+
+/** Puts a roster Pokémon in a team slot (swapping places when it is already in the team), or empties the slot. */
+export async function PUT(request: Request) {
+  const parsed = Body.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return apiError('Invalid body', 400);
+  const { gameId, slot, rosterPokemonId } = parsed.data;
+  const profileId = await findProfileId(gameId);
+  if (!profileId) return apiError('Unknown game', 404);
+
+  if (rosterPokemonId) {
+    const mine = await prisma.rosterPokemon.findFirst({
+      where: { id: rosterPokemonId, profileId, profile: { userId: LOCAL_USER_ID } },
+      select: { id: true },
+    });
+    if (!mine) return apiError('Not found', 404);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const occupant = await tx.teamSlot.findUnique({ where: { profileId_slot: { profileId, slot } } });
+    const moving = rosterPokemonId ? await tx.teamSlot.findUnique({ where: { rosterPokemonId } }) : null;
+    // Free the slot and the Pokémon's old place first (both are unique), then fill them again.
+    if (occupant) await tx.teamSlot.delete({ where: { id: occupant.id } });
+    if (moving && moving.id !== occupant?.id) await tx.teamSlot.delete({ where: { id: moving.id } });
+    if (rosterPokemonId) await tx.teamSlot.create({ data: { profileId, slot, rosterPokemonId } });
+    // Taking a Pokémon from another slot: whoever was here goes there.
+    if (occupant && moving && moving.id !== occupant.id) {
+      await tx.teamSlot.create({ data: { profileId, slot: moving.slot, rosterPokemonId: occupant.rosterPokemonId } });
+    }
+  });
+  return Response.json({ team: await loadTeam(profileId) });
+}

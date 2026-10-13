@@ -19,11 +19,11 @@ generator client {
 // ============================================================================
 
 model Game {
-  id           String  @id // slug, e.g. "violet"
+  id           String @id // slug, e.g. "violet"
   name         String
-  versionGroup String  @map("version_group") // PokéAPI version group, e.g. "scarlet-violet"
+  versionGroup String @map("version_group") // PokéAPI version group, e.g. "scarlet-violet"
   generation   Int
-  sortOrder    Int     @default(0) @map("sort_order")
+  sortOrder    Int    @default(0) @map("sort_order")
 
   pokedexes Pokedex[]
   profiles  GameProfile[]
@@ -51,8 +51,8 @@ model Species {
   forms          Form[]
   pokedexSlots   PokedexSlot[]
   pokedexEntries PokedexEntry[]
-  roster         RosterPokemon[] @relation("RosterSpecies")
-  rosterBase     RosterPokemon[] @relation("RosterBaseSpecies")
+  roster         RosterPokemon[]  @relation("RosterSpecies")
+  rosterBase     RosterPokemon[]  @relation("RosterBaseSpecies")
   breedingGoals  BreedingGoal[]
   opponents      BattleOpponent[]
 
@@ -83,12 +83,12 @@ model Form {
 }
 
 model Move {
-  id          Int     @id
-  slug        String  @unique
-  nameEn      String  @map("name_en")
-  nameEs      String  @map("name_es")
+  id          Int    @id
+  slug        String @unique
+  nameEn      String @map("name_en")
+  nameEs      String @map("name_es")
   type        String
-  damageClass String  @map("damage_class") // physical | special | status
+  damageClass String @map("damage_class") // physical | special | status
   power       Int?
   accuracy    Int?
   pp          Int?
@@ -169,12 +169,12 @@ model Nature {
 }
 
 model Pokedex {
-  id         Int     @id
-  slug       String  @unique
-  name       String
+  id        Int     @id
+  slug      String  @unique
+  name      String
   /// Null for the National Pokédex.
-  gameId     String? @map("game_id")
-  sortOrder  Int     @default(0) @map("sort_order")
+  gameId    String? @map("game_id")
+  sortOrder Int     @default(0) @map("sort_order")
 
   game  Game?         @relation(fields: [gameId], references: [id])
   slots PokedexSlot[]
@@ -245,6 +245,7 @@ model GameProfile {
   importBatches  ImportBatch[]
   audits         AiAudit[]
   opponents      BattleOpponent[]
+  teamSlots      TeamSlot[]
 
   @@unique([userId, gameId, name])
   @@map("game_profiles")
@@ -342,27 +343,27 @@ model RosterPokemon {
 
   /// The EV spread the player is aiming for: { hp, attack, defense, specialAttack, specialDefense, speed },
   /// or null if not planned.
-  evs      Json?
-  evStatus TaskStatus @default(PENDING) @map("ev_status")
+  evs                 Json?
+  evStatus            TaskStatus @default(PENDING) @map("ev_status")
   /// The EVs the Pokémon has right now, same shape. Null = not recorded.
-  currentEvs Json? @map("current_evs")
+  currentEvs          Json?      @map("current_evs")
   /// True when those EVs were worked out from the stats rather than read off the game.
-  currentEvsEstimated Boolean @default(false) @map("current_evs_estimated")
+  currentEvsEstimated Boolean    @default(false) @map("current_evs_estimated")
   /// The stats the game shows (the blue graph), same shape as EVs. The EVs are worked out from these.
-  currentStats Json? @map("current_stats")
+  currentStats        Json?      @map("current_stats")
   /// Its level, which the stats depend on.
-  level Int @default(100)
+  level               Int        @default(100)
   /// What the Judge said about each stat's IV: { hp: "PERFECT", attack: "LOW", ... }. Missing = not judged.
-  ivRatings Json? @map("iv_ratings")
+  ivRatings           Json?      @map("iv_ratings")
   /// Parts of the AI audit the player has fixed: { heldItem?, moves? }. Re-running the audit keeps them.
-  auditLocks Json? @map("audit_locks")
+  auditLocks          Json?      @map("audit_locks")
 
   teraType   String?    @map("tera_type")
   teraStatus TaskStatus @default(PENDING) @map("tera_status")
   /// What the Judge said, for games that have one. Null = not judged yet.
-  potential Potential?
-  notes    String?
-  sortOrder Int    @default(0) @map("sort_order")
+  potential  Potential?
+  notes      String?
+  sortOrder  Int        @default(0) @map("sort_order")
 
   importBatchId String?  @map("import_batch_id") @db.Uuid
   createdAt     DateTime @default(now()) @map("created_at")
@@ -379,9 +380,10 @@ model RosterPokemon {
   item          Item?        @relation(fields: [itemId], references: [id])
   importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
 
-  moves  RosterMove[]
-  audits AiAudit[]
-  roles  PokemonRoleAssignment[]
+  moves    RosterMove[]
+  audits   AiAudit[]
+  roles    PokemonRoleAssignment[]
+  teamSlot TeamSlot?
 
   @@index([profileId, sortOrder])
   @@map("roster_pokemon")
@@ -424,21 +426,21 @@ enum BreedingStatus {
 }
 
 model BreedingGoal {
-  id        String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  profileId String         @map("profile_id") @db.Uuid
-  speciesId Int            @map("species_id")
+  id            String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  profileId     String         @map("profile_id") @db.Uuid
+  speciesId     Int            @map("species_id")
   /// Move ids the offspring should know.
-  moveIds   Int[]          @map("move_ids")
-  natureId  Int?           @map("nature_id")
+  moveIds       Int[]          @map("move_ids")
+  natureId      Int?           @map("nature_id")
   /// Stats whose IV must be 31 (stat keys: hp, attack, defense, specialAttack, specialDefense, speed).
-  ivTargets String[]       @default([]) @map("iv_targets")
+  ivTargets     String[]       @default([]) @map("iv_targets")
   /// The offspring should have the hidden ability.
-  hiddenAbility Boolean    @default(false) @map("hidden_ability")
-  status    BreedingStatus @default(PLANNED)
+  hiddenAbility Boolean        @default(false) @map("hidden_ability")
+  status        BreedingStatus @default(PLANNED)
   /// Last computed plan (see src/lib/breeding).
-  plan      Json?
-  notes     String?
-  createdAt DateTime       @default(now()) @map("created_at")
+  plan          Json?
+  notes         String?
+  createdAt     DateTime       @default(now()) @map("created_at")
 
   profile GameProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   species Species     @relation(fields: [speciesId], references: [id])
@@ -513,4 +515,21 @@ model BattleOpponent {
 
   @@index([profileId])
   @@map("battle_opponents")
+}
+
+/// The team being trained in a game: up to six roster Pokémon, one per slot. Two roster
+/// entries of the same species are two different Pokémon and may both be in it.
+model TeamSlot {
+  id              String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  profileId       String @map("profile_id") @db.Uuid
+  /// 1 to 6.
+  slot            Int
+  rosterPokemonId String @map("roster_pokemon_id") @db.Uuid
+
+  profile       GameProfile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  rosterPokemon RosterPokemon @relation(fields: [rosterPokemonId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, slot])
+  @@unique([rosterPokemonId])
+  @@map("team_slots")
 }
