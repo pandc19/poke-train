@@ -216,6 +216,7 @@ export function AuditPanel({
   aiEnabled,
   locks,
   onLocksChange,
+  compare,
   currentTera,
   onMint,
   mintGiven,
@@ -237,6 +238,8 @@ export function AuditPanel({
   /** The held item and moves the player has fixed. */
   locks?: AuditLocks | null;
   onLocksChange?: (locks: AuditLocks | null) => void;
+  /** What it has now against what the audit suggests, one row per part. */
+  compare?: { key: string; label: string; now: string; ai: string; same: boolean }[];
   /** The Tera type it has now, to show beside the suggestion. */
   currentTera?: string | null;
   /** The nature (English name) of the Mint it was given, if any: "keep" is not said of a Mint it does not have. */
@@ -334,6 +337,30 @@ export function AuditPanel({
             </button>
           )}
         </div>
+      )}
+
+      {compare && compare.length > 0 && (
+        <section className="rounded-lg border border-line bg-surface p-3">
+          <h4 className="mb-2 font-semibold uppercase text-muted">{t('Now vs AI')}</h4>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
+            {compare.map((r) => (
+              <div key={r.key} className="contents">
+                <dt className="text-muted">{r.label}</dt>
+                <dd className={r.same ? 'text-done' : ''}>
+                  {r.same ? (
+                    <>✓ {r.now}</>
+                  ) : (
+                    <>
+                      <span className="text-muted">{r.now}</span>
+                      <span className="mx-1 text-pending">→</span>
+                      <span className="font-medium">{r.ai}</span>
+                    </>
+                  )}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
       )}
 
       {audit.evPlan && (

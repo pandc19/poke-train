@@ -6,6 +6,7 @@ import { AuditPanel } from '../AuditPanel';
 import { StatsEvsEditor, type EvEstimateInfo } from '../StatsEvs';
 import { TypeBadge } from '../TypeBadge';
 import { ComboInput, GenderControl, PokemonSprite, PotentialSelect, TaskToggle, progressOf, type Gender } from './parts';
+import { auditSuggestions } from '@/lib/audit-compare';
 import { evTotal, formatEvs, type EvSpread } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
 import type { IvRatings } from '@/lib/iv-ratings';
@@ -57,6 +58,41 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h3 className="border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-muted">{title}</h3>
       {children}
     </section>
+  );
+}
+
+/** The AI audit's answer for one field: it matches what the Pokémon has, or here is what it suggests. */
+function Suggestion({
+  same,
+  title,
+  onApply,
+  children,
+}: {
+  same: boolean;
+  /** The reason the AI gave. */
+  title?: string;
+  onApply?: () => void;
+  children: React.ReactNode;
+}) {
+  const { t } = useT();
+  if (same) {
+    return <p className="mt-1 text-[11px] text-done">✓ {t('Matches the AI audit')}</p>;
+  }
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]" title={title}>
+      <span className="text-pending">
+        {t('AI suggests')}: <span className="font-medium">{children}</span>
+      </span>
+      {onApply && (
+        <button
+          type="button"
+          onClick={onApply}
+          className="rounded border border-line px-1.5 py-0.5 text-muted hover:border-done/50 hover:text-done"
+        >
+          {t('Apply')}
+        </button>
+      )}
+    </p>
   );
 }
 
@@ -224,6 +260,76 @@ export function RosterDetail({
       : p.abilityOptions;
 
 
+  // What the saved audit suggests against what it has now (the answer may be older than the latest edits).
+  const sug = auditSuggestions(p.audit?.result as Parameters<typeof auditSuggestions>[0], {
+    item: p.item?.nameEn ?? p.itemNote,
+    moves: p.moves.flatMap((m) => (m.move ? [m.move.nameEn] : [])),
+    tera: p.teraType,
+    mintGiven: p.mintNature?.nameEn ?? null,
+    realNature: (p.currentNature ?? p.targetNature)?.nameEn ?? null,
+    evs: p.evs ? formatEvs(p.evs) : null,
+  });
+  const itemOf = (name: string) => find(options.items, name);
+  const moveOf = (name: string) => find(options.moves, name);
+  const natureOf = (name: string) => options.natures.find((n) => n.nameEn.toLowerCase() === name.toLowerCase());
+  const itemName = (name: string) => label(itemOf(name)) || name;
+  const moveName = (name: string) => label(moveOf(name)) || name;
+  const typeName = (type: string) => (lang === 'es' ? (TYPE_NAMES_ES[type] ?? type) : type);
+  const mintLabel = (nature: string) => {
+    const n = natureOf(nature);
+    return n ? mintName(n) : nature;
+  };
+  // The summary at the top of the audit: what it has now, what the AI suggests, and whether they agree.
+  const dash = '—';
+  const compareRows: { key: string; label: string; now: string; ai: string; same: boolean }[] = [
+    ...(sug.item
+      ? [{ key: 'item', label: t('Held item'), now: itemText || dash, ai: itemName(sug.item.name), same: sug.item.same }]
+      : []),
+    ...(sug.moves
+      ? [
+          {
+            key: 'moves',
+            label: t('Moves'),
+            now: p.moves.flatMap((m) => (m.move ? [label(m.move)] : [])).join(', ') || dash,
+            ai: sug.moves.map((m) => moveName(m.move)).join(', '),
+            same: sug.moves.every((m) => m.has),
+          },
+        ]
+      : []),
+    ...(sug.tera
+      ? [{ key: 'tera', label: t('Tera type'), now: p.teraType ? typeName(p.teraType) : dash, ai: typeName(sug.tera.type), same: sug.tera.same }]
+      : []),
+    ...(sug.mint
+      ? [
+          {
+            key: 'mint',
+            label: t('Mint'),
+            now: p.mintNature ? mintName(p.mintNature) : t('No mint'),
+            ai: sug.mint.keep && !p.mintNature ? t('No mint') : mintLabel(sug.mint.nature),
+            same: sug.mint.same,
+          },
+        ]
+      : []),
+    ...(sug.evs
+      ? [{ key: 'evs', label: t('EV plan'), now: p.evs ? formatEvs(p.evs) : dash, ai: sug.evs.spread, same: sug.evs.same }]
+      : []),
+  ];
+
+  /** Puts a suggested move in the first free slot, or over one the AI does not want. */
+  function applyMove(name: string) {
+    const move = moveOf(name);
+    if (!move) return;
+    const wanted = new Set((sug.moves ?? []).map((m) => m.move.toLowerCase()));
+    const slotOf = (slot: number) => p.moves.find((x) => x.slot === slot);
+    const free = [1, 2, 3, 4].find((s) => !slotOf(s)?.move && !slotOf(s)?.rawName);
+    const replace = [1, 2, 3, 4].find((s) => {
+      const m = slotOf(s)?.move;
+      return m != null && !wanted.has(m.nameEn.toLowerCase());
+    });
+    const slot = free ?? replace;
+    if (slot) void save({ moves: [{ slot, moveId: move.id }] });
+  }
+
   return (
     <article className="rounded-xl border border-line bg-surface p-4">
       {/* ---------- header ---------- */}
@@ -385,6 +491,21 @@ export function RosterDetail({
                     </option>
                   ))}
               </select>
+              {sug.mint &&
+                (sug.mint.same ? (
+                  <Suggestion same>{null}</Suggestion>
+                ) : (
+                  <Suggestion
+                    same={false}
+                    title={sug.mint.reason}
+                    onApply={() => {
+                      const n = natureOf(sug.mint!.nature);
+                      if (n) void save({ mintNatureId: n.id });
+                    }}
+                  >
+                    {mintLabel(sug.mint.nature)}
+                  </Suggestion>
+                ))}
             </Field>
             <Field
               label={t('Ability')}
@@ -437,6 +558,18 @@ export function RosterDetail({
                   className={inputClass}
                 />
               </div>
+              {sug.item && (
+                <Suggestion
+                  same={sug.item.same}
+                  title={sug.item.reason}
+                  onApply={() => {
+                    const match = itemOf(sug.item!.name);
+                    void save({ itemId: match?.id ?? null, itemNote: match ? null : sug.item!.name });
+                  }}
+                >
+                  {itemName(sug.item.name)}
+                </Suggestion>
+              )}
             </Field>
             <Field
               label={t('Tera type')}
@@ -456,6 +589,15 @@ export function RosterDetail({
                   </option>
                 ))}
               </select>
+              {sug.tera && (
+                <Suggestion
+                  same={sug.tera.same}
+                  title={sug.tera.reason}
+                  onApply={() => void save({ teraType: sug.tera!.type })}
+                >
+                  {typeName(sug.tera.type)}
+                </Suggestion>
+              )}
             </Field>
           </Section>
         </div>
@@ -496,6 +638,29 @@ export function RosterDetail({
                 );
               })}
             </div>
+            {sug.moves && (
+              <div className="rounded-md border border-line bg-bg p-2 text-[11px]">
+                <p className="mb-1 text-muted">{t('AI suggests')}:</p>
+                <ul className="flex flex-wrap gap-1.5">
+                  {sug.moves.map((m) => (
+                    <li key={m.move} title={m.reason}>
+                      {m.has ? (
+                        <span className="rounded border border-done/50 px-1.5 py-0.5 text-done">✓ {moveName(m.move)}</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => applyMove(m.move)}
+                          className="rounded border border-pending/50 px-1.5 py-0.5 text-pending hover:bg-pending/10"
+                          title={m.reason}
+                        >
+                          + {moveName(m.move)}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <p className="text-[11px] text-muted">{t('A move you change is marked pending until you tick it as learned.')}</p>
           </Section>
 
@@ -518,6 +683,11 @@ export function RosterDetail({
                     onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                     className={inputClass}
                   />
+                  {sug.evs && (
+                    <Suggestion same={sug.evs.same} onApply={() => void save({ evs: sug.evs!.spread })}>
+                      {sug.evs.spread}
+                    </Suggestion>
+                  )}
                 </Field>
               )}
               {evs && <StatsSection p={p} info={estimate} onSave={onSaveStats} />}
@@ -549,6 +719,7 @@ export function RosterDetail({
           aiEnabled={aiEnabled}
           locks={p.auditLocks}
           onLocksChange={(locks) => void save({ auditLocks: locks })}
+          compare={compareRows}
           currentTera={p.teraType}
           mintGiven={p.mintNature?.nameEn ?? null}
           realNature={(p.currentNature ?? p.targetNature)?.nameEn ?? null}
