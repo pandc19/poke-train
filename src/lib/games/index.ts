@@ -24,6 +24,8 @@ export type GameConfig = {
     note: Localized;
     /** Lists regional forms (Alolan, Galarian, Hisuian) as Pokémon of their own, tracked apart from the normal ones. */
     regionalForms?: boolean;
+    /** The game's own Pokédex ends here; PokéAPI lists a few extra species after it. */
+    lastEntry?: number;
   }[];
   /** The game has a National Dex. Scarlet/Violet do not: only their regional Pokédexes. */
   nationalDex: boolean;
@@ -79,6 +81,7 @@ export const GAMES: GameConfig[] = [
         name: { en: 'Blueberry', es: 'Arándano' },
         note: { en: 'DLC: The Indigo Disk', es: 'DLC: El Disco Índigo' },
         regionalForms: true,
+        lastEntry: 240,
       },
     ],
     nationalDex: false,

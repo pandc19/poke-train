@@ -52,9 +52,12 @@ export async function loadDex(
   profileId: string | null,
   opts: { gameId?: string } = {}
 ): Promise<DexCell[]> {
+  const lastEntry = opts.gameId
+    ? getGame(opts.gameId)?.pokedexes.find((d) => d.slug === pokedexSlug)?.lastEntry
+    : undefined;
   const [slots, entries, roster, gameSlots, lines] = await Promise.all([
     prisma.pokedexSlot.findMany({
-      where: { pokedex: { slug: pokedexSlug } },
+      where: { pokedex: { slug: pokedexSlug }, ...(lastEntry ? { entryNumber: { lte: lastEntry } } : {}) },
       orderBy: { entryNumber: 'asc' },
       select: {
         entryNumber: true,

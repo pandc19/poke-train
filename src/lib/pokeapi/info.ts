@@ -286,6 +286,10 @@ export async function loadPokemonInfo(
       })(),
     })),
     dexEntries: slots
+      .filter((s) => {
+        const last = game?.pokedexes.find((d) => d.slug === s.pokedex.slug)?.lastEntry;
+        return last == null || s.entryNumber <= last;
+      })
       .sort((a, b) => a.pokedex.sortOrder - b.pokedex.sortOrder)
       .map((s) => {
         // The game config knows each Pokédex by name in both languages.
