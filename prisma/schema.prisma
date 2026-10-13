@@ -163,6 +163,7 @@ model Nature {
 
   rosterTarget  RosterPokemon[] @relation("TargetNature")
   rosterCurrent RosterPokemon[] @relation("CurrentNature")
+  rosterMint    RosterPokemon[] @relation("MintNature")
 
   @@map("natures")
 }
@@ -328,6 +329,8 @@ model RosterPokemon {
   targetNatureId  Int?       @map("target_nature_id")
   currentNatureId Int?       @map("current_nature_id")
   natureStatus    TaskStatus @default(PENDING) @map("nature_status")
+  /// The nature of the Mint it was given: the game then uses this one's stat effect (the real nature stays).
+  mintNatureId    Int?       @map("mint_nature_id")
 
   abilityId     Int?       @map("ability_id")
   abilityStatus TaskStatus @default(PENDING) @map("ability_status")
@@ -374,6 +377,7 @@ model RosterPokemon {
   form          Form?        @relation(fields: [formId], references: [id])
   targetNature  Nature?      @relation("TargetNature", fields: [targetNatureId], references: [id])
   currentNature Nature?      @relation("CurrentNature", fields: [currentNatureId], references: [id])
+  mintNature    Nature?      @relation("MintNature", fields: [mintNatureId], references: [id])
   ability       Ability?     @relation(fields: [abilityId], references: [id])
   item          Item?        @relation(fields: [itemId], references: [id])
   importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)

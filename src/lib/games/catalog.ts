@@ -44,6 +44,51 @@ type SixItems = readonly [string, string, string][];
 const perStat = (items: SixItems, effect: (stat: (typeof STATS)[number]) => Localized): CatalogEntry[] =>
   items.map(([en, es, sprite], i) => ({ name: { en, es }, effect: effect(STATS[i]), sprite }));
 
+/** The Mint for each nature that raises and lowers a stat: [English nature, Spanish nature, raises, lowers]. */
+const MINT_NATURES = [
+  ['Lonely', 'Huraña', 0, 1],
+  ['Adamant', 'Firme', 0, 3],
+  ['Naughty', 'Pícara', 0, 4],
+  ['Brave', 'Audaz', 0, 5],
+  ['Bold', 'Osada', 1, 0],
+  ['Impish', 'Agitada', 1, 3],
+  ['Lax', 'Floja', 1, 4],
+  ['Relaxed', 'Plácida', 1, 5],
+  ['Modest', 'Modesta', 3, 0],
+  ['Mild', 'Afable', 3, 1],
+  ['Rash', 'Alocada', 3, 4],
+  ['Quiet', 'Mansa', 3, 5],
+  ['Calm', 'Serena', 4, 0],
+  ['Gentle', 'Amable', 4, 1],
+  ['Careful', 'Cauta', 4, 3],
+  ['Sassy', 'Grosera', 4, 5],
+  ['Timid', 'Miedosa', 5, 0],
+  ['Hasty', 'Activa', 5, 1],
+  ['Jolly', 'Alegre', 5, 3],
+  ['Naive', 'Ingenua', 5, 4],
+] as const;
+
+const MINT_ENTRIES: CatalogEntry[] = [
+  ...MINT_NATURES.map(([en, es, up, down]): CatalogEntry => ({
+    name: { en: `${en} Mint`, es: `Menta ${es}` },
+    item: `${en.toLowerCase()}-mint`,
+    icon: '🌱',
+    effect: {
+      en: `Acts as ${en}: raises ${STATS[up].en}, lowers ${STATS[down].en}`,
+      es: `Actúa como ${es}: sube ${STATS[up].es}, baja ${STATS[down].es}`,
+    },
+  })),
+  {
+    name: { en: 'Serious Mint', es: 'Menta Seria' },
+    item: 'serious-mint',
+    icon: '🌱',
+    effect: {
+      en: 'Acts as a neutral nature: no stat goes up or down. The way to undo another mint, or to use the neutral natures (Hardy, Docile, Bashful, Quirky).',
+      es: 'Actúa como una naturaleza neutra: ninguna estadística sube ni baja. Sirve para deshacer otra menta o para usar las naturalezas neutras (Fuerte, Dócil, Tímida, Rara).',
+    },
+  },
+];
+
 export const SCARLET_VIOLET_CATALOG: CatalogSection[] = [
   {
     id: 'vitamins',
@@ -111,6 +156,15 @@ export const SCARLET_VIOLET_CATALOG: CatalogSection[] = [
         icon: '🍡',
       },
     ],
+  },
+  {
+    id: 'mints',
+    title: { en: 'Mints', es: 'Mentas' },
+    note: {
+      en: 'A Mint changes which stats the nature raises and lowers (the game and the stats chart show the Mint’s effect). The real nature stays: it is the one an Everstone passes on. Record it on the Pokémon in the “Mint given” field.',
+      es: 'Una menta cambia qué estadísticas sube y baja la naturaleza (el juego y el gráfico de estadísticas muestran el efecto de la menta). La naturaleza real no cambia: es la que pasa una Piedra Eterna. Anótala en el campo «Menta dada» del Pokémon.',
+    },
+    entries: MINT_ENTRIES,
   },
   {
     id: 'power-items',

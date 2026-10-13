@@ -33,6 +33,8 @@ const Body = z.object({
       targetNatureId: id,
       /** The nature it really has (breeders record this one). */
       currentNatureId: id,
+      /** The nature of the Mint it was given, whose stat effect the game uses. */
+      mintNatureId: id,
       abilityId: id,
       itemId: id,
       itemNote: z.string().max(200).nullable(),
@@ -202,6 +204,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
                   : {}),
               }
             : {}),
+          ...(set.mintNatureId !== undefined ? { mintNatureId: set.mintNatureId } : {}),
           ...(set.abilityId !== undefined && set.abilityId !== current.abilityId
             ? { abilityId: set.abilityId, abilityStatus: 'PENDING' }
             : {}),
@@ -255,6 +258,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
         set.level !== undefined ||
         set.hiddenEvs !== undefined ||
         set.targetNatureId !== undefined ||
+        set.mintNatureId !== undefined ||
         set.ivRatings !== undefined)
     ) {
       if (set.currentStats === null) {

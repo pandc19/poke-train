@@ -22,6 +22,7 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
       speciesId: true,
       formId: true,
       currentNatureId: true,
+      mintNatureId: true,
       targetNatureId: true,
       potential: true,
       ivRatings: true,
@@ -35,8 +36,8 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
     : await db.form.findFirst({ where: { speciesId: row.speciesId, isDefault: true }, select: { baseStats: true } });
   if (!form) return;
 
-  // The nature it really has; failing that, the one planned for it.
-  const natureId = row.currentNatureId ?? row.targetNatureId;
+  // The nature whose effect the game applies: a Mint's, else the one it really has, else the one planned for it.
+  const natureId = row.mintNatureId ?? row.currentNatureId ?? row.targetNatureId;
   const nature = natureId
     ? await db.nature.findUnique({ where: { id: natureId }, select: { increased: true, decreased: true } })
     : null;

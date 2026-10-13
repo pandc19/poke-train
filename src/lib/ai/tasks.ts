@@ -14,7 +14,7 @@ import type { RosterView } from '../roster';
 import { type BuildAudit, type BuildAuditRaw, LocationSchema, buildAuditSchema, TeamAuditSchema } from './schema';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 13;
+const PROMPT_VERSION = 14;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -113,6 +113,8 @@ function describeBuild(p: RosterView, hasEvs = true) {
     // The nature it has now, when known, and the one the player is aiming for.
     currentNature: p.currentNature?.nameEn ?? null,
     targetNature: p.targetNature?.nameEn ?? null,
+    // The Mint it was given, when there is one. Its effect, not the real nature's, is what the game applies to the stats.
+    mintNature: p.mintNature?.nameEn ?? null,
     ability: p.ability?.nameEn ?? null,
     heldItem: p.item?.nameEn ?? p.itemNote,
     ...(hasEvs
@@ -168,8 +170,10 @@ export async function auditBuild(
 
   const locks = p.auditLocks;
   const hasTera = game.features.teraType;
+  // Mints exist where the game's catalog lists them.
+  const hasMint = game.catalog.some((s) => s.id === 'mints');
   const allFixed = Boolean(
-    locks?.heldItem && (locks.moves?.length ?? 0) >= 4 && (!hasEvs || p.evs) && (!hasTera || locks.teraType)
+    locks?.heldItem && (locks.moves?.length ?? 0) >= 4 && (!hasEvs || p.evs) && (!hasTera || locks.teraType) && (!hasMint || locks.mint)
   );
 
   return cached(
@@ -178,7 +182,7 @@ export async function auditBuild(
     { build, illegal, legalMovePool, lang, locks: p.auditLocks },
     {
       system: system(game, lang),
-      schema: buildAuditSchema(hasEvs, hasTera),
+      schema: buildAuditSchema(hasEvs, hasTera, hasMint),
       finish: async (raw) => {
         const locks = p.auditLocks;
         // What the player fixed is kept as it is; the model only fills the rest.
@@ -186,10 +190,12 @@ export async function auditBuild(
           heldItem: BuildAudit['heldItem'];
           recommendedMoves: BuildAudit['recommendedMoves'];
           teraType?: BuildAudit['teraType'];
+          mint?: BuildAudit['mint'];
         }) => ({
           heldItem: locks?.heldItem ?? r.heldItem,
           recommendedMoves: withFixedMoves(locks?.moves, r.recommendedMoves),
           ...(hasTera ? { teraType: locks?.teraType ?? r.teraType } : {}),
+          ...(hasMint ? { mint: locks?.mint ? { ...locks.mint, keep: true } : r.mint } : {}),
         });
         if (!hasEvs) return { ...(raw as BuildAudit), ...fixed(raw as BuildAudit) };
         // The spread is the model's proposal; what it means for this Pokémon is worked out here.
@@ -217,6 +223,7 @@ export async function auditBuild(
             heldItem: p.auditLocks!.heldItem,
             recommendedMoves: p.auditLocks!.moves,
             ...(hasTera ? { teraType: p.auditLocks!.teraType } : {}),
+            ...(hasMint ? { mint: { ...p.auditLocks!.mint!, keep: true } } : {}),
             ...(hasEvs ? { evPlan: { spread: p.evs } } : {}),
           } as never)
         : undefined,
@@ -256,6 +263,14 @@ export async function auditBuild(
           'Do not recommend moves that use a stat it is not investing in: no special attacks when its Sp. Atk gets no EVs and its nature does not raise it, ' +
           'and no physical attacks when its Attack gets none. Status and setup moves are fine. ' +
           'Use the type, category and power given; do not invent move effects. Keep each reason to one short sentence.',
+        hasMint && p.auditLocks?.mint
+          ? `mint: the player has fixed ${p.auditLocks.mint.nature}. Return exactly that nature with keep true and a one-sentence reason.`
+          : hasMint
+          ? 'mint: a Mint changes which stats a nature raises and lowers without changing the nature. The effect the game applies is mintNature when it is given, otherwise currentNature (or targetNature when currentNature is unknown). ' +
+            'Judge that effect against its role, base stats and the moves you recommend: the raised stat should be the one it attacks or speeds with, and the lowered one a stat it never uses (Attack for a special attacker, Sp. Atk for a physical one). ' +
+            'If the effect it has is already the best one, set keep to true and nature to that nature. Otherwise set keep to false and nature to the better one, in English. ' +
+            'Neutral natures never need a Mint to be kept: if no effect is better than neutral, say so with keep true. Give a one-sentence reason.'
+          : '',
         hasTera
           ? p.auditLocks?.teraType
             ? `teraType: the player has fixed ${p.auditLocks.teraType.type}. Return exactly that type with a one-sentence reason.`

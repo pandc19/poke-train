@@ -165,7 +165,7 @@ export function RosterBoard({
   /** What the stats-to-EVs panel needs for this Pokémon: its base stats and the nature it really has. */
   const estimateFor = (p: RosterView): EvEstimateInfo | undefined => {
     if (!p.baseStats) return undefined;
-    const nature = p.currentNature ?? p.targetNature;
+    const nature = p.mintNature ?? p.currentNature ?? p.targetNature;
     const effect = nature ? options.natures.find((n) => n.id === nature.id) : null;
     return {
       baseStats: p.baseStats,

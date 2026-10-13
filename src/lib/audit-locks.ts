@@ -10,6 +10,8 @@ export const AuditLocksSchema = z.object({
   moves: z.array(MovePick).max(4).optional(),
   /** The Tera type: the AI's suggestion the player fixed, or one they chose themselves (no reason). */
   teraType: z.object({ type: z.enum(TYPE_SLUGS as [string, ...string[]]), reason: z.string().max(1000) }).optional(),
+  /** The Mint nature the player settled on (English name). */
+  mint: z.object({ nature: z.string().min(1).max(40), reason: z.string().max(1000) }).optional(),
 });
 export type AuditLocks = z.infer<typeof AuditLocksSchema>;
 

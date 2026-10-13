@@ -160,6 +160,8 @@ export function RosterDetail({
   const label = (x: Named | null | undefined) => (x ? (lang === 'en' ? x.nameEn : x.nameEs) : '');
   // The name in the other language: the suggestion list matches on it too.
   const other = (x: Named) => (lang === 'en' ? x.nameEs : x.nameEn);
+  const mintName = (n: Named) => (lang === 'en' ? `${n.nameEn} Mint` : `Menta ${n.nameEs}`);
+  const mintEffect = p.mintNature != null;
   const stat = (slug: string) => (STAT_SHORT[slug] ? STAT_SHORT[slug][lang] : slug);
   const find = (list: Named[], text: string) => {
     const q = text.trim().toLowerCase();
@@ -346,6 +348,33 @@ export function RosterDetail({
               </select>
             </Field>
             <Field
+              label={t('Mint given')}
+              hint={
+                mintEffect
+                  ? t('The game now shows the effect of {nature}; its real nature stays {real}. The stats chart uses the mint.', {
+                      nature: label(p.mintNature),
+                      real: label(p.currentNature ?? p.targetNature) || '—',
+                    })
+                  : t('A Mint changes which stats the nature raises and lowers, without changing the nature itself.')
+              }
+            >
+              <select
+                value={p.mintNature?.id ?? 0}
+                onChange={(e) => save({ mintNatureId: Number(e.target.value) || null })}
+                className={inputClass}
+              >
+                <option value={0}>{t('No mint')}</option>
+                {options.natures
+                  .filter((n) => n.increased || n.slug === 'serious')
+                  .map((n) => (
+                    <option key={n.id} value={n.id}>
+                      {mintName(n)}
+                      {n.increased ? ` (+${stat(n.increased)} −${stat(n.decreased!)})` : ` (${t('no change')})`}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <Field
               label={t('Ability')}
               action={
                 p.ability && (
@@ -509,6 +538,11 @@ export function RosterDetail({
           locks={p.auditLocks}
           onLocksChange={(locks) => void save({ auditLocks: locks })}
           currentTera={p.teraType}
+          mintGiven={p.mintNature?.nameEn ?? null}
+          onMint={(nature, given) => {
+            const match = options.natures.find((n) => n.nameEn.toLowerCase() === nature.toLowerCase());
+            if (match) void save({ mintNatureId: given ? match.id : null });
+          }}
           lockedPlan={p.evs ? formatEvs(p.evs) : null}
           onLockPlan={(spread) => void save({ evs: spread })}
           onUnlockPlan={() => void save({ evs: null })}

@@ -42,6 +42,8 @@ export type RosterView = {
   owned: boolean;
   targetNature: Named | null;
   currentNature: Named | null;
+  /** The nature of the Mint it was given; its stat effect is the one the game shows. */
+  mintNature: Named | null;
   natureStatus: TaskStatus;
   ability: Named | null;
   abilityLegal: boolean | null;
@@ -115,6 +117,7 @@ export async function loadRoster(
       baseSpecies: { select: named },
       targetNature: { select: named },
       currentNature: { select: named },
+      mintNature: { select: named },
       ability: { select: named },
       item: { select: { ...named, spriteUrl: true } },
       moves: {
@@ -163,6 +166,7 @@ export async function loadRoster(
       owned: r.owned,
       targetNature: r.targetNature,
       currentNature: r.currentNature,
+      mintNature: r.mintNature,
       natureStatus: r.natureStatus,
       ability: r.ability,
       abilityLegal: r.ability ? abilityOptions.some((a) => a.id === r.ability!.id) : null,
@@ -246,7 +250,7 @@ export async function loadEditorOptions(game: GameConfig) {
       select: named,
       orderBy: { nameEn: 'asc' },
     }),
-    prisma.nature.findMany({ select: { ...named, increased: true, decreased: true }, orderBy: { nameEn: 'asc' } }),
+    prisma.nature.findMany({ select: { ...named, slug: true, increased: true, decreased: true }, orderBy: { nameEn: 'asc' } }),
   ]);
   return { species, moves, items, natures };
 }

@@ -35,6 +35,13 @@ export const BuildAuditSchema = z.object({
   recommendedMoves: z
     .array(z.object({ move: z.string(), reason: z.string() }))
     .describe('The best set of up to four moves for it, chosen only from the moves it can learn in this game'),
+  mint: z
+    .object({
+      nature: z.string().describe('The nature whose stat effect it should have, in English, e.g. "Adamant"'),
+      keep: z.boolean().describe('True when the effect it has now is already that one, so nothing needs to change'),
+      reason: z.string(),
+    })
+    .describe('Which Mint to use: keep the effect it has, or change it to a better nature'),
   teraType: z
     .object({ type: z.enum(TYPE_SLUGS as [string, ...string[]]), reason: z.string() })
     .describe('The best Tera type for it. If the one it has is already the best, name it'),
@@ -68,8 +75,9 @@ export const BuildAuditRawSchema = BuildAuditSchema.omit({ evPlan: true }).exten
 export type BuildAuditRaw = z.infer<typeof BuildAuditRawSchema>;
 
 /** The answer to ask for, for a game with or without EV training and a Tera type. */
-export function buildAuditSchema(hasEvs: boolean, hasTera: boolean) {
-  const schema = hasEvs ? BuildAuditRawSchema : BuildAuditNoEvSchema;
+export function buildAuditSchema(hasEvs: boolean, hasTera: boolean, hasMint = false) {
+  const base = hasEvs ? BuildAuditRawSchema : BuildAuditNoEvSchema;
+  const schema = (hasMint ? base : base.omit({ mint: true })) as typeof base;
   return (hasTera ? schema : schema.omit({ teraType: true })) as typeof schema;
 }
 
