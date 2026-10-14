@@ -132,26 +132,50 @@ export function RosterList({
       )}
 
       {pageCount > 1 && (
-        <nav className="mt-3 flex items-center justify-between text-xs" aria-label={t('Pages')}>
-          <button
-            type="button"
-            onClick={() => onPage(page - 1)}
-            disabled={page === 0}
-            className="rounded-md border border-line px-3 py-1.5 disabled:opacity-40"
-          >
-            ← {t('Previous')}
-          </button>
+        <nav className="mt-3 flex flex-wrap items-center justify-between gap-1.5 text-xs" aria-label={t('Pages')}>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => onPage(0)}
+              disabled={page === 0}
+              aria-label={t('First page')}
+              title={t('First page')}
+              className="rounded-md border border-line px-2.5 py-1.5 disabled:opacity-40"
+            >
+              «
+            </button>
+            <button
+              type="button"
+              onClick={() => onPage(page - 1)}
+              disabled={page === 0}
+              className="rounded-md border border-line px-3 py-1.5 disabled:opacity-40"
+            >
+              ← {t('Previous')}
+            </button>
+          </div>
           <span className="text-muted">
             {t('Page {page} of {pages}', { page: page + 1, pages: pageCount })} · {total}
           </span>
-          <button
-            type="button"
-            onClick={() => onPage(page + 1)}
-            disabled={page >= pageCount - 1}
-            className="rounded-md border border-line px-3 py-1.5 disabled:opacity-40"
-          >
-            {t('Next')} →
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => onPage(page + 1)}
+              disabled={page >= pageCount - 1}
+              className="rounded-md border border-line px-3 py-1.5 disabled:opacity-40"
+            >
+              {t('Next')} →
+            </button>
+            <button
+              type="button"
+              onClick={() => onPage(pageCount - 1)}
+              disabled={page >= pageCount - 1}
+              aria-label={t('Last page')}
+              title={t('Last page')}
+              className="rounded-md border border-line px-2.5 py-1.5 disabled:opacity-40"
+            >
+              »
+            </button>
+          </div>
         </nav>
       )}
     </div>

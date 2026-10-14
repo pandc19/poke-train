@@ -679,4 +679,6 @@ export const ES: Record<string, string> = {
   'Keeper': 'Definitivo',
   'A keeper: finished and kept for good. Marked ones show crossed swords and can be filtered.': 'Definitivo: terminado y para quedárselo. Los marcados muestran unas espadas cruzadas y se pueden filtrar.',
   'Being trained right now. A keeper is not being trained, so marking one clears the other.': 'Se está entrenando ahora. Un definitivo no se entrena, así que marcar uno desmarca el otro.',
+  'First page': 'Primera página',
+  'Last page': 'Última página',
 };
