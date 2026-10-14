@@ -3,7 +3,8 @@ import { estimateEvRange } from './ev-estimate';
 import { ivAssumption } from './potential';
 import type { IvRatings } from './iv-ratings';
 import type { EvSpread } from './import/evs';
-import { planReached } from './ev-plan';
+import { legalPlan, planReached } from './ev-plan';
+import { getGame } from './games';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -28,6 +29,7 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
       targetNatureId: true,
       potential: true,
       ivRatings: true,
+      profile: { select: { gameId: true } },
     },
   });
   if (!row?.currentStats) return;
@@ -54,9 +56,16 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
     ratings: row.ivRatings as IvRatings | null,
     plan: row.evs as Partial<EvSpread> | null,
   });
+  // Where EVs are hard to take back, the plan can only add to what the Pokémon has: if the stats now read
+  // higher than the plan in a stat (it evolved, or leveled up), the plan is raised to match, and what that
+  // costs comes off the least needed stat, as the audit does.
+  const game = getGame(row.profile.gameId);
+  const plan = row.evs as unknown as EvSpread | null;
+  const raised = plan && game && game.features.evs && !game.features.evTarget ? legalPlan(plan, evs, true) : null;
+  const planChanged = raised != null && JSON.stringify(raised) !== JSON.stringify(plan);
   await db.rosterPokemon.update({
     where: { id: rosterId },
-    data: { currentEvs: evs, currentEvsEstimated: true },
+    data: { currentEvs: evs, currentEvsEstimated: true, ...(planChanged ? { evs: raised } : {}) },
   });
 }
 
