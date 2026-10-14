@@ -365,8 +365,8 @@ export function DexGrid({
                   )}
                   <span className="font-mono text-[11px] text-muted">#{String(c.entryNumber).padStart(3, '0')}</span>
                   {c.keeper ? (
-                    <span className="text-sm leading-none text-star" title={t('Keeper')} aria-label={t('Keeper')}>
-                      ◆
+                    <span className="text-sm leading-none text-violet-500" title={t('Keeper')} aria-label={t('Keeper')}>
+                      ⚔︎
                     </span>
                   ) : (
                     <span className="w-3" />

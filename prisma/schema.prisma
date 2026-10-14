@@ -325,7 +325,7 @@ model RosterPokemon {
   formId        Int?    @map("form_id")
   /// The species bred or caught to get there, e.g. Geodude.
   baseSpeciesId Int?    @map("base_species_id")
-  /// Marked by the player: a "keeper": finished and kept (shown with a diamond), and being trained right now. Only marks and filters.
+  /// Marked by the player: a "keeper": finished and kept (shown with crossed swords), and being trained right now. Only marks and filters.
   keeper    Boolean @default(false)
   training  Boolean @default(false)
   /// The stage it is meant to end as, e.g. Slaking while it is a Slakoth. Null = the stage it is at now is the final one.

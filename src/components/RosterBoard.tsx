@@ -597,9 +597,9 @@ export function RosterBoard({
                   setOnlyKeeper(!onlyKeeper);
                   setPage(0);
                 }}
-                className={`rounded-md border px-3 py-1.5 text-xs ${onlyKeeper ? 'border-star/60 bg-star/10 font-semibold text-star' : 'border-line text-muted'}`}
+                className={`rounded-md border px-3 py-1.5 text-xs ${onlyKeeper ? 'border-violet-500/60 bg-violet-500/10 font-semibold text-violet-500' : 'border-line text-muted'}`}
               >
-                ◆ {t('Keeper')}
+                ⚔︎ {t('Keeper')}
               </button>
               <button
                 type="button"

@@ -677,6 +677,6 @@ export const ES: Record<string, string> = {
   'The stage it is at now. Switch it when it evolves in the game.': 'La etapa en la que está ahora. Cámbiala cuando evolucione en el juego.',
   'The audit and the EV plan are for the final stage. Stats are read with the base stats of the stage it is at, so enter them again after it evolves.': 'La auditoría y el plan de EVs son para la etapa final. Las estadísticas se leen con las estadísticas base de la etapa actual, así que vuelve a introducirlas cuando evolucione.',
   'Keeper': 'Definitivo',
-  'A keeper: finished and kept for good. Marked ones show a diamond and can be filtered.': 'Definitivo: terminado y para quedárselo. Los marcados muestran un rombo y se pueden filtrar.',
+  'A keeper: finished and kept for good. Marked ones show crossed swords and can be filtered.': 'Definitivo: terminado y para quedárselo. Los marcados muestran unas espadas cruzadas y se pueden filtrar.',
   'Being trained right now. It can be filtered.': 'Se está entrenando ahora. Se puede filtrar.',
 };

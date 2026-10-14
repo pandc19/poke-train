@@ -47,7 +47,7 @@ export type RosterView = {
   genderRate: number;
   origin: 'CAUGHT' | 'BRED' | 'UNKNOWN';
   owned: boolean;
-  /** Marked as a keeper: finished and kept (shown with a diamond). */
+  /** Marked as a keeper: finished and kept (shown with crossed swords). */
   keeper: boolean;
   /** Marked as being trained right now. */
   training: boolean;

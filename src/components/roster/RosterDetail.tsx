@@ -475,10 +475,10 @@ export function RosterDetail({
               type="button"
               aria-pressed={p.keeper}
               onClick={() => save({ keeper: !p.keeper })}
-              title={t('A keeper: finished and kept for good. Marked ones show a diamond and can be filtered.')}
-              className={`rounded-md border px-2.5 py-1 ${p.keeper ? 'border-star/60 bg-star/10 font-semibold text-star' : 'border-line text-muted hover:text-ink'}`}
+              title={t('A keeper: finished and kept for good. Marked ones show crossed swords and can be filtered.')}
+              className={`rounded-md border px-2.5 py-1 ${p.keeper ? 'border-violet-500/60 bg-violet-500/10 font-semibold text-violet-500' : 'border-line text-muted hover:text-ink'}`}
             >
-              ◆ {t('Keeper')}
+              ⚔︎ {t('Keeper')}
             </button>
             <button
               type="button"
