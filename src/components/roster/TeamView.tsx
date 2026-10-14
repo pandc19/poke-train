@@ -509,7 +509,9 @@ function TeamDetail({
       : null;
   // Waving the level hint away holds for this Pokémon, level and set of stats at their maximum.
   const [levelHintGone, goneLevelHint] = useDismissed(`level:${p.id}:${level}:${(hints?.atMax ?? []).join(',')}`);
-  const highTotal = range ? evTotal(range.high) : 0;
+  // The stats alone could allow more than a Pokémon can hold; what it can have is 510 at most.
+  const highRaw = range ? evTotal(range.high) : 0;
+  const highTotal = Math.min(510, highRaw);
   const total = evs ? evTotal(evs) : 0;
   const natureShown = p.mintNature ?? p.currentNature ?? p.targetNature;
   const nowNature = natureShown;
@@ -697,9 +699,9 @@ function TeamDetail({
                 );
               }}
             />
-            {highTotal >= 508 && (
+            {highRaw >= 508 && (
               <p role="note" className="mt-2 text-xs text-star">
-                {t('Not every IV is known, so its real EVs could add up to {n}. If it is at the limit of 510, the EVs it gains in battle do not count: lower a stat it does not need (with a berry) first.', {
+                {t('Not every IV is known, so it could already have {n} EVs, the most a Pokémon can hold. If it does, the EVs it gains in battle do not count: lower a stat it does not need (with a berry) first.', {
                   n: highTotal,
                 })}
               </p>

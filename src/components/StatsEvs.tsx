@@ -351,8 +351,8 @@ export function StatsEvsEditor({
           {/* An IV the Judge left open means more EVs may be hidden; at the 510 limit nothing more is gained. */}
           {estimated && range && evTotal(range.high) >= 508 && (
             <p role="note" className="mt-1 text-center text-[11px] text-star">
-              {t('Not every IV is known, so its real EVs could add up to {n}. If it is at the limit of 510, the EVs it gains in battle do not count: lower a stat it does not need (with a berry) first.', {
-                n: evTotal(range.high),
+              {t('Not every IV is known, so it could already have {n} EVs, the most a Pokémon can hold. If it does, the EVs it gains in battle do not count: lower a stat it does not need (with a berry) first.', {
+                n: Math.min(510, evTotal(range.high)),
               })}
             </p>
           )}
@@ -364,7 +364,7 @@ export function StatsEvsEditor({
                   : hasInfo
                     ? t('The fewest EVs that give these stats. The real total is between {low} and {high}.', {
                         low: total,
-                        high: range ? evTotal(range.high) : total,
+                        high: range ? Math.min(510, evTotal(range.high)) : total,
                       })
                     : t('The fewest EVs that give these stats. Rate its IVs or set its potential to see how many more it could have.')}
               </p>
