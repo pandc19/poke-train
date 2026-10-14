@@ -622,7 +622,7 @@ export function RosterBoard({
                 </span>
               </button>
               <div className="flex rounded-md border border-line text-xs">
-                {(['all', 'pending', 'done'] as const).map((f) => (
+                {(['all', 'done', 'pending'] as const).map((f) => (
                   <button
                     key={f}
                     onClick={() => {

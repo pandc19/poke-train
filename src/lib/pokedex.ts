@@ -36,6 +36,8 @@ export type DexCell = {
   caughtIn: string[];
   /** A roster Pokémon of this species is marked as a keeper. */
   keeper: boolean;
+  /** A roster Pokémon of this species is marked as being trained now. */
+  training: boolean;
 };
 
 /**
@@ -151,10 +153,12 @@ export async function loadDex(
 
   const rosterOwned = new Set<number>();
   const rosterKeeper = new Set<number>();
+  const rosterTraining = new Set<number>();
   for (const p of roster) {
     const key = rosterKey(p);
     if (p.owned) rosterOwned.add(key);
     if (p.keeper) rosterKeeper.add(key);
+    if (p.training) rosterTraining.add(key);
   }
 
   // Evolution lines, to say which later stage the player holds instead of this one.
@@ -203,6 +207,7 @@ export async function loadDex(
       genderRate: s.species.genderRate,
       caughtIn: [...(caughtIn.get(s.species.id) ?? [])],
       keeper: rosterKeeper.has(key),
+      training: rosterTraining.has(key),
       exclusive: side && versions ? { versionName: side === 'own' ? versions.ownName : versions.otherName, own: side === 'own' } : null,
       owned: holding(s.species.id, variant),
       ownedViaRoster: rosterOwned.has(key),
