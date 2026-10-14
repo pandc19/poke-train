@@ -162,6 +162,7 @@ function StatsSection({
       savedEvs={p.currentEvs}
       savedEstimated={p.currentEvsEstimated}
       plan={p.evs}
+      hintKey={p.id}
     />
     </div>
   );

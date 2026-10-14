@@ -6,6 +6,7 @@ import { IV_RATINGS, ivRating, type IvRatingValue, type IvRatings } from '@/lib/
 import { estimateEvRange, levelHints, statsAboveMax, type NatureEffect } from '@/lib/ev-estimate';
 import { ivAssumption } from '@/lib/potential';
 import { evTotal, type EvSpread } from '@/lib/import/evs';
+import { useDismissed } from './useDismissed';
 import { useT } from '@/lib/translate-client';
 
 /** What is needed to turn the stats the game shows back into EVs. */
@@ -146,6 +147,7 @@ export function StatsEvsEditor({
   savedEvs,
   savedEstimated,
   plan,
+  hintKey,
 }: {
   stats: EvSpread | null;
   level: number;
@@ -162,6 +164,8 @@ export function StatsEvsEditor({
   savedEstimated: boolean;
   /** The EV plan, if any: where it fits what the stats can show, it is taken as the amount. */
   plan?: EvSpread | null;
+  /** Identifies this Pokémon, so a hint it has waved away stays away. */
+  hintKey?: string;
 }) {
   const { t, lang } = useT();
   const hasStats = stats != null && evTotal(stats) > 0;
@@ -177,6 +181,8 @@ export function StatsEvsEditor({
     hasStats && info && range
       ? levelHints({ stats, level, baseStats: info.baseStats, nature: info.nature, ratings, estimate: range.estimate })
       : { overTotal: null, atMax: [] as (keyof EvSpread)[] };
+  // Waving the level hint away holds for this Pokémon, level and set of stats at their maximum.
+  const [levelHintGone, goneLevelHint] = useDismissed(`level:${hintKey ?? 'none'}:${level}:${hints.atMax.join(',')}`);
   const live = range?.estimate ?? null;
   const evs = live ?? savedEvs;
   const estimated = live != null || savedEstimated;
@@ -325,11 +331,22 @@ export function StatsEvsEditor({
               })}
             </p>
           )}
-          {hints.atMax.length > 0 && (
+          {hints.atMax.length > 0 && !levelHintGone && (
             <p className="mt-1 text-center text-[11px] text-star">
               {t('{stats} at the most it can be at level {level}. If the game does not show its EVs full, it may have leveled up: check the level.', {
                 stats: hints.atMax.map((k) => STAT_LABELS[k][lang]).join(', '),
                 level,
+              })}{' '}
+              <button type="button" onClick={goneLevelHint} className="underline">
+                {t('Got it')}
+              </button>
+            </p>
+          )}
+          {/* An IV the Judge left open means more EVs may be hidden; at the 510 limit nothing more is gained. */}
+          {estimated && range && evTotal(range.high) >= 508 && (
+            <p role="note" className="mt-1 text-center text-[11px] text-star">
+              {t('Not every IV is known, so its real EVs could add up to {n}. If it is at the limit of 510, the EVs it gains in battle do not count: lower a stat it does not need (with a berry) first.', {
+                n: evTotal(range.high),
               })}
             </p>
           )}

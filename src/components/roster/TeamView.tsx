@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
+import { useDismissed } from '../useDismissed';
 import { Dialog } from '../Dialog';
 import { SearchInput } from '../SearchInput';
 import { TeraBadge, TypeBadge } from '../TypeBadge';
@@ -506,6 +507,9 @@ function TeamDetail({
     stats && info && range
       ? levelHints({ stats, level, baseStats: info.baseStats, nature: info.nature, ratings, estimate: range.estimate })
       : null;
+  // Waving the level hint away holds for this Pokémon, level and set of stats at their maximum.
+  const [levelHintGone, goneLevelHint] = useDismissed(`level:${p.id}:${level}:${(hints?.atMax ?? []).join(',')}`);
+  const highTotal = range ? evTotal(range.high) : 0;
   const total = evs ? evTotal(evs) : 0;
   const natureShown = p.mintNature ?? p.currentNature ?? p.targetNature;
   const nowNature = natureShown;
@@ -606,12 +610,15 @@ function TeamDetail({
                 })}
               </p>
             )}
-            {hints && hints.atMax.length > 0 && (
+            {hints && hints.atMax.length > 0 && !levelHintGone && (
               <p className="mb-1 text-xs text-star">
                 {t('{stats} at the most it can be at level {level}. If the game does not show its EVs full, it may have leveled up: check the level.', {
                   stats: hints.atMax.map((k) => STAT_LABELS[k][lang]).join(', '),
                   level,
-                })}
+                })}{' '}
+                <button type="button" onClick={goneLevelHint} className="underline">
+                  {t('Got it')}
+                </button>
               </p>
             )}
             <HexChart
@@ -660,6 +667,13 @@ function TeamDetail({
                 );
               }}
             />
+            {highTotal >= 508 && (
+              <p role="note" className="mt-2 text-xs text-star">
+                {t('Not every IV is known, so its real EVs could add up to {n}. If it is at the limit of 510, the EVs it gains in battle do not count: lower a stat it does not need (with a berry) first.', {
+                  n: highTotal,
+                })}
+              </p>
+            )}
             {/* The plan in numbers: what is still to train in each stat, and which ones to stop at. */}
             {p.evs ? (
               <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
