@@ -1,5 +1,5 @@
 import type { Localized } from '../translate';
-import { ABILITY_PATCH, DESTINY_KNOT, EVERSTONE, MIRROR_HERB, POWER_ITEMS } from '../breeding/items';
+import { DESTINY_KNOT, EVERSTONE, MIRROR_HERB, POWER_ITEMS } from '../breeding/items';
 
 /** One thing in a catalog: its name, what it does, and its sprite (a PokéAPI item slug). */
 export type CatalogEntry = {
@@ -251,77 +251,48 @@ export const SCARLET_VIOLET_BREEDING_CATALOG: CatalogSection[] = [
     }),
   },
   {
-    id: 'breeding-fixes',
+    id: 'breeding-sandwiches',
     topic: 'breeding',
-    title: { en: 'Fixing what the egg did not get', es: 'Arreglar lo que no salió' },
+    title: { en: 'Egg Power sandwiches', es: 'Sándwiches con Poder Huevo' },
     note: {
-      en: 'These help after hatching, so a so-so egg is not wasted. None of them is passed on to the next egg.',
-      es: 'Ayudan después de que nazca, para no perder un huevo mediocre. Ninguno se transmite al siguiente huevo.',
+      en: 'Eat one at the picnic and eggs show up in the basket faster. Keep only the two parents plus one more in the party so other Pokémon do not make unwanted eggs.',
+      es: 'Come uno en el picnic y los huevos aparecen antes en la cesta. Lleva solo a los dos padres y un Pokémon más para que otros no hagan huevos no deseados.',
     },
     entries: [
       {
-        name: { en: 'Bottle Cap', es: 'Tapón' },
-        sprite: 'bottle-cap',
-        effect: {
-          en: 'Hyper Training: at level 100 it makes one stat count as 31 in battle.',
-          es: 'Superentrenamiento: a nivel 100 hace que una estadística cuente como 31 en combate.',
-        },
-      },
-      {
-        name: { en: 'Gold Bottle Cap', es: 'Tapón Dorado' },
-        sprite: 'gold-bottle-cap',
-        effect: {
-          en: 'Hyper Training for all six stats at once, at level 100.',
-          es: 'Superentrenamiento de las seis estadísticas a la vez, a nivel 100.',
-        },
-      },
-      {
-        name: { en: 'Adamant Mint', es: 'Menta Firme' },
-        item: 'adamant-mint',
-        icon: '🌱',
-        effect: {
-          en: 'There is a mint for every nature (this is one). It changes which stat the nature raises or lowers, so the nature of the egg matters less. The real nature, the one an Everstone passes, stays.',
-          es: 'Hay una menta para cada naturaleza (esta es una). Cambia qué estadística sube o baja la naturaleza, así la naturaleza del huevo importa menos. La naturaleza real, la que pasa una Piedra Eterna, no cambia.',
-        },
-      },
-      {
-        name: ABILITY_PATCH.name,
-        item: ABILITY_PATCH.slug,
-        icon: '🩹',
-        effect: {
-          en: 'Turns a normal ability into the hidden one, so you do not need a hidden-ability parent.',
-          es: 'Cambia una habilidad normal por la oculta, así no necesitas un padre con habilidad oculta.',
-        },
-      },
-      {
-        name: { en: 'Ability Capsule', es: 'Cápsula Habilidad' },
-        sprite: 'ability-capsule',
-        effect: {
-          en: 'Switches between the two normal abilities.',
-          es: 'Alterna entre las dos habilidades normales.',
-        },
-      },
-    ],
-  },
-  {
-    id: 'breeding-picnic',
-    topic: 'breeding',
-    title: { en: 'Picnic', es: 'Picnic' },
-    entries: [
-      {
-        name: { en: 'Egg Power sandwich', es: 'Sándwich con Poder Huevo' },
+        name: { en: 'Egg Power Lv. 1 (Jam Sandwich)', es: 'Poder Huevo Nv. 1 (Sándwich de mermelada)' },
         icon: '🥪',
         effect: {
-          en: 'Eggs show up in the picnic basket faster. Use a sandwich with a sweet ingredient.',
-          es: 'Los huevos aparecen antes en la cesta del picnic. Usa un sándwich con ingrediente dulce.',
+          en: 'Eggs about 5 times more likely, hatch time 80%.',
+          es: 'Los huevos son unas 5 veces más probables; el tiempo de eclosión baja al 80%.',
+        },
+        where: {
+          en: 'Strawberry + Jam. Also: Banana + Peanut Butter, or Cheese + Marmalade.',
+          es: 'Fresa + Mermelada de fruta. También: Plátano + Mantequilla de cacahuete, o Queso + Mermelada de naranja.',
         },
       },
       {
-        name: { en: 'Keep the party to 3', es: 'Lleva solo 3 al picnic' },
-        icon: '🧺',
+        name: { en: 'Egg Power Lv. 2 (Great Peanut Butter Sandwich)', es: 'Poder Huevo Nv. 2 (Sándwich de mantequilla de cacahuete)' },
+        icon: '🥪',
         effect: {
-          en: 'Two parents plus one more: extra Pokémon in the party can pair up and make unwanted eggs.',
-          es: 'Dos padres y uno más: otros Pokémon en el grupo pueden emparejarse y crear huevos no deseados.',
+          en: 'Eggs about 7 times more likely, hatch time 66%. No Herba Mystica needed.',
+          es: 'Los huevos son unas 7 veces más probables; el tiempo de eclosión baja al 66%. No necesita Hierba Mística.',
+        },
+        where: {
+          en: 'Banana + Peanut Butter + Butter. Also: Cheese + Marmalade + Butter.',
+          es: 'Plátano + Mantequilla de cacahuete + Mantequilla. También: Queso + Mermelada de naranja + Mantequilla.',
+        },
+      },
+      {
+        name: { en: 'Egg Power Lv. 3 (needs Herba Mystica)', es: 'Poder Huevo Nv. 3 (necesita Hierba Mística)' },
+        icon: '🥪',
+        effect: {
+          en: 'Eggs about 10 times more likely, hatch time 50%. Only a small step up from Lv. 2 and much more expensive.',
+          es: 'Los huevos son unas 10 veces más probables; el tiempo de eclosión baja al 50%. Mejora poco respecto al Nv. 2 y es mucho más caro.',
+        },
+        where: {
+          en: 'Basil + 2 Sweet Herba Mystica. Also reported: Lettuce + Salty Herba Mystica + Sweet Herba Mystica.',
+          es: 'Albahaca + 2 Hierbas Místicas dulces. También se reporta: Lechuga + Hierba Mística salada + Hierba Mística dulce.',
         },
       },
     ],
