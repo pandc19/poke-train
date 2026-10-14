@@ -39,38 +39,41 @@ export function RosterList({
   const start = page * PAGE_SIZE;
   const shown = items.slice(start, start + PAGE_SIZE);
 
-  // A swipe sideways turns the page (touch and pen; vertical scrolling is left to the browser).
+  // A swipe sideways turns the page. Touch events are used because pointer events are cancelled the moment the
+  // browser starts scrolling, which on a tablet happens with the slightest vertical drift.
   const swipe = useRef<{ x: number; y: number } | null>(null);
   const swiped = useRef(false);
-  const SWIPE_MIN = 60;
+  const SWIPE_MIN = 50;
 
   return (
     <div
       style={{ touchAction: 'pan-y' }}
-      onPointerDown={(e) => {
-        swipe.current = e.pointerType === 'mouse' ? null : { x: e.clientX, y: e.clientY };
+      onTouchStart={(e) => {
+        const touch = e.touches[0];
+        swipe.current = e.touches.length === 1 && touch ? { x: touch.clientX, y: touch.clientY } : null;
       }}
-      onPointerUp={(e) => {
+      onTouchEnd={(e) => {
         const from = swipe.current;
         swipe.current = null;
-        if (!from) return;
-        const dx = e.clientX - from.x;
-        const dy = e.clientY - from.y;
+        const touch = e.changedTouches[0];
+        if (!from || !touch) return;
+        const dx = touch.clientX - from.x;
+        const dy = touch.clientY - from.y;
         if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 1.5) return;
         // The click that ends a swipe on a card must not choose that card.
         swiped.current = true;
-        setTimeout(() => (swiped.current = false), 0);
+        setTimeout(() => (swiped.current = false), 400);
         const next = page + (dx < 0 ? 1 : -1);
         if (next >= 0 && next < pageCount) onPage(next);
+      }}
+      onTouchCancel={() => {
+        swipe.current = null;
       }}
       onClickCapture={(e) => {
         if (swiped.current) {
           e.stopPropagation();
           e.preventDefault();
         }
-      }}
-      onPointerCancel={() => {
-        swipe.current = null;
       }}
     >
       {shown.length === 0 ? (

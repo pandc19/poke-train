@@ -222,7 +222,7 @@ export function TeamView({
 
     <div className="grid gap-5 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
       {/* ---------- the six slots ---------- */}
-      <ol className="grid grid-cols-2 content-start gap-2 lg:sticky lg:top-[calc(var(--nav-h)+6rem)] lg:-m-1 lg:max-h-[calc(100vh-var(--nav-h)-7rem)] lg:grid-cols-1 lg:self-start lg:overflow-y-auto lg:p-1">
+      <ol className="grid grid-cols-2 content-start gap-2 lg:sticky lg:top-[calc(var(--nav-h)+6rem)] lg:-m-1 lg:max-h-[calc(100dvh-var(--nav-h)-7rem)] lg:grid-cols-1 lg:self-start lg:overflow-y-auto lg:p-1">
         {order.map((i) => {
           const p = members[i];
           const slot = i + 1;

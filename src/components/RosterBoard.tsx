@@ -586,7 +586,7 @@ export function RosterBoard({
       ) : (
       <div className="grid gap-5 lg:grid-cols-[minmax(0,25rem)_minmax(0,1fr)]">
         {/* ---------- the list: stays in view while the details scroll (it scrolls itself when taller than the screen) ---------- */}
-        <aside className="lg:sticky lg:top-[calc(var(--nav-h)+4rem)] lg:max-h-[calc(100vh-var(--nav-h)-5rem)] lg:self-start lg:-m-1 lg:overflow-y-auto lg:p-1">
+        <aside className="lg:sticky lg:top-[calc(var(--nav-h)+4rem)] lg:max-h-[calc(100dvh-var(--nav-h)-5rem)] lg:self-start lg:-m-1 lg:overflow-y-auto lg:p-1">
           <div className="mb-3 space-y-2">
             <SearchInput
               value={query}

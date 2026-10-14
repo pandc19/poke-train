@@ -900,7 +900,7 @@ export function BreedingBoard({
         <p className="py-10 text-center text-sm text-muted">{t('No breeding plans yet. Create one above.')}</p>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-          <aside className="lg:sticky lg:top-[calc(var(--nav-h)+1rem)] lg:max-h-[calc(100vh-var(--nav-h)-2rem)] lg:self-start lg:overflow-y-auto">
+          <aside className="lg:sticky lg:top-[calc(var(--nav-h)+1rem)] lg:max-h-[calc(100dvh-var(--nav-h)-2rem)] lg:self-start lg:overflow-y-auto">
             <ul className="space-y-1.5">
               {goals.map((goal) => {
                 const on = goal.id === selected?.id;

@@ -478,7 +478,7 @@ export function BattleBoard({
         <p className="text-sm text-muted">{t('No opponents yet. Add the Pokémon you have to beat.')}</p>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-          <aside className="lg:sticky lg:top-[calc(var(--nav-h)+1rem)] lg:max-h-[calc(100vh-var(--nav-h)-2rem)] lg:self-start lg:overflow-y-auto">
+          <aside className="lg:sticky lg:top-[calc(var(--nav-h)+1rem)] lg:max-h-[calc(100dvh-var(--nav-h)-2rem)] lg:self-start lg:overflow-y-auto">
             {active.length > 0 && (
               <div className="mb-2 flex justify-end text-xs">
                 <button
