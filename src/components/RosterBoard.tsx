@@ -337,7 +337,7 @@ export function RosterBoard({
   }
 
   /** Puts a roster Pokémon in a team slot (or empties it); the server answers with the team as it is. */
-  async function setSlot(slot: number, id: string | null) {
+  async function setSlot(slot: number, id: string | null, choose = true) {
     const before = slots;
     setError(null);
     setSlots((prev) => {
@@ -356,11 +356,19 @@ export function RosterBoard({
     try {
       const data = await api<{ team: (string | null)[] }>('/api/team', 'PUT', { gameId, slot, rosterPokemonId: id });
       setSlots(data.team);
-      if (id) select(id);
+      if (id && choose) select(id);
     } catch {
       setSlots(before);
       setError(t('Could not change the team. Try again.'));
     }
+  }
+
+  /** Puts a roster Pokémon in the first empty team slot, until the team is full. */
+  function addToTeam(id: string) {
+    if (slots.includes(id)) return;
+    const empty = slots.indexOf(null);
+    if (empty < 0) return;
+    void setSlot(empty + 1, id, false);
   }
 
   async function audit(p: RosterView, refresh = false, deep = false) {
@@ -676,6 +684,8 @@ export function RosterBoard({
             lang={lang}
             numberOf={numberLabel}
             accent={accent}
+            team={slots}
+            onAddToTeam={addToTeam}
           />
         </aside>
 
@@ -699,6 +709,9 @@ export function RosterBoard({
               onToggle={(key, current) => toggle(selected, key, current)}
               onSet={(set) => saveSet(selected, set)}
               onStage={(body) => changeStage(selected, body)}
+              teamSlot={slots.indexOf(selected.id) >= 0 ? slots.indexOf(selected.id) + 1 : null}
+              teamFull={!slots.includes(null)}
+              onAddToTeam={() => addToTeam(selected.id)}
               onGender={(g) => changeGender(selected, g)}
               onPotential={(v) => changePotential(selected, v)}
               onSaveStats={(stats, level, ratings) => saveStats(selected, stats, level, ratings)}

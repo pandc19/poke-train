@@ -681,4 +681,7 @@ export const ES: Record<string, string> = {
   'Being trained right now. A keeper is not being trained, so marking one clears the other.': 'Se está entrenando ahora. Un definitivo no se entrena, así que marcar uno desmarca el otro.',
   'First page': 'Primera página',
   'Last page': 'Última página',
+  'Add to the team': 'Añadir al equipo',
+  'The team is full (6)': 'El equipo está completo (6)',
+  'In the team, slot {n}': 'En el equipo, puesto {n}',
 };

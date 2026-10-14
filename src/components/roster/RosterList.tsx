@@ -10,6 +10,15 @@ import { KeeperIcon, TrainingIcon } from '../KeeperIcon';
 
 export const PAGE_SIZE = 12;
 
+/** ♂ / ♀ for a card: the gender recorded, or the one a single-gender species always has. Null when unknown or genderless. */
+function genderMark(p: RosterView): { symbol: string; color: string; label: { en: string; es: string } } | null {
+  const male = p.gender === 'MALE' || (p.gender === 'UNKNOWN' && p.genderRate === 0);
+  const female = p.gender === 'FEMALE' || (p.gender === 'UNKNOWN' && p.genderRate === 8);
+  if (male) return { symbol: '♂', color: 'text-sky-400', label: { en: 'Male', es: 'Macho' } };
+  if (female) return { symbol: '♀', color: 'text-pink-400', label: { en: 'Female', es: 'Hembra' } };
+  return null;
+}
+
 /** The roster as small cards with paging. Choosing one shows it in the detail panel. */
 export function RosterList({
   items,
@@ -22,6 +31,8 @@ export function RosterList({
   lang,
   numberOf,
   accent,
+  team,
+  onAddToTeam,
 }: {
   items: RosterView[];
   selectedId: string | null;
@@ -34,10 +45,14 @@ export function RosterList({
   lang: Lang;
   numberOf: (p: RosterView) => string;
   accent: string;
+  /** The team's slots (roster ids, null = empty). */
+  team: (string | null)[];
+  onAddToTeam: (id: string) => void;
 }) {
   const { t } = useT();
   const start = page * PAGE_SIZE;
   const shown = items.slice(start, start + PAGE_SIZE);
+  const teamFull = !team.includes(null);
 
   // A swipe sideways turns the page. Touch events are used because pointer events are cancelled the moment the
   // browser starts scrolling, which on a tablet happens with the slightest vertical drift.
@@ -85,7 +100,7 @@ export function RosterList({
             const selected = p.id === selectedId;
             const name = p.nickname ?? (lang === 'en' ? p.species.nameEn : p.species.nameEs);
             return (
-              <li key={p.id}>
+              <li key={p.id} className="relative">
                 <button
                   type="button"
                   onClick={() => onSelect(p.id)}
@@ -113,7 +128,14 @@ export function RosterList({
                     </span>
                   </span>
                   <PokemonSprite p={p} size={56} animated={false} />
-                  <span className="mt-0.5 w-full truncate text-xs font-medium">{name}</span>
+                  <span className="mt-0.5 flex w-full items-center justify-center gap-1 text-xs font-medium">
+                    <span className="truncate">{name}</span>
+                    {genderMark(p) && (
+                      <span className={`shrink-0 font-bold ${genderMark(p)!.color}`} title={genderMark(p)!.label[lang]}>
+                        {genderMark(p)!.symbol}
+                      </span>
+                    )}
+                  </span>
                   <span className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-bg">
                     <motion.span
                       className={`block h-full rounded-full ${prog.complete ? 'bg-done' : 'bg-pending'}`}
@@ -125,6 +147,27 @@ export function RosterList({
                     {prog.complete ? t('Ready') : `${prog.done}/${prog.total}`}
                   </span>
                 </button>
+                {/* A button of its own, since a card is already a button: where it is in the team, or add it. */}
+                {team.includes(p.id) ? (
+                  <span
+                    className="pointer-events-none absolute bottom-1 left-1 rounded bg-surface-2 px-1 text-[10px] font-semibold text-muted"
+                    title={t('In the team, slot {n}', { n: team.indexOf(p.id) + 1 })}
+                  >
+                    {team.indexOf(p.id) + 1}
+                  </span>
+                ) : (
+                  !teamFull && (
+                    <button
+                      type="button"
+                      onClick={() => onAddToTeam(p.id)}
+                      aria-label={t('Add to the team')}
+                      title={t('Add to the team')}
+                      className="absolute bottom-1 left-1 grid h-6 w-6 place-items-center rounded-full border border-line bg-surface text-sm font-bold leading-none text-muted hover:text-ink"
+                    >
+                      +
+                    </button>
+                  )
+                )}
               </li>
             );
           })}

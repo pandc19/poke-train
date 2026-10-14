@@ -275,6 +275,9 @@ export function RosterDetail({
   onBreeder,
   onRemove,
   onStage,
+  teamSlot,
+  teamFull,
+  onAddToTeam,
 }: {
   gameId: string;
   p: RosterView;
@@ -293,6 +296,10 @@ export function RosterDetail({
   onSet: (set: Record<string, unknown>) => Promise<string | null>;
   /** Moves it to another stage of its line, or sets the stage it is meant to end as. */
   onStage: (body: { speciesId?: number; finalSpeciesId?: number | null }) => Promise<string | null>;
+  /** The team slot it is in (1 to 6), or null. */
+  teamSlot: number | null;
+  teamFull: boolean;
+  onAddToTeam: () => void;
   onGender: (g: Gender) => void;
   onPotential: (v: RosterView['potential']) => void;
   onSaveStats: (stats: EvSpread | null, level: number, ratings: IvRatings) => void;
@@ -496,6 +503,21 @@ export function RosterDetail({
                 {t('Training')}
               </span>
             </button>
+            {teamSlot != null ? (
+              <span className="rounded-md border border-line px-2.5 py-1 text-muted">
+                {t('In the team, slot {n}', { n: teamSlot })}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={onAddToTeam}
+                disabled={teamFull}
+                title={teamFull ? t('The team is full (6)') : t('Add to the team')}
+                className="rounded-md border border-line px-2.5 py-1 text-muted hover:text-ink disabled:opacity-40"
+              >
+                + {t('Add to the team')}
+              </button>
+            )}
           </div>
           <StagePanel p={p} label={label} onStage={onStage} />
           <div className="mt-2 flex items-center gap-3">
