@@ -13,9 +13,10 @@ import { ivRating } from '../iv-ratings';
 import { potentialLevel } from '../potential';
 import type { RosterView } from '../roster';
 import { type AuditAsk, type BuildAuditRaw, LocationSchema, buildAuditSchema } from './schema';
+import { localizeNames } from './names';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 18;
+const PROMPT_VERSION = 19;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -24,12 +25,16 @@ const system = (game: GameConfig, lang: Lang) =>
     'Be specific and practical. If you are not sure where something is found, say so rather than guessing.',
     'Prefer advice the player can act on without starting over: say what is easy, and never suggest a move the Pokémon cannot learn in this game.',
     lang === 'es'
-      ? 'Write every text field in Spanish, but always write the names of Pokémon, moves, items (TMs, vitamins, berries), abilities, natures and types in English exactly as the English game shows them (for example Stone Edge, Choice Band, Protein, Adamant, Intimidate), never translated.'
+      ? 'Write every text field in Spanish from Spain (español de España), in the plain and direct way a player would say it. ' +
+        'In sentences, name Pokémon, moves, items (TMs, vitamins, berries, Mints), abilities, natures, types, towns, areas and fast-travel points exactly as the Spanish (Spain) version of the game shows them, ' +
+        'as the Spanish WikiDex lists them (for example Roca Afilada, Cinta Elegida, Proteína, Firme, Intimidación), never a translation of your own. ' +
+        'If you are not sure of the Spanish name, write the English one rather than inventing it. ' +
+        'The only exception are fields that hold an identifier the app matches (the move, the item, the nature of a Mint, a Tera type and a Pokémon to look up): those stay in English exactly as the English game spells them.'
       : 'Write every text field in English.',
   ].join(' ');
 
 /** Location answers have their own version, so changes to the audit prompt do not throw them away. */
-const LOCATION_PROMPT_VERSION = 11;
+const LOCATION_PROMPT_VERSION = 12;
 
 const hashOf = (model: string, input: unknown, version = PROMPT_VERSION) =>
   createHash('sha256').update(JSON.stringify({ v: version, model, input })).digest('hex');
@@ -213,6 +218,12 @@ export async function auditBuild(
           ...(hasTera ? { teraType: locks?.teraType ?? raw.teraType } : {}),
           ...(hasMint ? { mint: mintLock ? { ...mintLock, keep: true } : raw.mint } : {}),
         };
+        // In Spanish, game names the model left in English inside its sentences are put in the game's own Spanish.
+        const say = (text: string) => localizeNames(text, lang);
+        parts.heldItem = parts.heldItem ? { ...parts.heldItem, reason: await say(parts.heldItem.reason) } : parts.heldItem;
+        parts.recommendedMoves = await Promise.all(parts.recommendedMoves.map(async (m) => ({ ...m, reason: await say(m.reason) })));
+        if ('teraType' in parts && parts.teraType) parts.teraType = { ...parts.teraType, reason: await say(parts.teraType.reason) };
+        if ('mint' in parts && parts.mint) parts.mint = { ...parts.mint, reason: await say(parts.mint.reason) };
         if (!hasEvs) return parts;
         // The spread is the model's proposal (or the player's fixed plan); what it means for this Pokémon is worked out here.
         // A fixed plan is kept, only made legal again (amounts in fours, 252 and 508 caps).
@@ -330,6 +341,19 @@ export async function researchLocation(
     system: system(game, lang),
     schema: LocationSchema,
     schemaName: 'location',
+    // In Spanish the game names left in English are put in the game's own Spanish.
+    finish: async (r) => ({
+      ...r,
+      locations: await Promise.all(
+        r.locations.map(async (l) => ({
+          ...l,
+          place: await localizeNames(l.place, lang),
+          nearby: l.nearby ? await localizeNames(l.nearby, lang) : l.nearby,
+          details: l.details ? await localizeNames(l.details, lang) : l.details,
+        }))
+      ),
+      notes: r.notes ? await localizeNames(r.notes, lang) : r.notes,
+    }),
     webSearch: true,
     tier: 'bulk',
     prompt:

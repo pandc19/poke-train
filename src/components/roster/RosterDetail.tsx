@@ -760,6 +760,15 @@ export function RosterDetail({
           locks={p.auditLocks}
           onLocksChange={(locks) => void save({ auditLocks: locks })}
           compare={compareRows}
+          localize={(kind, english) =>
+            kind === 'item'
+              ? itemName(english)
+              : kind === 'move'
+                ? moveName(english)
+                : kind === 'nature'
+                  ? label(natureOf(english)) || english
+                  : mintLabel(english)
+          }
           currentTera={p.teraType}
           mintGiven={p.mintNature?.nameEn ?? null}
           realNature={(p.currentNature ?? p.targetNature)?.nameEn ?? null}

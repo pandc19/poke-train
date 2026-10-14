@@ -137,6 +137,7 @@ export function AuditPanel({
   locks,
   onLocksChange,
   compare,
+  localize,
   currentTera,
   onMint,
   mintGiven,
@@ -158,6 +159,8 @@ export function AuditPanel({
   /** The held item and moves the player has fixed. */
   locks?: AuditLocks | null;
   onLocksChange?: (locks: AuditLocks | null) => void;
+  /** The name of a move, item or Mint (given in English by the audit) as the player's language shows it. */
+  localize?: (kind: 'item' | 'move' | 'mint' | 'nature', english: string) => string;
   /** What it has now against what the audit suggests, one row per part. */
   compare?: { key: string; label: string; now: string; ai: string; same: boolean }[];
   /** The Tera type it has now, to show beside the suggestion. */
@@ -196,6 +199,7 @@ export function AuditPanel({
   const movesFixed = locks?.moves ?? [];
   const teraFixed = locks?.teraType;
   const hasMint = mintGiven != null;
+  const mintName = (nature: string) => (localize ? localize('mint', nature) : nature);
   // A fixed Mint only counts while it still holds; an answer saved before that changed is not shown.
   const mintFixed = activeMint(locks, mintGiven, realNature);
   const sameNature = (a?: string | null, b?: string | null) => a != null && b != null && a.toLowerCase() === b.toLowerCase();
@@ -338,7 +342,7 @@ export function AuditPanel({
       {audit.heldItem && (
         <Box title={t('Held item')} fixed={itemFixed} onToggle={onLocksChange ? toggleItem : undefined}>
           <p>
-            <span className="font-medium">{audit.heldItem.item}</span>
+            <span className="font-medium">{localize ? localize('item', audit.heldItem.item) : audit.heldItem.item}</span>
             <span className="text-muted"> · {audit.heldItem.reason}</span>
           </p>
         </Box>
@@ -349,7 +353,7 @@ export function AuditPanel({
           <ul className="space-y-1">
             {recommended.map((m, i) => (
               <li key={i}>
-                <span className="font-medium">{m.move}</span>
+                <span className="font-medium">{localize ? localize('move', m.move) : m.move}</span>
                 <span className="text-muted"> · {m.reason}</span>
               </li>
             ))}
@@ -383,11 +387,11 @@ export function AuditPanel({
             <span className="font-medium">
               {mintShown.keep
                 ? hasMint
-                  ? t('Keep it: {nature}', { nature: mintShown.nature })
-                  : t('No Mint needed: {nature} is already the best', { nature: mintShown.nature })
+                  ? t('Keep it: {nature}', { nature: mintName(mintShown.nature) })
+                  : t('No Mint needed: {nature} is already the best', { nature: mintName(mintShown.nature) })
                 : hasMint
-                  ? t('Change to {nature}', { nature: mintShown.nature })
-                  : t('Use a {nature} Mint', { nature: mintShown.nature })}
+                  ? t('Change to {nature}', { nature: mintName(mintShown.nature) })
+                  : t('Use a {nature} Mint', { nature: localize ? localize('nature', mintShown.nature) : mintShown.nature })}
             </span>
             <span className="text-muted"> · {mintShown.reason}</span>
           </p>
