@@ -76,6 +76,7 @@ const titleCase = (slug: string) =>
 /** Spanish names PokéAPI has differently from the games (slug → the name the game shows). Kept across syncs. */
 const SPANISH_FIXES: Record<string, string> = {
   'flash-cannon': 'Foco Resplandor',
+  truant: 'Pereza',
 };
 const names = (d: Json) => {
   const nameEn = nameIn(d.names, 'en') ?? titleCase(d.name);

@@ -89,6 +89,21 @@ const COSTLY_MOVES = new Set([
   'fake-out',
   'first-impression',
   'upper-hand',
+  // Recharge turn after the hit.
+  'hyper-beam',
+  'giga-impact',
+  'blast-burn',
+  'hydro-cannon',
+  'frenzy-plant',
+  'roar-of-time',
+  'rock-wrecker',
+  'prismatic-laser',
+  'eternabeam',
+  'meteor-assault',
+  // Power falls with the user's HP, so the listed power is the best case.
+  'eruption',
+  'water-spout',
+  'dragon-energy',
 ]);
 
 const globalForBattle = globalThis as unknown as { battleIndex?: Map<string, Promise<GameIndex>> };
@@ -361,7 +376,10 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
     const formByIndexId = new Map(index.forms.map((f) => [f.formId, f]));
     // Suggestions are spread over move types (at most three of each) so they are not all one kind.
     const perType = new Map<string, number>();
+    // Super-effective hits come first (best score within each group): a raw-power neutral move
+    // should not outrank a move that hits its weakness.
     const rankedGame = rankCounters(chart, input, table, index.forms, 80)
+      .sort((a, b) => Number(b.move.multiplier >= 2) - Number(a.move.multiplier >= 2) || b.score - a.score)
       .filter((c) => !inRoster.has(c.speciesId))
       .filter((c) => {
         const type = index.moves.get(c.move.id)?.type ?? '';

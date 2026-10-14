@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { ConfirmDialog } from './Dialog';
 import { SearchInput } from './SearchInput';
 import { TypeBadge } from './TypeBadge';
-import { STAT_LABELS } from './EvInputs';
+import { STAT_LABELS, STAT_ORDER } from './EvInputs';
 import { ComboInput, GenderControl, PokemonSprite, PotentialSelect, TaskToggle, type Gender } from './roster/parts';
 import { IV_STATS } from '@/lib/breeding/engine';
 import type { Lang } from '@/lib/i18n';
+import { TYPE_COLORS } from '@/lib/pokemon-types';
 import { IV_RATINGS, type IvRatings } from '@/lib/iv-ratings';
 import type { EditorOptions, RosterView } from '@/lib/roster';
 import { useT } from '@/lib/translate-client';
@@ -492,6 +493,16 @@ function BreederDetail({
       <div className="mt-4 grid gap-6 xl:grid-cols-2">
         <div className="space-y-4">
           <Field
+            label={t('Also on the roster')}
+            hint={t('A trained Pokémon can be a breeder too: it is kept once and shows on both pages.')}
+          >
+            <TaskToggle
+              status={p.roles.includes('ROSTER') ? 'DONE' : 'PENDING'}
+              onToggle={() => onRoster(!p.roles.includes('ROSTER'))}
+              label={p.roles.includes('ROSTER') ? t('Yes') : t('No')}
+            />
+          </Field>
+          <Field
             label={t('Obtained')}
             hint={t('Only Pokémon you have are used as parents.')}
           >
@@ -541,23 +552,13 @@ function BreederDetail({
               <PotentialSelect p={p} onChange={onPotential} />
             </Field>
           )}
-          <Field
-            label={t('Also on the roster')}
-            hint={t('A trained Pokémon can be a breeder too: it is kept once and shows on both pages.')}
-          >
-            <TaskToggle
-              status={p.roles.includes('ROSTER') ? 'DONE' : 'PENDING'}
-              onToggle={() => onRoster(!p.roles.includes('ROSTER'))}
-              label={p.roles.includes('ROSTER') ? t('Yes') : t('No')}
-            />
-          </Field>
         </div>
 
         <div className="space-y-4">
           <section>
             <h3 className="mb-2 text-sm font-semibold">{t('IVs, as the Judge says')}</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {IV_STATS.map((stat) => {
+            <div className="grid grid-cols-3 gap-2">
+              {STAT_ORDER.map((stat) => {
                 const value = p.ivRatings?.[stat] ?? '';
                 return (
                   <label key={stat} className="block">
@@ -600,6 +601,7 @@ function BreederDetail({
                       aria-label={t('Move {n}', { n: slot })}
                       onCommit={(text) => commitMove(slot, text)}
                       className={inputClass}
+                      style={m?.move ? { borderLeftColor: TYPE_COLORS[m.move.type], borderLeftWidth: 3 } : undefined}
                     />
                     {m?.move && learnable && (
                       <span
