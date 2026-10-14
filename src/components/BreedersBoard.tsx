@@ -85,6 +85,13 @@ export function BreedersBoard({
     }
   }
 
+  /** Switches a breeder to the stage before or after it; moves, IVs and the rest stay. */
+  async function changeStage(p: RosterView, speciesId: number) {
+    setError(null);
+    const data = await api<{ pokemon: RosterView }>(`/api/roster/${p.id}/evolve`, 'POST', { speciesId });
+    replace(data.pokemon);
+  }
+
   async function toggleOwned(p: RosterView) {
     const status = p.owned ? 'PENDING' : 'DONE';
     setError(null);
@@ -328,6 +335,7 @@ export function BreedersBoard({
                 onGender={(g: Gender) => save(selected, { gender: g })}
                 onPotential={(v) => save(selected, { potential: v })}
                 onRoster={(on) => setRoster(selected, on)}
+                onStage={(speciesId) => changeStage(selected, speciesId).catch((e) => setError(e instanceof Error ? e.message : t('Could not change its stage. Try again.')))}
                 onRemove={() => setRemoving(selected)}
               />
             ) : (
@@ -400,6 +408,7 @@ function BreederDetail({
   onGender,
   onPotential,
   onRoster,
+  onStage,
   onRemove,
 }: {
   gameId: string;
@@ -412,6 +421,7 @@ function BreederDetail({
   onGender: (g: Gender) => void;
   onPotential: (v: RosterView['potential']) => void;
   onRoster: (on: boolean) => void;
+  onStage: (speciesId: number) => Promise<void>;
   onRemove: () => void;
 }) {
   const { t } = useT();
@@ -431,6 +441,26 @@ function BreederDetail({
       .catch(() => {});
     return () => controller.abort();
   }, [gameId, p.species.id]);
+  // The stages next to this one, to swap the breeder for a better specimen of another stage.
+  const [stagesFor, setStagesFor] = useState<{
+    key: string;
+    before: Named[];
+    after: Named[];
+  } | null>(null);
+  const [changing, setChanging] = useState(false);
+  const onRosterNow = p.roles.includes('ROSTER');
+  const stageKey = `${p.id}:${p.species.id}`;
+  useEffect(() => {
+    if (onRosterNow) return;
+    const controller = new AbortController();
+    fetch(`/api/roster/${p.id}/evolve`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setStagesFor({ key: stageKey, ...data }))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [p.id, stageKey, onRosterNow]);
+  // Only what was loaded for this very Pokémon and stage; nothing while it is on the roster.
+  const stages = !onRosterNow && stagesFor?.key === stageKey ? stagesFor : null;
   const eggIds = useMemo(() => new Set((learnable?.egg ?? []).map((m) => m.id)), [learnable]);
 
   const setRating = (stat: (typeof IV_STATS)[number], value: string) => {
@@ -484,6 +514,39 @@ function BreederDetail({
               className="w-40 rounded-md border border-line bg-bg px-2 py-1.5 text-sm text-ink"
             />
           </label>
+          {stages && stages.before.length + stages.after.length > 0 && (
+            <div
+              className="flex flex-wrap items-center gap-1.5"
+              title={t('Swap this breeder for another stage of its line. Its moves, IVs and nature stay.')}
+            >
+              {[...stages.before].reverse().map((prev) => (
+                <button
+                  key={prev.id}
+                  disabled={changing}
+                  onClick={async () => {
+                    setChanging(true);
+                    await onStage(prev.id).finally(() => setChanging(false));
+                  }}
+                  className="rounded-md border border-line px-3 py-1.5 hover:bg-surface-2 disabled:opacity-40"
+                >
+                  ← {label(prev)}
+                </button>
+              ))}
+              {stages.after.map((next) => (
+                <button
+                  key={next.id}
+                  disabled={changing}
+                  onClick={async () => {
+                    setChanging(true);
+                    await onStage(next.id).finally(() => setChanging(false));
+                  }}
+                  className="rounded-md border border-line px-3 py-1.5 hover:bg-surface-2 disabled:opacity-40"
+                >
+                  {label(next)} →
+                </button>
+              ))}
+            </div>
+          )}
           <button onClick={onRemove} className="rounded-md border border-line px-3 py-1.5 text-muted hover:text-red-400">
             {t('Remove')}
           </button>
