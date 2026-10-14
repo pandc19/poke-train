@@ -10,7 +10,7 @@ import { STAT_LABELS } from '../EvInputs';
 import type { EvEstimateInfo } from '../StatsEvs';
 import { EvSourcesDialog } from '../EvSources';
 import { HEX_ORDER, HexChart } from './HexChart';
-import { PokemonSprite, progressOf } from './parts';
+import { PokemonSprite, genderMark, progressOf } from './parts';
 import { estimateEvRange, levelHints, statValue } from '@/lib/ev-estimate';
 import { evTotal, type EvSpread } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
@@ -259,7 +259,14 @@ export function TeamView({
               >
                 <PokemonSprite p={p} size={56} animated={false} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{name(p)}</span>
+                  <span className="flex items-center gap-1 text-sm font-medium">
+                    <span className="truncate">{name(p)}</span>
+                    {genderMark(p) && (
+                      <span className={`shrink-0 font-bold ${genderMark(p)!.color}`} title={genderMark(p)!.label[lang]}>
+                        {genderMark(p)!.symbol}
+                      </span>
+                    )}
+                  </span>
                   <span className="block text-xs text-muted">
                     {t('Lv. {level}', { level: p.level })}
                     {byProgress && ` · ${t('slot {n}', { n: slot })}`}
@@ -609,7 +616,14 @@ function TeamDetail({
         <PokemonSprite p={p} size={72} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-bold">{p.nickname ?? speciesName}</h2>
+            <h2 className="text-lg font-bold">
+              {p.nickname ?? speciesName}
+              {genderMark(p) && (
+                <span className={`ml-1.5 ${genderMark(p)!.color}`} title={genderMark(p)!.label[lang]}>
+                  {genderMark(p)!.symbol}
+                </span>
+              )}
+            </h2>
             {p.nickname && <span className="text-xs text-muted">{speciesName}</span>}
             <span className="text-xs text-muted">{t('slot {n}', { n: slot })}</span>
           </div>

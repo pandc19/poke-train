@@ -10,6 +10,16 @@ import { useT } from '@/lib/translate-client';
 
 export type Gender = RosterView['gender'];
 
+/** ♂ / ♀ for a card: the gender recorded, or the one a single-gender species always has. Null when unknown or genderless. */
+export function genderMark(p: RosterView): { symbol: string; color: string; label: { en: string; es: string } } | null {
+  const male = p.gender === 'MALE' || (p.gender === 'UNKNOWN' && p.genderRate === 0);
+  const female = p.gender === 'FEMALE' || (p.gender === 'UNKNOWN' && p.genderRate === 8);
+  if (male) return { symbol: '♂', color: 'text-sky-400', label: { en: 'Male', es: 'Macho' } };
+  if (female) return { symbol: '♀', color: 'text-pink-400', label: { en: 'Female', es: 'Hembra' } };
+  return null;
+}
+
+
 export const progressOf = (p: RosterView) =>
   rosterProgress({
     owned: p.owned,

@@ -2,22 +2,13 @@
 
 import { useRef } from 'react';
 import { motion } from 'motion/react';
-import { PokemonSprite, progressOf } from './parts';
+import { PokemonSprite, genderMark, progressOf } from './parts';
 import type { Lang } from '@/lib/i18n';
 import type { RosterView } from '@/lib/roster';
 import { useT } from '@/lib/translate-client';
 import { KeeperIcon, TrainingIcon } from '../KeeperIcon';
 
 export const PAGE_SIZE = 12;
-
-/** ♂ / ♀ for a card: the gender recorded, or the one a single-gender species always has. Null when unknown or genderless. */
-function genderMark(p: RosterView): { symbol: string; color: string; label: { en: string; es: string } } | null {
-  const male = p.gender === 'MALE' || (p.gender === 'UNKNOWN' && p.genderRate === 0);
-  const female = p.gender === 'FEMALE' || (p.gender === 'UNKNOWN' && p.genderRate === 8);
-  if (male) return { symbol: '♂', color: 'text-sky-400', label: { en: 'Male', es: 'Macho' } };
-  if (female) return { symbol: '♀', color: 'text-pink-400', label: { en: 'Female', es: 'Hembra' } };
-  return null;
-}
 
 /** The roster as small cards with paging. Choosing one shows it in the detail panel. */
 export function RosterList({
