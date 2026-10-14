@@ -545,6 +545,9 @@ function BreederDetail({
                   {label(next)} →
                 </button>
               ))}
+              <p className="basis-full text-[10px] text-muted">
+                {t('Swap it for another stage of its line. Breeding plans update by themselves.')}
+              </p>
             </div>
           )}
           <button onClick={onRemove} className="rounded-md border border-line px-3 py-1.5 text-muted hover:text-red-400">

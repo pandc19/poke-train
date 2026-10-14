@@ -638,6 +638,7 @@ export const ES: Record<string, string> = {
   '2. Carry several eggs and keep moving': '2. Lleva varios huevos y no pares de moverte',
   'The steps count for every egg in the party at once, so hatch them together. Walking, running or riding all count; battles and menus do not. Moving in circles on a mount is the quickest way.': 'Los pasos cuentan para todos los huevos del equipo a la vez, así que eclosiónalos juntos. Caminar, correr o montar cuentan; los combates y los menús no. Dar vueltas sobre una montura es lo más rápido.',
   'Check it': 'Revísalo',
+  'Swap it for another stage of its line. Breeding plans update by themselves.': 'Cámbialo por otra etapa de su línea. Los planes de crianza se actualizan solos.',
   'A Pokémon on the roster cannot change stage here': 'Un Pokémon del equipo no puede cambiar de etapa aquí',
   'That is not a stage of this Pokémon’s line': 'Esa no es una etapa de la línea de este Pokémon',
   'No form for that Pokémon': 'No hay forma para ese Pokémon',
