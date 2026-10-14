@@ -109,10 +109,21 @@ const statLine = (v: Record<keyof typeof STAT_NAMES, number>) =>
 /** A compact, language-neutral description of a Pokémon as it is now, used both as prompt and cache key. */
 function describeBuild(p: RosterView, hasEvs = true) {
   const gap = hasEvs && p.evs && p.currentEvs ? evGap(p.evs, p.currentEvs) : null;
+  // A Pokémon that has yet to evolve is judged as the stage it is meant to end as: that is what the EVs,
+  // moves and item are for. Its stats, ability and level are still those of the stage it is at now.
+  const final = p.finalSpecies;
   return {
-    pokemon: p.species.nameEn,
-    types: p.types,
-    baseStats: p.baseStats,
+    pokemon: final?.nameEn ?? p.species.nameEn,
+    types: final?.types ?? p.types,
+    baseStats: final?.baseStats ?? p.baseStats,
+    ...(final
+      ? {
+          // Said plainly so the model does not read the numbers below as the final stage's.
+          currentStage: p.species.nameEn,
+          currentStageBaseStats: p.baseStats,
+          abilitiesAtFinalStage: final.abilityOptions.map((a) => `${a.nameEn}${a.isHidden ? ' (hidden)' : ''}`),
+        }
+      : {}),
     level: p.level,
     // The stats it actually has right now, as the game shows them. These are NOT EVs.
     currentStats: p.currentStats ? statLine(p.currentStats) : null,
@@ -163,7 +174,7 @@ export async function auditBuild(
   const illegal = p.moves.filter((m) => m.legal === false).map((m) => m.move!.nameEn);
 
   // Everything it can legally have in this game, so suggestions come from real options.
-  const pool = await learnableMoves(game, p.species.id);
+  const pool = await learnableMoves(game, p.finalSpecies?.id ?? p.species.id);
   // Each move with its type, category and power, so advice about which stat it uses comes from data.
   const describeMove = (m: { nameEn: string; type: string; damageClass: string; power: number | null }) =>
     `${m.nameEn} (${m.type}, ${m.damageClass}${m.power ? `, power ${m.power}` : ''})`;
@@ -259,6 +270,11 @@ export async function auditBuild(
           'Work with what it already has: its nature, ability, potential, current EVs, held item and known moves are the starting point. Do not propose rebuilding it. ' +
           'Answer only the parts asked for below.',
         JSON.stringify({ pokemon: build, legalMovePool }, null, 2),
+        p.finalSpecies
+          ? `It is a ${p.species.nameEn} now and will end as ${p.finalSpecies.nameEn}: choose everything for ${p.finalSpecies.nameEn}, ` +
+            `using baseStats (its) and not currentStageBaseStats. currentStats, level and ability are those of ${p.species.nameEn}; ` +
+            `its ability may change when it evolves (abilitiesAtFinalStage), so do not treat it as a problem.`
+          : '',
         fixedNotes.length ? `The player has fixed these parts, so they are not asked again:\n${fixedNotes.join('\n')}` : '',
         ask.evPlan
           ? 'evPlan: currentStats are the numbers the game shows (HP 331, Attack 328…). They are NOT EVs, so never use them for the plan. ' +

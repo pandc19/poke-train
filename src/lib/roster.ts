@@ -27,6 +27,13 @@ export type RosterView = {
   /** Sort key that follows the game's Pokédex order: base game first, then expansions. */
   dexOrder: number | null;
   baseSpecies: Named | null;
+  /**
+   * The stage it is meant to end as, when that is a different one from the stage it is at now (a Slakoth
+   * that will be a Slaking). Null when the stage it is at is the final one. The audit judges this one.
+   */
+  finalSpecies:
+    | (Named & { types: string[]; baseStats: EvSpread | null; abilityOptions: (Named & { isHidden: boolean })[] })
+    | null;
   formId: number | null;
   spriteUrl: string | null;
   types: string[];
@@ -115,6 +122,20 @@ export async function loadRoster(
       },
       roles: { select: { role: true } },
       baseSpecies: { select: named },
+      finalSpecies: {
+        select: {
+          ...named,
+          forms: {
+            where: { isDefault: true },
+            take: 1,
+            select: {
+              types: true,
+              baseStats: true,
+              abilities: { select: { isHidden: true, ability: { select: named } } },
+            },
+          },
+        },
+      },
       targetNature: { select: named },
       currentNature: { select: named },
       mintNature: { select: named },
@@ -155,6 +176,7 @@ export async function loadRoster(
       entryNumber: position.get(r.speciesId)?.entryNumber ?? null,
       dexOrder: position.get(r.speciesId)?.dexOrder ?? null,
       baseSpecies: r.baseSpecies,
+      finalSpecies: finalOf(r.finalSpecies, r.speciesId),
       genderRate: r.species.genderRate,
       formId: form?.id ?? null,
       spriteUrl: form?.spriteUrl ?? null,
@@ -226,6 +248,28 @@ export async function refreshLegality(rosterPokemonId: string, game: GameConfig)
       })
     )
   );
+}
+
+/** The final stage as the view carries it, or null when it is the stage the Pokémon is at. */
+function finalOf(
+  final: {
+    id: number;
+    nameEn: string;
+    nameEs: string;
+    forms: { types: string[]; baseStats: unknown; abilities: { isHidden: boolean; ability: Named }[] }[];
+  } | null,
+  speciesId: number
+): RosterView['finalSpecies'] {
+  if (!final || final.id === speciesId) return null;
+  const form = final.forms[0];
+  return {
+    id: final.id,
+    nameEn: final.nameEn,
+    nameEs: final.nameEs,
+    types: form?.types ?? [],
+    baseStats: (form?.baseStats ?? null) as EvSpread | null,
+    abilityOptions: (form?.abilities ?? []).map((a) => ({ ...a.ability, isHidden: a.isHidden })),
+  };
 }
 
 /** Name lists for the editors. Pokémon are limited to those obtainable in the game. */

@@ -53,6 +53,7 @@ model Species {
   pokedexEntries PokedexEntry[]
   roster         RosterPokemon[]  @relation("RosterSpecies")
   rosterBase     RosterPokemon[]  @relation("RosterBaseSpecies")
+  rosterFinal    RosterPokemon[]  @relation("RosterFinalSpecies")
   breedingGoals  BreedingGoal[]
   opponents      BattleOpponent[]
 
@@ -319,11 +320,13 @@ enum PokemonRole {
 model RosterPokemon {
   id            String  @id @default(dbgenerated("uuidv7()")) @db.Uuid
   profileId     String  @map("profile_id") @db.Uuid
-  /// The final (trained) species, e.g. Golem.
+  /// The stage it is at right now, e.g. Vigoroth. Stats, abilities and moves are read from this one.
   speciesId     Int     @map("species_id")
   formId        Int?    @map("form_id")
   /// The species bred or caught to get there, e.g. Geodude.
   baseSpeciesId Int?    @map("base_species_id")
+  /// The stage it is meant to end as, e.g. Slaking while it is a Slakoth. Null = the stage it is at now is the final one.
+  finalSpeciesId Int?   @map("final_species_id")
   nickname      String?
   gender        Gender  @default(UNKNOWN)
   origin        Origin  @default(UNKNOWN)
@@ -378,6 +381,7 @@ model RosterPokemon {
   profile       GameProfile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
   species       Species      @relation("RosterSpecies", fields: [speciesId], references: [id])
   baseSpecies   Species?     @relation("RosterBaseSpecies", fields: [baseSpeciesId], references: [id])
+  finalSpecies  Species?     @relation("RosterFinalSpecies", fields: [finalSpeciesId], references: [id])
   form          Form?        @relation(fields: [formId], references: [id])
   targetNature  Nature?      @relation("TargetNature", fields: [targetNatureId], references: [id])
   currentNature Nature?      @relation("CurrentNature", fields: [currentNatureId], references: [id])

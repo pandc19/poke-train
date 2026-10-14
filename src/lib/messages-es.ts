@@ -640,7 +640,6 @@ export const ES: Record<string, string> = {
   'Check it': 'Revísalo',
   'Remove this move': 'Quitar este movimiento',
   'Swap it for another stage of its line. Breeding plans update by themselves.': 'Cámbialo por otra etapa de su línea. Los planes de crianza se actualizan solos.',
-  'A Pokémon on the roster cannot change stage here': 'Un Pokémon del equipo no puede cambiar de etapa aquí',
   'That is not a stage of this Pokémon’s line': 'Esa no es una etapa de la línea de este Pokémon',
   'No form for that Pokémon': 'No hay forma para ese Pokémon',
   'Swap this breeder for another stage of its line. Its moves, IVs and nature stay.': 'Cambia este criador por otra etapa de su línea. Sus movimientos, IVs y naturaleza se mantienen.',
@@ -672,4 +671,9 @@ export const ES: Record<string, string> = {
   'Could not archive that opponent. Try again.': 'No se pudo archivar ese rival. Inténtalo de nuevo.',
   'Work out the counters again, for example after adding Pokémon to your roster': 'Calcula de nuevo los contrarios, por ejemplo tras añadir Pokémon a tu equipo',
   'Put it away so it is not shown open; you can bring it back': 'Guárdalo para que no aparezca abierto; puedes recuperarlo',
+  'Stage': 'Etapa',
+  'Final stage': 'Etapa final',
+  'this one': 'esta',
+  'The stage it is at now. Switch it when it evolves in the game.': 'La etapa en la que está ahora. Cámbiala cuando evolucione en el juego.',
+  'The audit and the EV plan are for the final stage. Stats are read with the base stats of the stage it is at, so enter them again after it evolves.': 'La auditoría y el plan de EVs son para la etapa final. Las estadísticas se leen con las estadísticas base de la etapa actual, así que vuelve a introducirlas cuando evolucione.',
 };

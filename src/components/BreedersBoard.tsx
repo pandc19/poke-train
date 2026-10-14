@@ -448,19 +448,17 @@ function BreederDetail({
     after: Named[];
   } | null>(null);
   const [changing, setChanging] = useState(false);
-  const onRosterNow = p.roles.includes('ROSTER');
   const stageKey = `${p.id}:${p.species.id}`;
   useEffect(() => {
-    if (onRosterNow) return;
     const controller = new AbortController();
     fetch(`/api/roster/${p.id}/evolve`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => data && setStagesFor({ key: stageKey, ...data }))
       .catch(() => {});
     return () => controller.abort();
-  }, [p.id, stageKey, onRosterNow]);
-  // Only what was loaded for this very Pokémon and stage; nothing while it is on the roster.
-  const stages = !onRosterNow && stagesFor?.key === stageKey ? stagesFor : null;
+  }, [p.id, stageKey]);
+  // Only what was loaded for this very Pokémon and stage.
+  const stages = stagesFor?.key === stageKey ? stagesFor : null;
   const eggIds = useMemo(() => new Set((learnable?.egg ?? []).map((m) => m.id)), [learnable]);
 
   const setRating = (stat: (typeof IV_STATS)[number], value: string) => {

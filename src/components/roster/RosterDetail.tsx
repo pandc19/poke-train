@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { AiBadge } from '../AiBadge';
 import { AuditPanel } from '../AuditPanel';
@@ -26,6 +26,84 @@ const STAT_SHORT: Record<string, { en: string; es: string }> = {
   'special-defense': { en: 'SpD', es: 'DefEsp' },
   speed: { en: 'Spe', es: 'Vel' },
 };
+
+/**
+ * The stage it is at now (switch it when it evolves in the game, or back if it was recorded at the wrong
+ * one) and the stage it is meant to end as, which the audit judges. Only shown for lines with several stages.
+ */
+function StagePanel({
+  p,
+  label,
+  onStage,
+}: {
+  p: RosterView;
+  label: (x: Named) => string;
+  onStage: (body: { speciesId?: number; finalSpeciesId?: number | null }) => Promise<string | null>;
+}) {
+  const { t } = useT();
+  const key = `${p.id}:${p.species.id}:${p.finalSpecies?.id ?? ''}`;
+  const [loaded, setLoaded] = useState<{ key: string; before: Named[]; after: Named[] } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/roster/${p.id}/evolve`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setLoaded({ key, before: data.before, after: data.after }))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [p.id, key]);
+  const stages = loaded?.key === key ? loaded : null;
+  if (!stages || stages.before.length + stages.after.length === 0) return null;
+
+  async function run(body: { speciesId?: number; finalSpeciesId?: number | null }) {
+    setBusy(true);
+    setError(null);
+    const message = await onStage(body);
+    setBusy(false);
+    if (message) setError(message);
+  }
+  const button = 'rounded-md border border-line px-3 py-1.5 hover:bg-surface-2 disabled:opacity-40';
+  return (
+    <div className="mt-2 w-full space-y-1.5 text-xs" title={t('The stage it is at now. Switch it when it evolves in the game.')}>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-muted">{t('Stage')}:</span>
+        {[...stages.before].reverse().map((prev) => (
+          <button key={prev.id} disabled={busy} onClick={() => run({ speciesId: prev.id })} className={button}>
+            ← {label(prev)}
+          </button>
+        ))}
+        {stages.after.map((next) => (
+          <button key={next.id} disabled={busy} onClick={() => run({ speciesId: next.id })} className={button}>
+            {label(next)} →
+          </button>
+        ))}
+        {stages.after.length > 0 && (
+          <label className="ml-2 flex items-center gap-1.5 text-muted">
+            {t('Final stage')}
+            <select
+              value={p.finalSpecies?.id ?? ''}
+              disabled={busy}
+              onChange={(e) => run({ finalSpeciesId: Number(e.target.value) || null })}
+              className="rounded-md border border-line bg-bg px-2 py-1.5 text-ink"
+            >
+              <option value="">{label(p.species)} ({t('this one')})</option>
+              {stages.after.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {label(s)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+      <p className="text-[10px] text-muted">
+        {t('The audit and the EV plan are for the final stage. Stats are read with the base stats of the stage it is at, so enter them again after it evolves.')}
+      </p>
+      {error && <p className="text-pending">{error}</p>}
+    </div>
+  );
+}
 
 const inputClass = 'w-full rounded-md border border-line bg-bg px-2 py-1.5 text-sm';
 
@@ -195,6 +273,7 @@ export function RosterDetail({
   onToggleAudit,
   onBreeder,
   onRemove,
+  onStage,
 }: {
   gameId: string;
   p: RosterView;
@@ -211,6 +290,8 @@ export function RosterDetail({
   onToggle: (key: TaskKey, current: TaskStatus) => void;
   /** Saves fields; resolves to an error message, or null when it worked. */
   onSet: (set: Record<string, unknown>) => Promise<string | null>;
+  /** Moves it to another stage of its line, or sets the stage it is meant to end as. */
+  onStage: (body: { speciesId?: number; finalSpeciesId?: number | null }) => Promise<string | null>;
   onGender: (g: Gender) => void;
   onPotential: (v: RosterView['potential']) => void;
   onSaveStats: (stats: EvSpread | null, level: number, ratings: IvRatings) => void;
@@ -376,6 +457,9 @@ export function RosterDetail({
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-bold">{label(p.species)}</h2>
             <span className="font-mono text-xs text-muted">{numberLabel}</span>
+            {p.finalSpecies && (
+              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">→ {label(p.finalSpecies)}</span>
+            )}
           </div>
           <p className="text-xs text-muted">
             {p.baseSpecies ? t('from {name}', { name: label(p.baseSpecies) }) : ''}
@@ -386,6 +470,7 @@ export function RosterDetail({
               <TypeBadge key={type} type={type} lang={lang} />
             ))}
           </div>
+          <StagePanel p={p} label={label} onStage={onStage} />
           <div className="mt-2 flex items-center gap-3">
             <span className={`text-sm font-semibold ${prog.complete ? 'text-done' : 'text-pending'}`}>
               {prog.complete ? `★ ${t('Ready')}` : `${prog.done}/${prog.total}`}

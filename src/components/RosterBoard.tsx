@@ -233,6 +233,20 @@ export function RosterBoard({
     }
   }
 
+  /** Moves it to another stage of its line, and/or sets the stage it is meant to end as. */
+  async function changeStage(
+    p: RosterView,
+    body: { speciesId?: number; finalSpeciesId?: number | null }
+  ): Promise<string | null> {
+    try {
+      const data = await api<{ pokemon: RosterView }>(`/api/roster/${p.id}/evolve`, 'POST', body);
+      replace(data.pokemon);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : t('Could not save');
+    }
+  }
+
   async function remove(p: RosterView) {
     setRemoving(null);
     try {
@@ -639,6 +653,7 @@ export function RosterBoard({
               auditOpen={!hiddenAudits.has(selected.id)}
               onToggle={(key, current) => toggle(selected, key, current)}
               onSet={(set) => saveSet(selected, set)}
+              onStage={(body) => changeStage(selected, body)}
               onGender={(g) => changeGender(selected, g)}
               onPotential={(v) => changePotential(selected, v)}
               onSaveStats={(stats, level, ratings) => saveStats(selected, stats, level, ratings)}
