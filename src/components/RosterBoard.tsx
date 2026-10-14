@@ -76,6 +76,9 @@ export function RosterBoard({
   // The list of cards, or the team being trained. Remembered between visits.
   const [view, setView] = useState<'list' | 'team'>('list');
   const [filter, setFilter] = useState<Filter>('all');
+  // The player's marks narrow the list further, whichever of all / pending / done is chosen.
+  const [onlyTeamA, setOnlyTeamA] = useState(false);
+  const [onlyTraining, setOnlyTraining] = useState(false);
   const [sort, setSort] = useState<Sort>('complete');
   const [query, setQuery] = useState('');
   // Remembered between visits; read after mount so the server and first client render agree.
@@ -303,6 +306,8 @@ export function RosterBoard({
       setAdding('');
       // Show it and open it, wherever the sort puts it: clear what could hide it, then go to its page.
       setFilter('all');
+      setOnlyTeamA(false);
+      setOnlyTraining(false);
       setQuery('');
       setReveal(data.pokemon.id);
       select(data.pokemon.id);
@@ -377,6 +382,8 @@ export function RosterBoard({
     const q = query.trim().toLowerCase();
     const filtered = roster.filter((p) => {
       if (filter !== 'all' && progressOf(p).complete !== (filter === 'done')) return false;
+      if (onlyTeamA && !p.teamA) return false;
+      if (onlyTraining && !p.training) return false;
       if (!q) return true;
       return (
         p.species.nameEn.toLowerCase().includes(q) ||
@@ -407,7 +414,7 @@ export function RosterBoard({
           return ratio(a) - ratio(b) || byName(a, b);
       }
     });
-  }, [roster, filter, sort, query, lang, name]);
+  }, [roster, filter, onlyTeamA, onlyTraining, sort, query, lang, name]);
 
   // A Pokémon just added: once the list has it, turn to the page it is on.
   const [reveal, setReveal] = useState<string | null>(null);
@@ -583,6 +590,28 @@ export function RosterBoard({
               label={t('Search the roster')}
             />
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                aria-pressed={onlyTeamA}
+                onClick={() => {
+                  setOnlyTeamA(!onlyTeamA);
+                  setPage(0);
+                }}
+                className={`rounded-md border px-3 py-1.5 text-xs ${onlyTeamA ? 'border-star/60 bg-star/10 font-semibold text-star' : 'border-line text-muted'}`}
+              >
+                ★ {t('Team A')}
+              </button>
+              <button
+                type="button"
+                aria-pressed={onlyTraining}
+                onClick={() => {
+                  setOnlyTraining(!onlyTraining);
+                  setPage(0);
+                }}
+                className={`rounded-md border px-3 py-1.5 text-xs ${onlyTraining ? 'border-pending/60 bg-pending/10 font-semibold text-pending' : 'border-line text-muted'}`}
+              >
+                {t('Training')}
+              </button>
               <div className="flex rounded-md border border-line text-xs">
                 {(['all', 'pending', 'done'] as const).map((f) => (
                   <button

@@ -470,10 +470,30 @@ export function RosterDetail({
               <TypeBadge key={type} type={type} lang={lang} />
             ))}
           </div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+            <button
+              type="button"
+              aria-pressed={p.teamA}
+              onClick={() => save({ teamA: !p.teamA })}
+              title={t('Part of team A. Marked ones show a star and can be filtered.')}
+              className={`rounded-md border px-2.5 py-1 ${p.teamA ? 'border-star/60 bg-star/10 font-semibold text-star' : 'border-line text-muted hover:text-ink'}`}
+            >
+              ★ {t('Team A')}
+            </button>
+            <button
+              type="button"
+              aria-pressed={p.training}
+              onClick={() => save({ training: !p.training })}
+              title={t('Being trained right now. It can be filtered.')}
+              className={`rounded-md border px-2.5 py-1 ${p.training ? 'border-pending/60 bg-pending/10 font-semibold text-pending' : 'border-line text-muted hover:text-ink'}`}
+            >
+              {t('Training')}
+            </button>
+          </div>
           <StagePanel p={p} label={label} onStage={onStage} />
           <div className="mt-2 flex items-center gap-3">
             <span className={`text-sm font-semibold ${prog.complete ? 'text-done' : 'text-pending'}`}>
-              {prog.complete ? `★ ${t('Ready')}` : `${prog.done}/${prog.total}`}
+              {prog.complete ? t('Ready') : `${prog.done}/${prog.total}`}
             </span>
             <span className="h-2 w-40 overflow-hidden rounded-full bg-bg">
               <motion.span

@@ -47,6 +47,10 @@ export type RosterView = {
   genderRate: number;
   origin: 'CAUGHT' | 'BRED' | 'UNKNOWN';
   owned: boolean;
+  /** Marked as part of team A (shown with a star). */
+  teamA: boolean;
+  /** Marked as being trained right now. */
+  training: boolean;
   targetNature: Named | null;
   currentNature: Named | null;
   /** The nature of the Mint it was given; its stat effect is the one the game shows. */
@@ -187,6 +191,8 @@ export async function loadRoster(
       gender: r.gender,
       origin: r.origin,
       owned: r.owned,
+      teamA: r.teamA,
+      training: r.training,
       targetNature: r.targetNature,
       currentNature: r.currentNature,
       mintNature: r.mintNature,

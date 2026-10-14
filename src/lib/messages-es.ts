@@ -676,4 +676,7 @@ export const ES: Record<string, string> = {
   'this one': 'esta',
   'The stage it is at now. Switch it when it evolves in the game.': 'La etapa en la que está ahora. Cámbiala cuando evolucione en el juego.',
   'The audit and the EV plan are for the final stage. Stats are read with the base stats of the stage it is at, so enter them again after it evolves.': 'La auditoría y el plan de EVs son para la etapa final. Las estadísticas se leen con las estadísticas base de la etapa actual, así que vuelve a introducirlas cuando evolucione.',
+  'Team A': 'Equipo A',
+  'Part of team A. Marked ones show a star and can be filtered.': 'Parte del equipo A. Los marcados muestran una estrella y se pueden filtrar.',
+  'Being trained right now. It can be filtered.': 'Se está entrenando ahora. Se puede filtrar.',
 };

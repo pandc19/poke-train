@@ -364,12 +364,9 @@ export function DexGrid({
                     </button>
                   )}
                   <span className="font-mono text-[11px] text-muted">#{String(c.entryNumber).padStart(3, '0')}</span>
-                  {c.roster !== 'none' ? (
-                    <span
-                      className={`text-sm leading-none ${c.roster === 'done' ? 'text-star' : 'text-pending'}`}
-                      title={c.roster === 'done' ? 'Trained roster: complete' : 'Trained roster: in progress'}
-                    >
-                      {c.roster === 'done' ? '★' : '☆'}
+                  {c.teamA ? (
+                    <span className="text-sm leading-none text-star" title={t('Team A')} aria-label={t('Team A')}>
+                      ★
                     </span>
                   ) : (
                     <span className="w-3" />

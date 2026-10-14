@@ -95,7 +95,11 @@ export function RosterList({
                   <span className="flex w-full items-center justify-between text-[10px] text-muted">
                     <span className="font-mono">{numberOf(p)}</span>
                     <span className="flex items-center gap-1">
-                      {prog.complete && <span className="text-sm leading-none text-star">★</span>}
+                      {p.teamA && (
+                        <span className="text-sm leading-none text-star" title={t('Team A')} aria-label={t('Team A')}>
+                          ★
+                        </span>
+                      )}
                       <span>{t('Lv. {level}', { level: p.level })}</span>
                     </span>
                   </span>

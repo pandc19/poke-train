@@ -2,7 +2,6 @@ import { prisma } from './db';
 import { LOCAL_USER_ID } from './constants';
 import { NATIONAL_DEX_SLUG, getGame } from './games';
 import { exclusiveBySpecies } from './games/exclusives';
-import { rosterProgress } from './roster-status';
 import { type Variant, REGIONS, encodeKey, variantOfSlug } from './dex-variant';
 
 export type DexCell = {
@@ -35,8 +34,8 @@ export type DexCell = {
   genderRate: number;
   /** Short names of the *other* games where this species is already caught. */
   caughtIn: string[];
-  /** Trained-roster badge: in the roster and still pending, or fully trained. */
-  roster: 'none' | 'pending' | 'done';
+  /** A roster Pokémon of this species is marked as part of team A. */
+  teamA: boolean;
 };
 
 /**
@@ -151,12 +150,11 @@ export async function loadDex(
   }
 
   const rosterOwned = new Set<number>();
-  const rosterState = new Map<number, 'pending' | 'done'>();
+  const rosterTeamA = new Set<number>();
   for (const p of roster) {
     const key = rosterKey(p);
     if (p.owned) rosterOwned.add(key);
-    const complete = rosterProgress(p).complete;
-    if (!complete || !rosterState.has(key)) rosterState.set(key, complete ? 'done' : 'pending');
+    if (p.teamA) rosterTeamA.add(key);
   }
 
   // Evolution lines, to say which later stage the player holds instead of this one.
@@ -204,7 +202,7 @@ export async function loadDex(
       hasFemale: gendersHere.get(key)?.hasFemale ?? false,
       genderRate: s.species.genderRate,
       caughtIn: [...(caughtIn.get(s.species.id) ?? [])],
-      roster: rosterState.get(key) ?? 'none',
+      teamA: rosterTeamA.has(key),
       exclusive: side && versions ? { versionName: side === 'own' ? versions.ownName : versions.otherName, own: side === 'own' } : null,
       owned: holding(s.species.id, variant),
       ownedViaRoster: rosterOwned.has(key),
