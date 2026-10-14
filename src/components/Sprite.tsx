@@ -7,11 +7,14 @@ export function Sprite({
   alt,
   size = 64,
   silhouette = false,
+  smooth = false,
 }: {
   src: string | null;
   alt: string;
   size?: number;
   silhouette?: boolean;
+  /** Scaled smoothly instead of as crisp pixels: for a sprite shown smaller than it is drawn. */
+  smooth?: boolean;
 }) {
   if (!src) {
     return (
@@ -32,7 +35,7 @@ export function Sprite({
       height={size}
       loading="lazy"
       draggable={false}
-      className={`sprite select-none ${silhouette ? 'sprite-silhouette' : ''}`}
+      className={`sprite shrink-0 select-none ${smooth ? 'sprite-smooth' : ''} ${silhouette ? 'sprite-silhouette' : ''}`}
     />
   );
 }

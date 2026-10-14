@@ -92,6 +92,11 @@ export function RosterBoard({
       if (localStorage.getItem('roster-view') === 'team') setView('team');
     } catch {}
   }, []);
+  // A link with ?p= opens that Pokémon once; the address is then cleaned, so coming back to the page later
+  // (a restored tab on a tablet, say) starts fresh instead of on the page and Pokémon left last.
+  useEffect(() => {
+    if (window.location.search) window.history.replaceState(null, '', window.location.pathname);
+  }, []);
   const [page, setPage] = useState(() => {
     const index = initial.findIndex((p) => p.id === initialSelectedId);
     return index >= 0 ? Math.floor(index / PAGE_SIZE) : 0;
@@ -140,8 +145,6 @@ export function RosterBoard({
     const wide = !window.matchMedia('(max-width: 1023px)').matches;
     keepScroll.current = wide ? window.scrollY : null;
     setSelectedId(id);
-    // Keep the address in step, so a reload or a link comes back to the same Pokémon.
-    window.history.replaceState(null, '', `?p=${id}`);
     // On a narrow screen the detail is below the list: bring it into view.
     if (window.matchMedia('(max-width: 1023px)').matches) {
       detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -262,7 +265,6 @@ export function RosterBoard({
       if (selectedId === p.id) {
         const next = rest[Math.min(index, rest.length - 1)];
         setSelectedId(next?.id ?? null);
-        window.history.replaceState(null, '', next ? `?p=${next.id}` : '?');
       }
     } catch {
       setError(t('Could not remove that Pokémon. Try again.'));

@@ -216,7 +216,7 @@ export function BattleBoard({
       className={`flex gap-2 rounded-lg border p-2 text-xs ${c.best ? 'border-star bg-star/10' : 'border-line'}`}
     >
       <span className="w-4 shrink-0 pt-1 text-center text-[11px] font-semibold text-muted">{rank}</span>
-      <Sprite src={c.spriteUrl} alt={name(c.species)} size={44} />
+      <Sprite src={c.spriteUrl} alt={name(c.species)} size={64} smooth />
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-semibold">
           {c.nickname ? `${c.nickname} (${name(c.species)})` : name(c.species)}
@@ -278,7 +278,7 @@ export function BattleBoard({
             on ? 'border-done bg-surface-2' : 'border-line bg-surface hover:bg-surface-2'
           }`}
         >
-          <Sprite src={o.spriteUrl} alt={name(o.species)} size={40} />
+          <Sprite src={o.spriteUrl} alt={name(o.species)} size={56} smooth />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium">{name(o.species)}</span>
             <span className="flex flex-wrap items-center gap-1">
@@ -311,7 +311,7 @@ export function BattleBoard({
     return (
       <div key={o.id} className="rounded-xl border border-line bg-surface">
         <div className="flex flex-wrap items-center gap-3 p-3">
-          <Sprite src={o.spriteUrl} alt={name(o.species)} size={56} />
+          <Sprite src={o.spriteUrl} alt={name(o.species)} size={72} smooth />
           <div className="min-w-0 flex-1">
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-semibold">
               {name(o.species)}

@@ -34,6 +34,8 @@ export type DexCell = {
   genderRate: number;
   /** Short names of the *other* games where this species is already caught. */
   caughtIn: string[];
+  /** The first species of its evolution line, so a search can bring the whole line. */
+  lineRoot: number;
   /** A roster Pokémon of this species is marked as a keeper. */
   keeper: boolean;
   /** A roster Pokémon of this species is marked as being trained now. */
@@ -169,6 +171,15 @@ export async function loadDex(
     if (!children.has(l.evolvesFromId)) children.set(l.evolvesFromId, []);
     children.get(l.evolvesFromId)!.push(l.id);
   }
+  const rootOf = (id: number) => {
+    let cur = id;
+    for (let guard = 0; guard < 6; guard++) {
+      const from = lineById.get(cur)?.evolvesFromId;
+      if (from == null) break;
+      cur = from;
+    }
+    return cur;
+  };
   const holding = (id: number, variant: Variant) => {
     const key = encodeKey(id, variant);
     return ownedHere.has(key) || rosterOwned.has(key);
@@ -193,6 +204,7 @@ export async function loadDex(
     const side = exclusives?.get(s.species.id);
     return {
       speciesId: s.species.id,
+      lineRoot: rootOf(s.species.id),
       key,
       entryNumber: s.entryNumber,
       nameEn: s.species.nameEn,

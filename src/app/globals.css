@@ -32,6 +32,9 @@ body {
 .sprite {
   image-rendering: pixelated;
 }
+.sprite-smooth {
+  image-rendering: auto;
+}
 .sprite-silhouette {
   filter: brightness(0) invert(0.35);
 }

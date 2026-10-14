@@ -56,7 +56,7 @@ export function DexGrid({
     all: t('All'),
     missing: t('Missing'),
     caught: t('Caught'),
-    have: t('Have now'),
+    have: t('In team'),
     registered: t('Not in my box'),
   };
   const seed = stateCells ?? cells;
@@ -89,6 +89,13 @@ export function DexGrid({
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
+    // A search also brings the rest of the evolution line of what it finds.
+    const matches = (c: DexCell) =>
+      c.nameEn.toLowerCase().includes(q) ||
+      c.nameEs.toLowerCase().includes(q) ||
+      String(c.entryNumber) === q ||
+      String(c.speciesId) === q;
+    const lines = q ? new Set(cells.filter(matches).map((c) => c.lineRoot)) : null;
     return cells.filter((c) => {
       if (hasUnavailable && onlyInGame && !c.inGame) return false;
       if (filter === 'missing' && caught.has(c.key)) return false;
@@ -97,12 +104,7 @@ export function DexGrid({
       if (filter === 'have' && !have) return false;
       if (filter === 'registered' && !(caught.has(c.key) && !have)) return false;
       if (!q) return true;
-      return (
-        c.nameEn.toLowerCase().includes(q) ||
-        c.nameEs.toLowerCase().includes(q) ||
-        String(c.entryNumber) === q ||
-        String(c.speciesId) === q
-      );
+      return lines!.has(c.lineRoot);
     });
     // `caught` and `notOwned` are deliberately left out: a cell should not vanish
     // from a filtered view the instant it is toggled, only on the next filter change.
@@ -243,7 +245,7 @@ export function DexGrid({
             <span>
               <span className="font-semibold text-ink">{count}</span> / {total} {t('caught')}
               <span className="ml-2">
-                · <span className="font-semibold text-done">{haveCount}</span> {t('have now')}
+                · <span className="font-semibold text-done">{haveCount}</span> {t('in team')}
               </span>
             </span>
             <span>{pct}%</span>
