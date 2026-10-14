@@ -399,6 +399,8 @@ export function RosterBoard({
       const { done, total } = progressOf(p);
       return total ? done / total : 1;
     };
+    // Keepers, then the ones in training, then the rest.
+    const group = (p: RosterView) => (p.keeper ? 0 : p.training ? 1 : 2);
     return [...filtered].sort((a, b) => {
       switch (sort) {
         case 'name':
@@ -408,11 +410,11 @@ export function RosterBoard({
         case 'levelLow':
           return a.level - b.level || byName(a, b);
         case 'complete':
-          // Fully trained first, then by how much is done; ties by name.
-          return ratio(b) - ratio(a) || byName(a, b);
+          // Keepers, training, the rest; in each, fully trained first, then by how much is done; ties by name.
+          return group(a) - group(b) || ratio(b) - ratio(a) || byName(a, b);
         default:
-          // The least finished first.
-          return ratio(a) - ratio(b) || byName(a, b);
+          // The other way round: the rest, training, keepers; in each, the least finished first.
+          return group(b) - group(a) || ratio(a) - ratio(b) || byName(a, b);
       }
     });
   }, [roster, filter, onlyKeeper, onlyTraining, sort, query, lang, name]);
