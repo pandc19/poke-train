@@ -15,6 +15,7 @@ import type { IvRatings } from '@/lib/iv-ratings';
 import type { EditorOptions, RosterView } from '@/lib/roster';
 import type { TaskKey, TaskStatus } from '@/lib/roster-status';
 import { useT } from '@/lib/translate-client';
+import { KeeperIcon } from './KeeperIcon';
 
 type Filter = 'all' | 'pending' | 'done';
 type Sort = 'complete' | 'progress' | 'name' | 'level' | 'levelLow';
@@ -599,7 +600,10 @@ export function RosterBoard({
                 }}
                 className={`rounded-md border px-3 py-1.5 text-xs ${onlyKeeper ? 'border-violet-500/60 bg-violet-500/10 font-semibold text-violet-500' : 'border-line text-muted'}`}
               >
-                ⚔︎ {t('Keeper')}
+                <span className="flex items-center gap-1.5">
+                  <KeeperIcon size={16} />
+                  {t('Keeper')}
+                </span>
               </button>
               <button
                 type="button"

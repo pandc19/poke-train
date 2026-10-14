@@ -11,6 +11,7 @@ import { decodeKey } from '@/lib/dex-variant';
 import type { DexCell } from '@/lib/pokedex';
 import type { Lang } from '@/lib/i18n';
 import { useT } from '@/lib/translate-client';
+import { KeeperIcon } from './KeeperIcon';
 
 type Filter = 'all' | 'missing' | 'caught' | 'have' | 'registered';
 
@@ -365,8 +366,8 @@ export function DexGrid({
                   )}
                   <span className="font-mono text-[11px] text-muted">#{String(c.entryNumber).padStart(3, '0')}</span>
                   {c.keeper ? (
-                    <span className="text-sm leading-none text-violet-500" title={t('Keeper')} aria-label={t('Keeper')}>
-                      ⚔︎
+                    <span className="text-violet-500" title={t('Keeper')} aria-label={t('Keeper')}>
+                      <KeeperIcon size={18} />
                     </span>
                   ) : (
                     <span className="w-3" />

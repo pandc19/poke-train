@@ -15,6 +15,7 @@ import { TYPE_COLORS, TYPE_NAMES_ES, TYPE_SLUGS } from '@/lib/pokemon-types';
 import type { EditorOptions, RosterView } from '@/lib/roster';
 import type { TaskKey, TaskStatus } from '@/lib/roster-status';
 import { useT } from '@/lib/translate-client';
+import { KeeperIcon } from '../KeeperIcon';
 
 type Named = { id: number; nameEn: string; nameEs: string };
 
@@ -478,7 +479,10 @@ export function RosterDetail({
               title={t('A keeper: finished and kept for good. Marked ones show crossed swords and can be filtered.')}
               className={`rounded-md border px-2.5 py-1 ${p.keeper ? 'border-violet-500/60 bg-violet-500/10 font-semibold text-violet-500' : 'border-line text-muted hover:text-ink'}`}
             >
-              ⚔︎ {t('Keeper')}
+              <span className="flex items-center gap-1.5">
+                <KeeperIcon size={16} />
+                {t('Keeper')}
+              </span>
             </button>
             <button
               type="button"
