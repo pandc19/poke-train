@@ -203,8 +203,21 @@ export function BattleBoard({
     </span>
   );
 
-  const renderCounter = (c: CounterView) => (
-    <li key={`${c.source}-${c.formId}`} className="flex gap-2 rounded-lg border border-line p-2 text-xs">
+  async function setBest(o: BattleOpponentView, rosterId: string | null) {
+    setError(null);
+    try {
+      const data = await api<{ opponent: BattleOpponentView }>(`/api/battle/${o.id}`, 'PATCH', { bestRosterId: rosterId });
+      setOpponents((prev) => prev.map((x) => (x.id === o.id ? data.opponent : x)));
+    } catch {
+      setError(t('Could not save that choice. Try again.'));
+    }
+  }
+
+  const renderCounter = (c: CounterView, o: BattleOpponentView) => (
+    <li
+      key={`${c.source}-${c.formId}-${c.rosterId ?? ''}`}
+      className={`flex gap-2 rounded-lg border p-2 text-xs ${c.best ? 'border-star bg-star/10' : 'border-line'}`}
+    >
       <Sprite src={c.spriteUrl} alt={name(c.species)} size={44} />
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-semibold">
@@ -219,6 +232,7 @@ export function BattleBoard({
           >
             {c.source === 'roster' ? t('in your box') : c.have ? t('you have it') : t('not caught yet')}
           </span>
+          {c.best && <span className="rounded bg-star/20 px-1 text-[10px] font-semibold text-star">{t('Best so far')}</span>}
         </p>
         <p>
           {t('Use')} {moveLine(c.move)}
@@ -235,6 +249,15 @@ export function BattleBoard({
               </span>
             ))}
           </p>
+        )}
+        {c.rosterId && (
+          <button
+            type="button"
+            onClick={() => setBest(o, c.best ? null : c.rosterId)}
+            className="mt-1 rounded border border-line px-1.5 py-0.5 text-[11px] hover:bg-surface-2"
+          >
+            {c.best ? t('Not the best anymore') : t('Mark as best')}
+          </button>
         )}
         {c.incoming >= 2 && <p className="text-pending">{t('Weak to its attacks ({mult})', { mult: multLabel(c.incoming) })}</p>}
         {c.incoming < 1 && <p className="text-done">{c.incoming === 0 ? t('Immune to its attacks') : t('Resists its attacks')}</p>}
@@ -390,7 +413,7 @@ export function BattleBoard({
                 {t('Nothing in your roster can hit it well. Add Pokémon to your roster, or look at the suggestions below.')}
               </p>
             ) : (
-              <ul className="grid gap-2 md:grid-cols-2">{o.roster.map(renderCounter)}</ul>
+              <ul className="grid gap-2 md:grid-cols-2">{o.roster.map((c) => renderCounter(c, o))}</ul>
             )}
           </section>
 
@@ -399,7 +422,7 @@ export function BattleBoard({
             {o.suggestions.length === 0 ? (
               <p className="text-xs text-muted">{t('No suggestions: this game has no Pokémon that can hit it well.')}</p>
             ) : (
-              <ul className="grid gap-2 md:grid-cols-2">{o.suggestions.map(renderCounter)}</ul>
+              <ul className="grid gap-2 md:grid-cols-2">{o.suggestions.map((c) => renderCounter(c, o))}</ul>
             )}
           </section>
         </div>

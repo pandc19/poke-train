@@ -47,12 +47,20 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/battle/[id
   const checked = await checkOpponent(game, merged);
   if ('error' in checked) return opponentError(checked.error);
 
-  const { archived } = parsed.data;
+  const { archived, bestRosterId } = parsed.data;
+  if (bestRosterId) {
+    const owned = await prisma.rosterPokemon.findFirst({
+      where: { id: bestRosterId, profileId: current.profileId },
+      select: { id: true },
+    });
+    if (!owned) return apiError('Not in your roster', 400);
+  }
   await prisma.battleOpponent.update({
     where: { id },
     data: {
       ...checked.data,
       ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }),
+      ...(bestRosterId === undefined ? {} : { bestRosterId }),
     },
   });
   const [opponent] = await loadOpponents(game, current.profileId, [id]);

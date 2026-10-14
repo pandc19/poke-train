@@ -31,6 +31,10 @@ export type CounterView = {
   alternatives: (MoveView & { multiplier: number; stab: boolean; known: boolean })[];
   /** Worst hit it takes from the opponent's same-type attacks. */
   incoming: number;
+  /** The roster entry it comes from; null for game suggestions. */
+  rosterId: string | null;
+  /** The one the player marked as the best against this opponent. */
+  best: boolean;
 };
 
 export type BattleOpponentView = {
@@ -328,7 +332,7 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
       rosterCandidates.map((x) => x.candidate),
       8
     );
-    const rosterViews: CounterView[] = rankedRoster.map((c) => {
+    const rosterView = (c: Counter): CounterView => {
       const entry = rosterCandidates[c.ref!];
       return {
         species: { id: entry.f.speciesId, nameEn: entry.f.species.nameEn, nameEs: entry.f.species.nameEs },
@@ -341,8 +345,17 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
         move: withMove(c),
         alternatives: c.alternatives.map((a) => ({ ...moveView(a.id), ...a, id: a.id })),
         incoming: c.incoming,
+        rosterId: entry.r.id,
+        best: entry.r.id === o.bestRosterId,
       };
-    });
+    };
+    // The one marked as best stays first (and in the list) however the ranking changes.
+    const bestEntry = o.bestRosterId ? rosterCandidates.find((x) => x.r.id === o.bestRosterId) : undefined;
+    const [bestCounter] = bestEntry ? rankCounters(chart, input, table, [bestEntry.candidate], 1) : [];
+    const rosterViews: CounterView[] = [
+      ...(bestCounter ? [rosterView(bestCounter)] : []),
+      ...rankedRoster.filter((c) => !bestCounter || c.speciesId !== bestCounter.speciesId).map(rosterView),
+    ].slice(0, 8);
 
     const inRoster = new Set(rosterViews.map((r) => r.species.id));
     const formByIndexId = new Map(index.forms.map((f) => [f.formId, f]));
@@ -370,6 +383,8 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
         move: withMove(c),
         alternatives: c.alternatives.map((a) => ({ ...moveView(a.id), ...a, id: a.id })),
         incoming: c.incoming,
+        rosterId: null,
+        best: false,
       };
     });
 

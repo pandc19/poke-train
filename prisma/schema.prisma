@@ -518,6 +518,8 @@ model BattleOpponent {
   createdAt  DateTime   @default(now()) @map("created_at")
   /// Set when put away: it stays saved but is kept out of the open list.
   archivedAt DateTime?  @map("archived_at")
+  /// The roster entry the player found best against it. Kept across refreshes; a stale id is ignored.
+  bestRosterId String? @map("best_roster_id") @db.Uuid
 
   profile GameProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   species Species     @relation(fields: [speciesId], references: [id])
