@@ -46,6 +46,21 @@ export const ABILITY_TYPE_EFFECTS: Record<string, Record<string, number>> = {
   'purifying-salt': { ghost: 0.5 },
 };
 
+/** Abilities that make its own moves hit harder or more reliably (only the ones that always apply). */
+const ABILITY_OFFENCE: Record<
+  string,
+  { physical?: number; special?: number; stab?: number; weakMoves?: number; physicalAccuracy?: number }
+> = {
+  'huge-power': { physical: 2 },
+  'pure-power': { physical: 2 },
+  hustle: { physical: 1.5, physicalAccuracy: 0.8 },
+  adaptability: { stab: 2 / 1.5 },
+  technician: { weakMoves: 1.5 },
+};
+
+/** Abilities that attack through the opponent's immunity-giving abilities. */
+const IGNORES_ABILITY = new Set(['mold-breaker', 'teravolt', 'turboblaze']);
+
 export type OpponentInput = {
   /** Its own types. */
   types: string[];
@@ -83,6 +98,8 @@ export type Candidate = {
   speciesId: number;
   types: string[];
   stats: BaseStats;
+  /** PokéAPI slug of its ability, when known (roster Pokémon only). */
+  ability?: string | null;
   moves: CandidateMove[];
 };
 
@@ -132,18 +149,22 @@ export function scoreCandidate(
   c: Candidate
 ): Counter | null {
   const oppDef = opponent.stats;
+  const offence = (c.ability && ABILITY_OFFENCE[c.ability]) || {};
+  const ignoresAbility = c.ability != null && IGNORES_ABILITY.has(c.ability);
   const scored = c.moves
     .map((m) => {
-      const mult = weakness[m.type] ?? 1;
+      const mult = ignoresAbility ? multiplier(chart, m.type, defendingTypes(opponent)) : (weakness[m.type] ?? 1);
       if (mult === 0 || m.power <= 0) return null;
       const stab = c.types.includes(m.type);
       const physical = m.damageClass === 'physical';
-      const attackStat = physical ? c.stats.attack : c.stats.specialAttack;
+      const attackStat =
+        (physical ? c.stats.attack : c.stats.specialAttack) * (physical ? (offence.physical ?? 1) : (offence.special ?? 1));
       const defStat = physical ? oppDef.defense : oppDef.specialDefense;
-      const accuracy = (m.accuracy ?? 100) / 100;
+      const accuracy = ((m.accuracy ?? 100) / 100) * (physical ? (offence.physicalAccuracy ?? 1) : 1);
+      const power = m.power * (m.power <= 60 ? (offence.weakMoves ?? 1) : 1);
       // The stat ratio is softened so the type matchup stays the main thing.
       const statRatio = Math.sqrt(attackStat / Math.max(defStat, 30));
-      const value = m.power * mult * (stab ? 1.5 : 1) * accuracy * statRatio;
+      const value = power * mult * (stab ? 1.5 * (offence.stab ?? 1) : 1) * accuracy * statRatio;
       return { m, mult, stab, value };
     })
     .filter((x): x is NonNullable<typeof x> => x != null)
@@ -151,7 +172,11 @@ export function scoreCandidate(
   if (!scored.length) return null;
 
   const best = scored[0];
-  const incoming = Math.max(...attackingTypes(opponent).map((t) => multiplier(chart, t, c.types)));
+  // Its own ability can make it immune to (or resist) a type of the opponent's attacks.
+  const defenceFx = (c.ability && ABILITY_TYPE_EFFECTS[c.ability]) || {};
+  const incoming = Math.max(
+    ...attackingTypes(opponent).map((t) => multiplier(chart, t, c.types) * (defenceFx[t] ?? 1))
+  );
   const bulk = (c.stats.hp * (c.stats.defense + c.stats.specialDefense)) / 2 / 5000;
   const score = best.value * survivability(incoming) * (0.7 + Math.min(bulk, 1.2) * 0.3);
 

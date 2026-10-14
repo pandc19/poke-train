@@ -211,6 +211,7 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
         formId: true,
         nickname: true,
         owned: true,
+        abilityId: true,
         species: { select: { nameEn: true, nameEs: true } },
         moves: { where: { moveId: { not: null } }, select: { moveId: true } },
       },
@@ -245,19 +246,20 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
   const formOf = (speciesId: number, formId: number | null) =>
     (formId != null ? formById.get(formId) : undefined) ?? defaultForm.get(speciesId);
 
-  const abilityIds = [...new Set(rows.flatMap((r) => (r.abilityId ? [r.abilityId] : [])))];
+  const abilityIds = [
+    ...new Set([...rows, ...roster].flatMap((r) => (r.abilityId ? [r.abilityId] : []))),
+  ];
   const abilities = await prisma.ability.findMany({
     where: { id: { in: abilityIds } },
     select: { id: true, slug: true, nameEn: true, nameEs: true },
   });
   const abilityById = new Map(abilities.map((a) => [a.id, a]));
 
-  // Roster candidates: what each knows plus everything its form can learn in this game.
+  // Roster candidates: only the moves each knows now (the player will not retrain them), with its ability.
   const rosterForms = roster.flatMap((r) => {
     const f = formOf(r.speciesId, r.formId);
     return f ? [{ r, f }] : [];
   });
-  const rosterLearn = await learnable(game, [...new Set(rosterForms.map((x) => x.f.id))]);
   const rosterCandidates = rosterForms.map(({ r, f }, ref) => ({
     r,
     f,
@@ -267,8 +269,9 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
       speciesId: f.speciesId,
       types: f.types,
       stats: f.baseStats as BaseStats,
+      ability: r.abilityId ? (abilityById.get(r.abilityId)?.slug ?? null) : null,
       moves: toMoves(
-        rosterLearn.get(f.id) ?? [],
+        [],
         index.moves,
         new Set(r.moves.flatMap((m) => (m.moveId != null ? [m.moveId] : [])))
       ),

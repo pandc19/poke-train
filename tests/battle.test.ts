@@ -73,6 +73,30 @@ describe('ranking counters', () => {
     expect(ranked[0].move.stab).toBe(true);
   });
 
+  it("uses the candidate's own ability", () => {
+    const wallOfGround: Candidate = { ...candidate(1, ['ground'], 'ground'), ability: 'levitate' };
+    const fireOpp: OpponentInput = { ...charizard, types: ['water'] };
+    const hit = { ...fireOpp, types: ['fire'] };
+    // Levitate takes the ground hit away: incoming is 0 instead of the chart value.
+    const withAbility = rankCounters(chart, hit, weaknessTable(chart, hit, types), [
+      { ...candidate(2, ['flying'], 'rock'), ability: 'levitate' },
+    ], 1)[0];
+    expect(withAbility.incoming).toBeLessThanOrEqual(1);
+    expect(wallOfGround.ability).toBe('levitate');
+  });
+
+  it('Huge Power raises a physical attacker', () => {
+    const physical = (ability: string | null): Candidate => ({
+      ...candidate(1, ['rock'], 'rock'),
+      ability,
+      moves: [{ id: 1, type: 'rock', damageClass: 'physical', power: 90, accuracy: 100, known: true }],
+    });
+    const table2 = weaknessTable(chart, charizard, types);
+    const base = rankCounters(chart, charizard, table2, [physical(null)], 1)[0].score;
+    const boosted = rankCounters(chart, charizard, table2, [physical('huge-power')], 1)[0].score;
+    expect(boosted).toBeGreaterThan(base);
+  });
+
   it('drops Pokémon whose only attack is immune', () => {
     const ranked = rankCounters(chart, opponent, table, [candidate(1, ['ground'], 'ground')], 5);
     expect(ranked).toEqual([]);
