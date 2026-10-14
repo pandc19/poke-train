@@ -55,6 +55,14 @@ export function BreedingBoard({
     DONE: t('Done'),
   };
   const [goals, setGoals] = useState(initial);
+  /** Plans that are expanded; the newest one starts open, the rest collapsed. */
+  const [openIds, setOpenIds] = useState<Set<string>>(() => new Set(initial.slice(0, 1).map((g) => g.id)));
+  const toggleOpen = (id: string) =>
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
   const [target, setTarget] = useState('');
   /** One move id (or none) per slot, chosen from the moves the Pokémon can have. */
   const [wanted, setWanted] = useState<(number | null)[]>([null, null, null, null]);
@@ -156,6 +164,7 @@ export function BreedingBoard({
         hiddenAbility,
       });
       setGoals((prev) => [data.goal, ...prev]);
+      setOpenIds((prev) => new Set(prev).add(data.goal.id));
       setTarget('');
       setIvTargets([]);
       setNatureText('');
@@ -668,6 +677,25 @@ export function BreedingBoard({
       {goals.length === 0 ? (
         <p className="py-10 text-center text-sm text-muted">{t('No breeding plans yet. Create one above.')}</p>
       ) : (
+        <>
+          {goals.length > 1 && (
+            <div className="mb-2 flex justify-end gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setOpenIds(new Set(goals.map((g) => g.id)))}
+                className="rounded border border-line px-2 py-1 text-muted hover:text-ink"
+              >
+                {t('Expand all')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpenIds(new Set())}
+                className="rounded border border-line px-2 py-1 text-muted hover:text-ink"
+              >
+                {t('Collapse all')}
+              </button>
+            </div>
+          )}
         <ul className="space-y-4">
           <AnimatePresence initial={false}>
             {goals.map((goal) => {
@@ -675,6 +703,7 @@ export function BreedingBoard({
               const have = plan?.shopping.filter((s) => s.have === 'ready') ?? [];
               const need = plan?.shopping.filter((s) => s.have !== 'ready') ?? [];
               const natural = plan?.moves.filter((m) => m.kind === 'natural') ?? [];
+              const open = openIds.has(goal.id);
               return (
                 <motion.li
                   key={goal.id}
@@ -685,9 +714,21 @@ export function BreedingBoard({
                   className={`rounded-xl border bg-surface p-4 ${goal.status === 'DONE' ? 'border-done/60' : 'border-line'}`}
                 >
                   <div className="flex flex-wrap items-center gap-3">
-                    {pic(goal.species, 56)}
-                    <h3 className="text-base font-semibold">{name(goal.species)}</h3>
-                    {goal.moves.length > 0 && <span className="text-xs text-muted">{goal.moves.map(name).join(' · ')}</span>}
+                    <button
+                      type="button"
+                      onClick={() => toggleOpen(goal.id)}
+                      aria-expanded={open}
+                      className="flex min-w-0 items-center gap-3 text-left"
+                    >
+                      <span aria-hidden="true" className={`text-xs text-muted transition-transform ${open ? 'rotate-90' : ''}`}>
+                        ▶
+                      </span>
+                      {pic(goal.species, 56)}
+                      <h3 className="text-base font-semibold">{name(goal.species)}</h3>
+                      {goal.moves.length > 0 && (
+                        <span className="text-xs font-normal text-muted">{goal.moves.map(name).join(' · ')}</span>
+                      )}
+                    </button>
                     <div className="ml-auto flex items-center gap-2 text-xs">
                       <select
                         value={goal.status}
@@ -707,6 +748,8 @@ export function BreedingBoard({
                     </div>
                   </div>
 
+                  {open && (
+                  <>
                   {(goal.ivTargets.length > 0 || goal.nature || goal.hiddenAbility) && (
                     <p className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
                       {goal.ivTargets.map((s) => (
@@ -783,11 +826,14 @@ export function BreedingBoard({
                       </div>
                     </div>
                   )}
+                  </>
+                  )}
                 </motion.li>
               );
             })}
           </AnimatePresence>
         </ul>
+        </>
       )}
 
       <ConfirmDialog
