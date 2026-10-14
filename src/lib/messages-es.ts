@@ -266,6 +266,8 @@ export const ES: Record<string, string> = {
   'Search the roster': 'Buscar en el equipo',
   'Clear search': 'Borrar búsqueda',
   'Mint given': 'Menta dada',
+  'Raised by the nature': 'Sube con la naturaleza',
+  'Lowered by the nature': 'Baja con la naturaleza',
   'Got it': 'Entendido',
   'Not every IV is known, so its real EVs could add up to {n}. If it is at the limit of 510, the EVs it gains in battle do not count: lower a stat it does not need (with a berry) first.': 'No se conocen todos los IVs, así que sus EVs reales podrían sumar {n}. Si está en el límite de 510, los EVs que gane en combate no cuentan: baja antes una estadística que no necesite (con una baya).',
   'Order by progress': 'Ordenar por progreso',

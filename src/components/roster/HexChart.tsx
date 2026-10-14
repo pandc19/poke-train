@@ -24,6 +24,7 @@ export function HexChart({
   max,
   overlay,
   color,
+  shine = [],
   renderControl,
 }: {
   values: EvSpread;
@@ -32,6 +33,8 @@ export function HexChart({
   overlay?: EvSpread | null;
   /** CSS colour of the filled shape. */
   color: string;
+  /** Corners to make shine (a stat that reached its top). */
+  shine?: Key[];
   renderControl: (key: Key) => React.ReactNode;
 }) {
   const shape = (v: EvSpread) =>
@@ -53,6 +56,22 @@ export function HexChart({
         {overlay && (
           <polygon points={shape(overlay)} fill="none" stroke="currentColor" strokeOpacity={0.7} strokeWidth={1.2} strokeDasharray="3 2" />
         )}
+        {HEX_ORDER.map((key, i) => {
+          if (!shine.includes(key)) return null;
+          const [x, y] = point(i, R).split(',').map(Number);
+          return (
+            <g key={key} className="hex-shine">
+              <circle cx={x} cy={y} r={9} fill="#facc15" fillOpacity={0.28} />
+              <circle cx={x} cy={y} r={4.5} fill="#fde047" stroke="#ca8a04" strokeWidth={1} />
+              {/* a four-point glint */}
+              <path
+                d={`M${x} ${y - 11} L${x + 2} ${y - 2} L${x + 11} ${y} L${x + 2} ${y + 2} L${x} ${y + 11} L${x - 2} ${y + 2} L${x - 11} ${y} L${x - 2} ${y - 2} Z`}
+                fill="#fef08a"
+                fillOpacity={0.9}
+              />
+            </g>
+          );
+        })}
       </svg>
       {HEX_ORDER.map((key, i) => {
         const x = 50 + 43 * Math.cos(angle(i));

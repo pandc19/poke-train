@@ -81,9 +81,15 @@ export function EvGraph({
         if (evs[key] < 252 || over.includes(key)) return null;
         const p = point(i, 1);
         return (
-          <g key={key}>
-            <circle cx={p.x} cy={p.y} r="7" fill="var(--color-done)" fillOpacity="0.25" />
-            <circle cx={p.x} cy={p.y} r="3.5" fill="var(--color-done)" stroke="var(--color-bg)" strokeWidth="1" />
+          <g key={key} className="hex-shine">
+            <circle cx={p.x} cy={p.y} r="8" fill="#facc15" fillOpacity="0.28" />
+            <circle cx={p.x} cy={p.y} r="3.8" fill="#fde047" stroke="#ca8a04" strokeWidth="0.8" />
+            {/* a four-point glint */}
+            <path
+              d={`M${p.x} ${p.y - 9} L${p.x + 1.6} ${p.y - 1.6} L${p.x + 9} ${p.y} L${p.x + 1.6} ${p.y + 1.6} L${p.x} ${p.y + 9} L${p.x - 1.6} ${p.y + 1.6} L${p.x - 9} ${p.y} L${p.x - 1.6} ${p.y - 1.6} Z`}
+              fill="#fef08a"
+              fillOpacity="0.9"
+            />
           </g>
         );
       })}
@@ -116,11 +122,11 @@ export function EvGraph({
                 over.includes(key)
                   ? 'var(--color-pending)'
                   : evs[key] >= 252
-                    ? 'var(--color-done)'
+                    ? '#facc15'
                     : 'var(--color-ink)'
               }
             >
-              {evs[key]}
+              {evs[key] >= 252 && !over.includes(key) ? `✦ ${evs[key]}` : evs[key]}
             </tspan>
           </text>
         );

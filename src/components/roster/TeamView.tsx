@@ -514,6 +514,28 @@ function TeamDetail({
   const natureShown = p.mintNature ?? p.currentNature ?? p.targetNature;
   const nowNature = natureShown;
   const moves = p.moves.flatMap((m) => (m.move ? [m.move] : m.rawName ? [{ nameEn: m.rawName, nameEs: m.rawName, type: '' }] : []));
+  // The stats the nature (or the Mint) in force raises and lowers, marked on both graphs like the game does.
+  const KEY_OF_NATURE: Record<string, keyof EvSpread> = {
+    attack: 'attack',
+    defense: 'defense',
+    'special-attack': 'specialAttack',
+    'special-defense': 'specialDefense',
+    speed: 'speed',
+  };
+  const natureNow = info?.live?.nature ?? info?.nature ?? null;
+  const raised = natureNow?.increased ? KEY_OF_NATURE[natureNow.increased] : null;
+  const lowered = natureNow?.decreased ? KEY_OF_NATURE[natureNow.decreased] : null;
+  const natureMark = (key: keyof EvSpread) =>
+    key === raised ? (
+      <span className="font-bold text-red-500" title={t('Raised by the nature')} aria-label={t('Raised by the nature')}>
+        ↑
+      </span>
+    ) : key === lowered ? (
+      <span className="font-bold text-sky-500" title={t('Lowered by the nature')} aria-label={t('Lowered by the nature')}>
+        ↓
+      </span>
+    ) : null;
+  const natureTint = (key: keyof EvSpread) => (key === raised ? 'text-red-500' : key === lowered ? 'text-sky-500' : 'text-muted');
   const arrow =
     'grid h-9 w-11 place-items-center rounded-md border border-line bg-surface text-sm text-muted active:bg-surface-2 hover:text-ink';
 
@@ -631,7 +653,9 @@ function TeamDetail({
                     ▲
                   </button>
                   <div className="leading-tight">
-                    <span className="block text-[10px] font-semibold uppercase text-muted">{STAT_LABELS[key][lang]}</span>
+                    <span className={`block text-[10px] font-semibold uppercase ${natureTint(key)}`}>
+                      {STAT_LABELS[key][lang]} {natureMark(key)}
+                    </span>
                     <span className="block text-base font-bold tabular-nums">{stats[key]}</span>
                   </div>
                   <button type="button" className={arrow} aria-label={`${STAT_LABELS[key][lang]} −1`} onClick={() => step(key, -1)}>
@@ -655,13 +679,19 @@ function TeamDetail({
               max={252}
               overlay={p.evs}
               color="#22c55e"
+              shine={HEX_ORDER.filter((k) => (evs?.[k] ?? 0) >= 252)}
               renderControl={(key) => {
                 const have = evs?.[key] ?? 0;
                 const plan = p.evs?.[key];
                 return (
                   <div className="w-20 text-center leading-tight">
-                    <span className="block text-[10px] font-semibold uppercase text-muted">{STAT_LABELS[key][lang]}</span>
-                    <span className="block text-base font-bold tabular-nums">{have}</span>
+                    <span className={`block text-[10px] font-semibold uppercase ${natureTint(key)}`}>
+                      {STAT_LABELS[key][lang]} {natureMark(key)}
+                    </span>
+                    <span className={`block text-base font-bold tabular-nums ${have >= 252 ? 'text-yellow-400' : ''}`}>
+                      {have >= 252 && <span aria-hidden>✦ </span>}
+                      {have}
+                    </span>
                     {plan != null && <span className="block text-[10px] text-muted">/ {plan}</span>}
                   </div>
                 );

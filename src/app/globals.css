@@ -63,3 +63,28 @@ body {
     background-position: 40% 0, 0 0;
   }
 }
+
+/* A stat that reached its top in the EV graph: its corner pulses with a glint. */
+.hex-shine {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hex-shine 1.8s ease-in-out infinite;
+}
+
+@keyframes hex-shine {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(0.9) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12) rotate(12deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hex-shine {
+    animation: none;
+  }
+}
