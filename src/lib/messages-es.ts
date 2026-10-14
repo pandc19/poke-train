@@ -630,4 +630,13 @@ export const ES: Record<string, string> = {
   'Add a Pokémon you have to beat, from a raid or any other battle, and see what it is weak to, the strongest moves against it, and which Pokémon of your roster (or of this game) to use. Everything comes from the game data: types, stats and the moves each Pokémon can learn.': 'Añade un Pokémon al que tengas que vencer, de una incursión o de cualquier otro combate, y mira a qué es débil, los movimientos más fuertes contra él y qué Pokémon de tu equipo (o de este juego) usar. Todo sale de los datos del juego: tipos, estadísticas y los movimientos que puede aprender cada Pokémon.',
   'Expand all': 'Expandir todo',
   'Collapse all': 'Contraer todo',
+  'Refresh': 'Actualizar',
+  'Refresh all': 'Actualizar todo',
+  'Archive': 'Archivar',
+  'Restore': 'Restaurar',
+  'Archived ({n})': 'Archivados ({n})',
+  'Could not refresh. Try again.': 'No se pudo actualizar. Inténtalo de nuevo.',
+  'Could not archive that opponent. Try again.': 'No se pudo archivar ese rival. Inténtalo de nuevo.',
+  'Work out the counters again, for example after adding Pokémon to your roster': 'Calcula de nuevo los contrarios, por ejemplo tras añadir Pokémon a tu equipo',
+  'Put it away so it is not shown open; you can bring it back': 'Guárdalo para que no aparezca abierto; puedes recuperarlo',
 };

@@ -14,6 +14,16 @@ async function findOpponent(id: string) {
   });
 }
 
+/** The opponent worked out again from the current roster. */
+export async function GET(_request: Request, ctx: RouteContext<'/api/battle/[id]'>) {
+  const { id } = await ctx.params;
+  const current = await findOpponent(id);
+  const game = current && getGame(current.profile.gameId);
+  if (!current || !game) return apiError('Not found', 404);
+  const [opponent] = await loadOpponents(game, current.profileId, [id]);
+  return Response.json({ opponent });
+}
+
 export async function PATCH(request: Request, ctx: RouteContext<'/api/battle/[id]'>) {
   const { id } = await ctx.params;
   const parsed = UpdateBody.safeParse(await request.json().catch(() => null));
@@ -37,7 +47,14 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/battle/[id
   const checked = await checkOpponent(game, merged);
   if ('error' in checked) return opponentError(checked.error);
 
-  await prisma.battleOpponent.update({ where: { id }, data: checked.data });
+  const { archived } = parsed.data;
+  await prisma.battleOpponent.update({
+    where: { id },
+    data: {
+      ...checked.data,
+      ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }),
+    },
+  });
   const [opponent] = await loadOpponents(game, current.profileId, [id]);
   return Response.json({ opponent });
 }

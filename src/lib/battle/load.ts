@@ -36,6 +36,7 @@ export type CounterView = {
 export type BattleOpponentView = {
   id: string;
   label: string | null;
+  archived: boolean;
   kind: 'RAID' | 'STANDARD';
   stars: number | null;
   teraType: string | null;
@@ -375,6 +376,7 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
     return {
       id: o.id,
       label: o.label,
+      archived: o.archivedAt != null,
       kind: o.kind,
       stars: o.stars,
       teraType: o.teraType,

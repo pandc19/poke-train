@@ -75,7 +75,14 @@ export function BattleBoard({
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<BattleOpponentView | null>(null);
   /** Cards that are expanded; the newest one starts open, the rest collapsed. */
-  const [openIds, setOpenIds] = useState<Set<string>>(() => new Set(initial.slice(0, 1).map((o) => o.id)));
+  const [openIds, setOpenIds] = useState<Set<string>>(
+    () => new Set(initial.filter((o) => !o.archived).slice(0, 1).map((o) => o.id))
+  );
+  /** Opponents being worked out again; "all" while every one is. */
+  const [refreshing, setRefreshing] = useState<Set<string>>(new Set());
+  const [showArchived, setShowArchived] = useState(false);
+  const active = opponents.filter((o) => !o.archived);
+  const archived = opponents.filter((o) => o.archived);
   const toggleOpen = (id: string) =>
     setOpenIds((prev) => {
       const next = new Set(prev);
@@ -149,6 +156,37 @@ export function BattleBoard({
       setOpponents((prev) => prev.filter((x) => x.id !== o.id));
     } catch {
       setError(t('Could not delete that opponent. Try again.'));
+    }
+  }
+
+  /** Works the counters out again, e.g. after the roster changed. */
+  async function refresh(ids: string[]) {
+    setError(null);
+    setRefreshing((prev) => new Set([...prev, ...ids]));
+    try {
+      const results = await Promise.all(
+        ids.map((id) => api<{ opponent: BattleOpponentView }>(`/api/battle/${id}`, 'GET').then((r) => r.opponent))
+      );
+      setOpponents((prev) => prev.map((o) => results.find((r) => r.id === o.id) ?? o));
+    } catch {
+      setError(t('Could not refresh. Try again.'));
+    } finally {
+      setRefreshing((prev) => new Set([...prev].filter((id) => !ids.includes(id))));
+    }
+  }
+
+  async function setArchived(o: BattleOpponentView, value: boolean) {
+    setError(null);
+    try {
+      const data = await api<{ opponent: BattleOpponentView }>(`/api/battle/${o.id}`, 'PATCH', { archived: value });
+      setOpponents((prev) => prev.map((x) => (x.id === o.id ? data.opponent : x)));
+      setOpenIds((prev) => {
+        const next = new Set(prev);
+        next.delete(o.id);
+        return next;
+      });
+    } catch {
+      setError(t('Could not archive that opponent. Try again.'));
     }
   }
 
@@ -256,6 +294,23 @@ export function BattleBoard({
               e.stopPropagation();
             }}
           >
+            <button
+              type="button"
+              disabled={refreshing.has(o.id)}
+              title={t('Work out the counters again, for example after adding Pokémon to your roster')}
+              onClick={() => refresh([o.id])}
+              className="rounded border border-line px-2 py-1 text-xs hover:bg-surface-2 disabled:opacity-40"
+            >
+              {refreshing.has(o.id) ? t('Refreshing…') : t('Refresh')}
+            </button>
+            <button
+              type="button"
+              title={o.archived ? undefined : t('Put it away so it is not shown open; you can bring it back')}
+              onClick={() => setArchived(o, !o.archived)}
+              className="rounded border border-line px-2 py-1 text-xs hover:bg-surface-2"
+            >
+              {o.archived ? t('Restore') : t('Archive')}
+            </button>
             <button
               type="button"
               onClick={() => setDraft(draftOf(o, 'edit'))}
@@ -382,11 +437,19 @@ export function BattleBoard({
         <p className="text-sm text-muted">{t('No opponents yet. Add the Pokémon you have to beat.')}</p>
       ) : (
         <div>
-          {opponents.length > 1 && (
+          {active.length > 0 && (
             <div className="mb-2 flex justify-end gap-2 text-xs">
               <button
                 type="button"
-                onClick={() => setOpenIds(new Set(opponents.map((o) => o.id)))}
+                disabled={refreshing.size > 0}
+                onClick={() => refresh(active.map((o) => o.id))}
+                className="rounded border border-line px-2 py-1 text-muted hover:text-ink disabled:opacity-40"
+              >
+                {refreshing.size > 0 ? t('Refreshing…') : t('Refresh all')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpenIds(new Set(active.map((o) => o.id)))}
                 className="rounded border border-line px-2 py-1 text-muted hover:text-ink"
               >
                 {t('Expand all')}
@@ -400,7 +463,19 @@ export function BattleBoard({
               </button>
             </div>
           )}
-          <div className="space-y-3">{opponents.map(renderOpponent)}</div>
+          <div className="space-y-3">{active.map(renderOpponent)}</div>
+          {archived.length > 0 && (
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={() => setShowArchived((v) => !v)}
+                className="mb-2 text-xs font-medium text-muted hover:text-ink"
+              >
+                {showArchived ? '▼' : '▶'} {t('Archived ({n})', { n: archived.length })}
+              </button>
+              {showArchived && <div className="space-y-3">{archived.map(renderOpponent)}</div>}
+            </div>
+          )}
         </div>
       )}
 

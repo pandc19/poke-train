@@ -501,21 +501,23 @@ enum BattleKind {
 /// A Pokémon the player has to beat, saved so the counters can be looked at again and the
 /// entry cloned (to change the Tera type, say). What to use against it is computed, not stored.
 model BattleOpponent {
-  id        String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  profileId String     @map("profile_id") @db.Uuid
-  speciesId Int        @map("species_id")
+  id         String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  profileId  String     @map("profile_id") @db.Uuid
+  speciesId  Int        @map("species_id")
   /// A specific form (regional form...); null = the species' default form.
-  formId    Int?       @map("form_id")
-  kind      BattleKind @default(STANDARD)
+  formId     Int?       @map("form_id")
+  kind       BattleKind @default(STANDARD)
   /// Tera type of a raid boss; replaces its types when defending. Null = not Terastallized.
-  teraType  String?    @map("tera_type")
+  teraType   String?    @map("tera_type")
   /// Raid star level, 1..7.
-  stars     Int?
-  abilityId Int?       @map("ability_id")
+  stars      Int?
+  abilityId  Int?       @map("ability_id")
   /// The player's own label, e.g. "Charizard 7★ raid".
-  label     String?
-  notes     String?
-  createdAt DateTime   @default(now()) @map("created_at")
+  label      String?
+  notes      String?
+  createdAt  DateTime   @default(now()) @map("created_at")
+  /// Set when put away: it stays saved but is kept out of the open list.
+  archivedAt DateTime?  @map("archived_at")
 
   profile GameProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   species Species     @relation(fields: [speciesId], references: [id])
