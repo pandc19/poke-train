@@ -669,6 +669,17 @@ function BreederDetail({
                       className={inputClass}
                       style={m?.move ? { borderLeftColor: TYPE_COLORS[m.move.type], borderLeftWidth: 3 } : undefined}
                     />
+                    {savedMove(slot) && (
+                      <button
+                        type="button"
+                        onClick={() => void commitMove(slot, '')}
+                        aria-label={t('Remove this move')}
+                        title={t('Remove this move')}
+                        className="shrink-0 rounded border border-line px-2 py-1.5 text-xs text-muted hover:text-red-400"
+                      >
+                        ✕
+                      </button>
+                    )}
                     {m?.move && learnable && (
                       <span
                         className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] ${

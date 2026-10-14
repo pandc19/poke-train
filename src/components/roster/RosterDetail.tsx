@@ -659,6 +659,17 @@ export function RosterDetail({
                       onCommit={(text) => commitMove(slot, text)}
                       className={inputClass}
                     />
+                    {savedMove(slot) && (
+                      <button
+                        type="button"
+                        onClick={() => void commitMove(slot, '')}
+                        aria-label={t('Remove this move')}
+                        title={t('Remove this move')}
+                        className="shrink-0 rounded border border-line px-2 py-1.5 text-xs text-muted hover:text-red-400"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 );
               })}
