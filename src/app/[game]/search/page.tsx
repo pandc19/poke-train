@@ -12,7 +12,7 @@ export default async function SearchPage({ params }: PageProps<'/[game]/search'>
     <div>
       <h1 className="text-xl font-bold">{t('{game} roster search', { game: game.shortName })}</h1>
       <p className="mb-5 mt-1 max-w-3xl text-sm text-muted">
-        {t('Find the Pokémon in your roster by what they have. Add a move and you get every Pokémon that knows it.')}
+        {t('Find the Pokémon in your roster by what they have. Add a move or an ability and you get every Pokémon that has it.')}
       </p>
       <SearchBoard gameId={game.id} roster={roster} lang={lang} accent={game.theme.accent} />
     </div>

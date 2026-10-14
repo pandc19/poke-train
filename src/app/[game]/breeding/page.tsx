@@ -62,6 +62,7 @@ export default async function BreedingPage({ params }: PageProps<'/[game]/breedi
         natures={natures}
         lang={lang}
         aiEnabled={getAiProvider() != null}
+        picnic={game.features.mirrorHerb}
         rosterBuilds={roster
           .filter((p) => p.moves.some((m) => m.move))
           .map((p) => ({

@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { useEffect, useRef, useState } from 'react';
 import { AiBadge } from './AiBadge';
 import { ConfirmDialog } from './Dialog';
+import { HatchDialog } from './HatchDialog';
 import { ComboInput } from './roster/parts';
 import { Sprite } from './Sprite';
 import { useCachedLocations } from './useCachedLocations';
@@ -21,6 +21,44 @@ type RosterBuild = { speciesId: number; species: Named; moves: Named[] };
 type LocationState = { busy: boolean; result?: LocationResult; error?: string };
 
 const inputClass = 'w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm placeholder:text-muted';
+/** One green per stage, from a quiet one for planned to a bright one for done. */
+const STAGE_COLOR: Record<BreedingGoalView['status'], string> = {
+  PLANNED: '#5b8f7b',
+  IN_PROGRESS: '#34d399',
+  DONE: '#4ade80',
+};
+
+/** The egg that says where a plan is: still, rocking about to hatch, or hatched. */
+function StageBadge({ status, label, size = 'md' }: { status: BreedingGoalView['status']; label?: string; size?: 'sm' | 'md' }) {
+  const color = STAGE_COLOR[status];
+  const icon =
+    status === 'DONE' ? (
+      <span className="egg-hatch">🐣</span>
+    ) : status === 'IN_PROGRESS' ? (
+      <span className="egg-wobble">🥚</span>
+    ) : (
+      <span className="opacity-50 grayscale">🥚</span>
+    );
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border font-medium ${
+        size === 'sm' ? 'px-1.5 py-0 text-[10px]' : 'px-2.5 py-0.5 text-xs'
+      }`}
+      style={{
+        color,
+        borderColor: `${color}80`,
+        backgroundColor: `${color}1a`,
+        boxShadow: status === 'DONE' ? `0 0 10px ${color}55` : undefined,
+      }}
+    >
+      <span aria-hidden="true" className={size === 'sm' ? 'text-xs' : 'text-base leading-none'}>
+        {icon}
+      </span>
+      {label}
+    </span>
+  );
+}
+
 const symbol = (g?: 'male' | 'female') => (g === 'male' ? '♂ ' : g === 'female' ? '♀ ' : '');
 
 export function BreedingBoard({
@@ -32,6 +70,7 @@ export function BreedingBoard({
   lang,
   aiEnabled,
   rosterBuilds,
+  picnic,
 }: {
   gameId: string;
   initial: BreedingGoalView[];
@@ -42,6 +81,8 @@ export function BreedingBoard({
   lang: Lang;
   aiEnabled: boolean;
   rosterBuilds: RosterBuild[];
+  /** The game has picnics (Egg Power sandwiches). */
+  picnic: boolean;
 }) {
   const { t } = useT();
   const optionTitles: Record<MoveOption['kind'], string> = {
@@ -55,14 +96,18 @@ export function BreedingBoard({
     DONE: t('Done'),
   };
   const [goals, setGoals] = useState(initial);
-  /** Plans that are expanded; the newest one starts open, the rest collapsed. */
-  const [openIds, setOpenIds] = useState<Set<string>>(() => new Set(initial.slice(0, 1).map((g) => g.id)));
-  const toggleOpen = (id: string) =>
-    setOpenIds((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
+  /** The plan whose details are shown; the newest one to begin with. */
+  const [selectedId, setSelectedId] = useState<string | null>(initial[0]?.id ?? null);
+  const selected = goals.find((g) => g.id === selectedId) ?? goals[0] ?? null;
+  const detailRef = useRef<HTMLDivElement>(null);
+  const select = (id: string) => {
+    setSelectedId(id);
+    // On a narrow screen the details sit below the list.
+    if (!window.matchMedia('(min-width: 1024px)').matches) {
+      requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+  };
+  const [hatchOpen, setHatchOpen] = useState(false);
   const [target, setTarget] = useState('');
   /** One move id (or none) per slot, chosen from the moves the Pokémon can have. */
   const [wanted, setWanted] = useState<(number | null)[]>([null, null, null, null]);
@@ -164,7 +209,7 @@ export function BreedingBoard({
         hiddenAbility,
       });
       setGoals((prev) => [data.goal, ...prev]);
-      setOpenIds((prev) => new Set(prev).add(data.goal.id));
+      setSelectedId(data.goal.id);
       setTarget('');
       setIvTargets([]);
       setNatureText('');
@@ -267,9 +312,22 @@ export function BreedingBoard({
             {name(item.species)} <span className="text-xs font-normal text-muted">· {roleLabel(goal, item)}</span>
           </p>
         </div>
-        <p className={item.have === 'ready' ? 'text-done' : item.have === 'caught' ? 'text-star' : 'text-pending'}>
-          {describe(goal, item)}
+        <p className="mt-1">
+          <span
+            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+              item.have === 'ready'
+                ? 'bg-done/15 text-done'
+                : item.have === 'caught'
+                  ? 'bg-star/15 text-star'
+                  : 'bg-pending/15 text-pending'
+            }`}
+          >
+            {item.have === 'ready' ? t('Ready') : item.have === 'caught' ? t('Check it') : t('You need it')}
+          </span>
         </p>
+        {item.have !== 'ready' && (
+          <p className={`mt-1 ${item.have === 'caught' ? 'text-star' : 'text-pending'}`}>{describe(goal, item)}</p>
+        )}
         {canLookUp && (
           <button
             onClick={() =>
@@ -385,27 +443,48 @@ export function BreedingBoard({
   const sourceLabel = (p: ParentPick) =>
     p.source === 'breeder' ? t('from your breeders') : p.source === 'roster' ? t('from your roster') : t('from your Pokédex, IVs unknown');
 
-  const renderPick = (p: ParentPick, role: string) => (
-    <li key={role} className="rounded-lg border border-line p-2">
-      <div className="flex items-center gap-2">
-        {pic(p.species, 48)}
-        <p className="text-sm font-semibold">
-          {p.gender === 'female' ? '♀ ' : p.gender === 'male' ? '♂ ' : ''}
-          {p.label ?? name(p.species)}
-          {p.label && <span className="text-xs font-normal text-muted"> · {name(p.species)}</span>}
-          <span className="text-xs font-normal text-muted"> · {role}</span>
-        </p>
-      </div>
-      <p className="text-muted">
-        {sourceLabel(p)}
-        {p.perfect.length > 0 && ` · ${t('perfect')}: ${statList(p.perfect)}`}
-      </p>
-    </li>
-  );
+  /** A parent to put in the nursery: the Pokémon chosen for it, whether you have it, and what it brings. */
+  const renderParent = (goal: BreedingGoalView, role: string, pick: ParentPick | null, item: ShoppingItem | undefined) => {
+    const species = pick?.species ?? item?.species;
+    if (!species) return null;
+    const have = item?.have ?? 'ready';
+    const sex = pick ? (pick.gender === 'any' ? undefined : pick.gender) : item?.gender;
+    return (
+      <li key={role} className="rounded-lg border border-line p-3 text-xs">
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">{role}</p>
+        <div className="flex items-center gap-2">
+          {pic(species, 56)}
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">
+              {symbol(sex)}
+              {pick?.label ?? name(species)}
+              {pick?.label && <span className="text-xs font-normal text-muted"> · {name(species)}</span>}
+            </p>
+            {pick && (
+              <p className="text-muted">
+                {sourceLabel(pick)}
+                {pick.perfect.length > 0 ? ` · ${t('perfect')}: ${statList(pick.perfect)}` : ''}
+              </p>
+            )}
+          </div>
+          <span
+            className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+              have === 'ready' ? 'bg-done/15 text-done' : have === 'caught' ? 'bg-star/15 text-star' : 'bg-pending/15 text-pending'
+            }`}
+          >
+            {have === 'ready' ? t('Ready') : have === 'caught' ? t('Check it') : t('You need it')}
+          </span>
+        </div>
+        {item && have !== 'ready' && (
+          <p className={`mt-1 ${have === 'caught' ? 'text-star' : 'text-pending'}`}>{describe(goal, item)}</p>
+        )}
+      </li>
+    );
+  };
 
   const renderIvs = (goal: BreedingGoalView, ivs: IvPlan) => {
     const heading = (
-      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t('Best parents for the IVs')}</h4>
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t('What to expect from the egg')}</h4>
     );
     if (ivs.reason === 'no-breeding') return null;
     if (ivs.reason === 'no-base' || ivs.reason === 'no-partner' || !ivs.base || !ivs.partner) {
@@ -425,10 +504,6 @@ export function BreedingBoard({
     return (
       <div className="mt-4">
         {heading}
-        <ul className="grid gap-2 text-xs sm:grid-cols-2">
-          {renderPick(ivs.base, t('the egg takes its species'))}
-          {renderPick(ivs.partner, ivs.partner.species.id === 132 ? t('Ditto') : t('father'))}
-        </ul>
         {ivs.targets.length > 0 && (
           <p className="mt-2 text-xs">
             {t('Chance that all of {stats} come out perfect:', { stats: statList(ivs.targets) })}{' '}
@@ -547,8 +622,155 @@ export function BreedingBoard({
     </div>
   );
 
+  /** Whether the parents of a plan are all at hand, in a few words for the list and the summary. */
+  const readiness = (goal: BreedingGoalView) => {
+    const plan = goal.plan;
+    if (!plan) return { label: '', tone: 'text-muted', need: [] as ShoppingItem[] };
+    if (!plan.parents.canBreed) return { label: t('Cannot breed'), tone: 'text-red-400', need: [] as ShoppingItem[] };
+    const need = plan.shopping.filter((s) => s.have !== 'ready');
+    return need.length === 0
+      ? { label: t('Ready to breed'), tone: 'text-done', need }
+      : { label: t('Missing {n}', { n: need.length }), tone: 'text-pending', need };
+  };
+
+  const renderGoal = (goal: BreedingGoalView) => {
+    const plan = goal.plan;
+    const state = readiness(goal);
+    // The pair for the nursery: the specimens the IV plan chose, with their entry in the shopping list.
+    const ivs = goal.ivs && goal.ivs.base && goal.ivs.partner ? goal.ivs : null;
+    const motherPick = ivs?.base ?? null;
+    const partnerPick = ivs?.partner ?? null;
+    const shopping = plan?.shopping ?? [];
+    const motherItem = shopping.find((s) => s.role === 'mother');
+    const partnerItem = partnerPick
+      ? shopping.find((s) => s.species.id === partnerPick.species.id && (s.role === 'father' || s.role === 'ditto'))
+      : (shopping.find((s) => s.role === 'ditto') ?? shopping.find((s) => s.role === 'father'));
+    // What is left (fathers that know a move, donors...), what is missing first.
+    const others = shopping
+      .filter((s) => s !== motherItem && s !== partnerItem)
+      .sort((a, b) => Number(a.have === 'ready') - Number(b.have === 'ready'));
+    const natural = plan?.moves.filter((m) => m.kind === 'natural') ?? [];
+    return (
+      <div
+        className="rounded-xl border bg-surface p-4"
+        style={{ borderColor: `${STAGE_COLOR[goal.status]}${goal.status === 'PLANNED' ? '55' : 'aa'}` }}
+      >
+        <div className="flex flex-wrap items-center gap-3">
+          {pic(goal.species, 64)}
+          <div className="min-w-0 flex-1">
+            <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold">
+              {name(goal.species)}
+              <StageBadge status={goal.status} label={statusLabels[goal.status]} />
+            </h3>
+            {goal.moves.length > 0 && <p className="text-xs text-muted">{goal.moves.map(name).join(' · ')}</p>}
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <select
+              value={goal.status}
+              onChange={(e) => setStatus(goal.id, e.target.value as BreedingGoalView['status'])}
+              aria-label={t('Plan status')}
+              className="rounded-md border border-line bg-surface px-2 py-1"
+            >
+              {Object.entries(statusLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <button onClick={() => setDeleting(goal)} className="text-muted hover:text-red-400">
+              {t('Delete')}
+            </button>
+          </div>
+        </div>
+
+        {(goal.ivTargets.length > 0 || goal.nature || goal.hiddenAbility) && (
+          <p className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+            {goal.ivTargets.map((s) => (
+              <span key={s} className="rounded border border-done/50 bg-done/10 px-1.5 py-0.5 text-done">
+                {STAT_LABELS[s][lang]} 31
+              </span>
+            ))}
+            {goal.nature && <span className="rounded border border-line px-1.5 py-0.5">{name(goal.nature)}</span>}
+            {goal.hiddenAbility && <span className="rounded border border-line px-1.5 py-0.5">{t('Hidden ability')}</span>}
+          </p>
+        )}
+
+        {plan && !plan.parents.canBreed && (
+          <p className="mt-3 text-sm text-red-400">
+            {t('{name} cannot breed (it is in the "no eggs" group), so it has to be caught.', { name: name(goal.species) })}
+          </p>
+        )}
+
+        {plan && plan.parents.canBreed && (
+          <>
+            <div
+              className={`mt-3 rounded-lg px-3 py-2 text-sm font-medium ${
+                state.need.length === 0 ? 'bg-done/10 text-done' : 'bg-pending/10 text-pending'
+              }`}
+            >
+              {state.need.length === 0
+                ? t('You have everything. Go breed!')
+                : t('Still missing: {names}', { names: state.need.map((s) => name(s.species)).join(', ') })}
+            </div>
+            <h4 className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-muted">
+              {t('1. Parents to put in the nursery')}
+            </h4>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {renderParent(goal, t('Mother (the egg hatches as her species)'), motherPick, motherItem)}
+              {renderParent(goal, partnerItem?.role === 'ditto' || partnerPick?.species.id === 132 ? t('Ditto') : t('Father'), partnerPick, partnerItem)}
+            </ul>
+            {others.length > 0 && (
+              <>
+                <h4 className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-muted">
+                  {t('2. Also needed for the moves')}
+                </h4>
+                <ul className="grid gap-2 xl:grid-cols-2">{others.map((s, i) => renderItem(goal, s, i))}</ul>
+              </>
+            )}
+            <p className="mt-3 text-xs text-muted">
+              {t('The egg hatches as')} <span className="text-ink">{name(plan.parents.hatchesAs)}</span>
+              {plan.parents.needsDitto ? `. ${t('This Pokémon can only breed with Ditto.')}` : '.'}{' '}
+              {t('This list updates itself from what you record in your Pokédex, roster and breeders.')}
+            </p>
+          </>
+        )}
+
+        {goal.ivs && plan?.parents.canBreed && renderIvs(goal, goal.ivs)}
+        {renderBring(goal)}
+
+        {plan && (natural.length > 0 || plan.moves.some((m) => m.kind !== 'natural')) && (
+          <div className="mt-4">
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t('Moves')}</h4>
+            {natural.length > 0 && (
+              <p className="mb-2 text-xs text-muted">
+                {t('No breeding needed for')}{' '}
+                <span className="text-ink">{natural.map((m) => moveName(goal, m.moveId)).join(', ')}</span>:{' '}
+                {natural.length > 1
+                  ? t('{name} learns them normally.', { name: name(goal.species) })
+                  : t('{name} learns it normally.', { name: name(goal.species) })}
+              </p>
+            )}
+            <div className="grid gap-3 xl:grid-cols-2">
+              {plan.moves.filter((m) => m.kind !== 'natural').map((m) => renderMove(goal, m))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div>
+      <div className="mb-3 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setHatchOpen(true)}
+          className="rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:bg-surface-2"
+        >
+          🥚 {t('Hatch eggs faster')}
+        </button>
+      </div>
+      <HatchDialog open={hatchOpen} onClose={() => setHatchOpen(false)} gameId={gameId} lang={lang} picnic={picnic} />
       <form onSubmit={create} className="mb-6 rounded-xl border border-line bg-surface p-4">
         <div className="grid gap-3 md:grid-cols-[1.2fr_repeat(4,1fr)]">
           <label className="block">
@@ -677,162 +899,45 @@ export function BreedingBoard({
       {goals.length === 0 ? (
         <p className="py-10 text-center text-sm text-muted">{t('No breeding plans yet. Create one above.')}</p>
       ) : (
-        <>
-          {goals.length > 1 && (
-            <div className="mb-2 flex justify-end gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => setOpenIds(new Set(goals.map((g) => g.id)))}
-                className="rounded border border-line px-2 py-1 text-muted hover:text-ink"
-              >
-                {t('Expand all')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setOpenIds(new Set())}
-                className="rounded border border-line px-2 py-1 text-muted hover:text-ink"
-              >
-                {t('Collapse all')}
-              </button>
-            </div>
-          )}
-        <ul className="space-y-4">
-          <AnimatePresence initial={false}>
-            {goals.map((goal) => {
-              const plan = goal.plan;
-              const have = plan?.shopping.filter((s) => s.have === 'ready') ?? [];
-              const need = plan?.shopping.filter((s) => s.have !== 'ready') ?? [];
-              const natural = plan?.moves.filter((m) => m.kind === 'natural') ?? [];
-              const open = openIds.has(goal.id);
-              return (
-                <motion.li
-                  key={goal.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className={`rounded-xl border bg-surface p-4 ${goal.status === 'DONE' ? 'border-done/60' : 'border-line'}`}
-                >
-                  <div className="flex flex-wrap items-center gap-3">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+          <aside className="lg:sticky lg:top-[calc(var(--nav-h)+1rem)] lg:max-h-[calc(100vh-var(--nav-h)-2rem)] lg:self-start lg:overflow-y-auto">
+            <ul className="space-y-1.5">
+              {goals.map((goal) => {
+                const on = goal.id === selected?.id;
+                const state = readiness(goal);
+                return (
+                  <li key={goal.id}>
                     <button
                       type="button"
-                      onClick={() => toggleOpen(goal.id)}
-                      aria-expanded={open}
-                      className="flex min-w-0 items-center gap-3 text-left"
+                      onClick={() => select(goal.id)}
+                      aria-current={on ? 'true' : undefined}
+                      className={`flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left ${
+                        on ? 'border-done bg-surface-2' : 'border-line bg-surface hover:bg-surface-2'
+                      }`}
+                      style={{ borderLeftColor: STAGE_COLOR[goal.status], borderLeftWidth: 4 }}
                     >
-                      <span aria-hidden="true" className={`text-xs text-muted transition-transform ${open ? 'rotate-90' : ''}`}>
-                        ▶
-                      </span>
-                      {pic(goal.species, 56)}
-                      <h3 className="text-base font-semibold">{name(goal.species)}</h3>
-                      {goal.moves.length > 0 && (
-                        <span className="text-xs font-normal text-muted">{goal.moves.map(name).join(' · ')}</span>
-                      )}
-                    </button>
-                    <div className="ml-auto flex items-center gap-2 text-xs">
-                      <select
-                        value={goal.status}
-                        onChange={(e) => setStatus(goal.id, e.target.value as BreedingGoalView['status'])}
-                        aria-label={t('Plan status')}
-                        className="rounded-md border border-line bg-surface px-2 py-1"
-                      >
-                        {Object.entries(statusLabels).map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                      <button onClick={() => setDeleting(goal)} className="text-muted hover:text-red-400">
-                        {t('Delete')}
-                      </button>
-                    </div>
-                  </div>
-
-                  {open && (
-                  <>
-                  {(goal.ivTargets.length > 0 || goal.nature || goal.hiddenAbility) && (
-                    <p className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
-                      {goal.ivTargets.map((s) => (
-                        <span key={s} className="rounded border border-done/50 bg-done/10 px-1.5 py-0.5 text-done">
-                          {STAT_LABELS[s][lang]} 31
+                      {pic(goal.species, 40)}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{name(goal.species)}</span>
+                        {goal.moves.length > 0 && (
+                          <span className="block truncate text-[11px] text-muted">{goal.moves.map(name).join(' · ')}</span>
+                        )}
+                        <span className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                          <span className={state.tone}>{state.label}</span>
+                          <StageBadge status={goal.status} label={statusLabels[goal.status]} size="sm" />
                         </span>
-                      ))}
-                      {goal.nature && (
-                        <span className="rounded border border-line px-1.5 py-0.5">{name(goal.nature)}</span>
-                      )}
-                      {goal.hiddenAbility && (
-                        <span className="rounded border border-line px-1.5 py-0.5">{t('Hidden ability')}</span>
-                      )}
-                    </p>
-                  )}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </aside>
 
-                  {plan && !plan.parents.canBreed && (
-                    <p className="mt-3 text-sm text-red-400">
-                      {t('{name} cannot breed (it is in the "no eggs" group), so it has to be caught.', {
-                        name: name(goal.species),
-                      })}
-                    </p>
-                  )}
-
-                  {plan && plan.parents.canBreed && (
-                    <>
-                      <p className="mt-2 text-xs text-muted">
-                        {t('The egg hatches as')} <span className="text-ink">{name(plan.parents.hatchesAs)}</span>
-                        {plan.parents.needsDitto ? `. ${t('This Pokémon can only breed with Ditto.')}` : '.'}{' '}
-                        {t('This list updates itself from what you record in your Pokédex, roster and breeders.')}
-                      </p>
-                      <div className="mt-3 grid gap-4 lg:grid-cols-2">
-                        <div>
-                          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-done">
-                            {t('You have')} ({have.length})
-                          </h4>
-                          {have.length ? (
-                            <ul className="space-y-2">{have.map((s, i) => renderItem(goal, s, i))}</ul>
-                          ) : (
-                            <p className="text-xs text-muted">{t('Nothing usable yet.')}</p>
-                          )}
-                        </div>
-                        <div>
-                          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-pending">
-                            {t('You still need')} ({need.length})
-                          </h4>
-                          {need.length ? (
-                            <ul className="space-y-2">{need.map((s, i) => renderItem(goal, s, i))}</ul>
-                          ) : (
-                            <p className="text-xs text-done">{t('You have everything. Go breed!')}</p>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {goal.ivs && plan?.parents.canBreed && renderIvs(goal, goal.ivs)}
-                  {renderBring(goal)}
-
-                  {plan && (natural.length > 0 || plan.moves.some((m) => m.kind !== 'natural')) && (
-                    <div className="mt-4">
-                      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t('Moves')}</h4>
-                      {natural.length > 0 && (
-                        <p className="mb-2 text-xs text-muted">
-                          {t('No breeding needed for')}{' '}
-                          <span className="text-ink">{natural.map((m) => moveName(goal, m.moveId)).join(', ')}</span>:{' '}
-                          {natural.length > 1
-                            ? t('{name} learns them normally.', { name: name(goal.species) })
-                            : t('{name} learns it normally.', { name: name(goal.species) })}
-                        </p>
-                      )}
-                      <div className="grid gap-3 lg:grid-cols-2">
-                        {plan.moves.filter((m) => m.kind !== 'natural').map((m) => renderMove(goal, m))}
-                      </div>
-                    </div>
-                  )}
-                  </>
-                  )}
-                </motion.li>
-              );
-            })}
-          </AnimatePresence>
-        </ul>
-        </>
+          <div ref={detailRef} className="min-w-0 scroll-mt-16">
+            {selected && renderGoal(selected)}
+          </div>
+        </div>
       )}
 
       <ConfirmDialog

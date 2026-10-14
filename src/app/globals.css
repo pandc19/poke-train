@@ -88,3 +88,57 @@ body {
     animation: none;
   }
 }
+
+/* A breeding plan in progress: the egg rocks as if it were about to hatch. */
+.egg-wobble {
+  display: inline-block;
+  transform-origin: 50% 90%;
+  animation: egg-wobble 1.6s ease-in-out infinite;
+}
+
+@keyframes egg-wobble {
+  0%,
+  55%,
+  100% {
+    transform: rotate(0deg);
+  }
+  62% {
+    transform: rotate(-14deg);
+  }
+  72% {
+    transform: rotate(12deg);
+  }
+  82% {
+    transform: rotate(-8deg);
+  }
+  92% {
+    transform: rotate(6deg);
+  }
+}
+
+/* A finished plan: the chick pops out once, with a ring of light. */
+.egg-hatch {
+  display: inline-block;
+  animation: egg-hatch 0.9s cubic-bezier(0.2, 1.4, 0.4, 1) 1;
+}
+
+@keyframes egg-hatch {
+  0% {
+    transform: scale(0.4) translateY(6px);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.25) translateY(-4px);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .egg-wobble,
+  .egg-hatch {
+    animation: none;
+  }
+}

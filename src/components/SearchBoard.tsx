@@ -10,15 +10,20 @@ import { useT } from '@/lib/translate-client';
 
 type MoveRef = { id: number; nameEn: string; nameEs: string; type: string };
 
-/** What a search can ask for. Only moves for now: add a kind here and to `matches` to search by something else. */
-type Criterion = { kind: 'move'; move: MoveRef };
+type AbilityRef = { id: number; nameEn: string; nameEs: string };
+
+/** What a search can ask for: add a kind here and to `matches` to search by something else. */
+type Criterion = { kind: 'move'; move: MoveRef } | { kind: 'ability'; ability: AbilityRef };
+
+const keyOf = (c: Criterion) => (c.kind === 'move' ? `move:${c.move.id}` : `ability:${c.ability.id}`);
 
 const plain = (text: string) =>
   text.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’‘]/g, "'").trim().toLowerCase();
 
-const matches = (p: RosterView, c: Criterion) => p.moves.some((m) => m.move?.id === c.move.id);
+const matches = (p: RosterView, c: Criterion) =>
+  c.kind === 'move' ? p.moves.some((m) => m.move?.id === c.move.id) : p.ability?.id === c.ability.id;
 
-/** Search the roster by any of its features, starting with moves. Every criterion must match. */
+/** Search the roster by what its Pokémon have: moves and abilities. Every criterion must match. */
 export function SearchBoard({
   gameId,
   roster,
@@ -51,6 +56,18 @@ export function SearchBoard({
     return [...byId.values()].sort((a, b) => b.count - a.count || a.move.nameEn.localeCompare(b.move.nameEn));
   }, [roster]);
 
+  // Same for abilities: the ones a roster Pokémon has now.
+  const knownAbilities = useMemo(() => {
+    const byId = new Map<number, { ability: AbilityRef; count: number }>();
+    for (const p of roster) {
+      if (!p.ability) continue;
+      const row = byId.get(p.ability.id) ?? { ability: p.ability, count: 0 };
+      row.count++;
+      byId.set(p.ability.id, row);
+    }
+    return [...byId.values()].sort((a, b) => b.count - a.count || a.ability.nameEn.localeCompare(b.ability.nameEn));
+  }, [roster]);
+
   const results = useMemo(
     () => (criteria.length ? roster.filter((p) => criteria.every((c) => matches(p, c))) : []),
     [roster, criteria]
@@ -60,6 +77,24 @@ export function SearchBoard({
     setError(null);
     setCriteria((prev) => (prev.some((c) => c.kind === 'move' && c.move.id === move.id) ? prev : [...prev, { kind: 'move', move }]));
   };
+
+  const addAbility = (ability: AbilityRef) => {
+    setError(null);
+    setCriteria((prev) =>
+      prev.some((c) => c.kind === 'ability' && c.ability.id === ability.id) ? prev : [...prev, { kind: 'ability', ability }]
+    );
+  };
+
+  function commitAbility(text: string) {
+    const q = plain(text);
+    if (!q) return;
+    const hit = knownAbilities.find((k) => plain(k.ability.nameEn) === q || plain(k.ability.nameEs) === q);
+    if (!hit) {
+      setError(t('No Pokémon in your roster has the ability "{name}". Pick one from the suggestions.', { name: text.trim() }));
+      return;
+    }
+    addAbility(hit.ability);
+  }
 
   function commit(text: string) {
     const q = plain(text);
@@ -73,6 +108,7 @@ export function SearchBoard({
   }
 
   const common = known.slice(0, 12);
+  const commonAbilities = knownAbilities.slice(0, 12);
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
@@ -112,6 +148,36 @@ export function SearchBoard({
           )}
         </section>
 
+        <section className="rounded-xl border border-line bg-surface p-4">
+          <h2 className="mb-2 text-sm font-semibold">{t('Ability')}</h2>
+          <ComboInput
+            list="search-abilities"
+            value=""
+            placeholder={t('Type an ability name…')}
+            aria-label={t('Ability')}
+            onCommit={commitAbility}
+            className="w-full rounded-md border border-line bg-bg px-3 py-1.5 text-sm placeholder:text-muted"
+          />
+          {commonAbilities.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-1 text-[11px] uppercase tracking-wide text-muted">{t('Most common in your roster')}</p>
+              <ul className="flex flex-wrap gap-1.5">
+                {commonAbilities.map(({ ability, count }) => (
+                  <li key={ability.id}>
+                    <button
+                      type="button"
+                      onClick={() => addAbility(ability)}
+                      className="rounded-full border border-line px-2.5 py-1 text-xs hover:border-muted"
+                    >
+                      {name(ability)} <span className="text-muted">{count}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+
         {criteria.length > 0 && (
           <section className="rounded-xl border border-line bg-surface p-4">
             <div className="mb-2 flex items-center justify-between">
@@ -122,15 +188,24 @@ export function SearchBoard({
             </div>
             <ul className="flex flex-wrap gap-1.5">
               {criteria.map((c) => (
-                <li key={c.move.id}>
+                <li key={keyOf(c)}>
                   <button
                     type="button"
                     onClick={() => setCriteria((prev) => prev.filter((x) => x !== c))}
                     title={t('Remove')}
                     className="flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-xs"
                   >
-                    <TypeBadge type={c.move.type} lang={lang} />
-                    {name(c.move)}
+                    {c.kind === 'move' ? (
+                      <>
+                        <TypeBadge type={c.move.type} lang={lang} />
+                        {name(c.move)}
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-[10px] uppercase text-muted">{t('Ability')}</span>
+                        {name(c.ability)}
+                      </>
+                    )}
                     <span aria-hidden className="text-muted">
                       ✕
                     </span>
@@ -148,14 +223,14 @@ export function SearchBoard({
       <section>
         {criteria.length === 0 ? (
           <p className="rounded-xl border border-dashed border-line p-8 text-center text-sm text-muted">
-            {t('Choose a move to see which Pokémon of your roster have it.')}
+            {t('Choose a move or an ability to see which Pokémon of your roster have it.')}
           </p>
         ) : (
           <>
             <p className="mb-3 text-sm text-muted">{t('{n} Pokémon', { n: results.length })}</p>
             {results.length === 0 ? (
               <p className="rounded-xl border border-dashed border-line p-8 text-center text-sm text-muted">
-                {t('No Pokémon in your roster has all of those moves.')}
+                {t('No Pokémon in your roster has all of those.')}
               </p>
             ) : (
               <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -173,10 +248,21 @@ export function SearchBoard({
                           {p.nickname ? `${name(p.species)} · ` : ''}
                           {t('Lv. {level}', { level: p.level })}
                         </p>
+                        {p.ability && (
+                          <p
+                            className={`mt-1 text-[11px] ${
+                              criteria.some((c) => c.kind === 'ability' && c.ability.id === p.ability!.id)
+                                ? 'text-done'
+                                : 'text-muted'
+                            }`}
+                          >
+                            {t('Ability')}: {name(p.ability)}
+                          </p>
+                        )}
                         <ul className="mt-1.5 flex flex-wrap gap-1">
                           {p.moves.map((m) => {
                             if (!m.move && !m.rawName) return null;
-                            const hit = m.move != null && criteria.some((c) => c.move.id === m.move!.id);
+                            const hit = m.move != null && criteria.some((c) => c.kind === 'move' && c.move.id === m.move!.id);
                             return (
                               <li
                                 key={m.slot}
@@ -200,6 +286,11 @@ export function SearchBoard({
         )}
       </section>
 
+      <datalist id="search-abilities">
+        {knownAbilities.map(({ ability }) => (
+          <option key={ability.id} value={name(ability)} label={other(ability)} />
+        ))}
+      </datalist>
       <datalist id="search-moves">
         {known.map(({ move }) => (
           <option key={move.id} value={name(move)} label={other(move)} />
