@@ -15,7 +15,7 @@ import type { IvRatings } from '@/lib/iv-ratings';
 import type { EditorOptions, RosterView } from '@/lib/roster';
 import type { TaskKey, TaskStatus } from '@/lib/roster-status';
 import { useT } from '@/lib/translate-client';
-import { KeeperIcon } from './KeeperIcon';
+import { KeeperIcon, TrainingIcon } from './KeeperIcon';
 
 type Filter = 'all' | 'pending' | 'done';
 type Sort = 'complete' | 'progress' | 'name' | 'level' | 'levelLow';
@@ -596,6 +596,7 @@ export function RosterBoard({
                 aria-pressed={onlyKeeper}
                 onClick={() => {
                   setOnlyKeeper(!onlyKeeper);
+                  setOnlyTraining(false);
                   setPage(0);
                 }}
                 className={`rounded-md border px-3 py-1.5 text-xs ${onlyKeeper ? 'border-violet-500/60 bg-violet-500/10 font-semibold text-violet-500' : 'border-line text-muted'}`}
@@ -610,11 +611,15 @@ export function RosterBoard({
                 aria-pressed={onlyTraining}
                 onClick={() => {
                   setOnlyTraining(!onlyTraining);
+                  setOnlyKeeper(false);
                   setPage(0);
                 }}
-                className={`rounded-md border px-3 py-1.5 text-xs ${onlyTraining ? 'border-pending/60 bg-pending/10 font-semibold text-pending' : 'border-line text-muted'}`}
+                className={`rounded-md border px-3 py-1.5 text-xs ${onlyTraining ? 'border-teal-500/60 bg-teal-500/10 font-semibold text-teal-500' : 'border-line text-muted'}`}
               >
-                {t('Training')}
+                <span className="flex items-center gap-1.5">
+                  <TrainingIcon size={16} />
+                  {t('Training')}
+                </span>
               </button>
               <div className="flex rounded-md border border-line text-xs">
                 {(['all', 'pending', 'done'] as const).map((f) => (

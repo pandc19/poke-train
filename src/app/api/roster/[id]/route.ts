@@ -175,8 +175,13 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
         where: { id: rosterId },
         data: {
           nickname: set.nickname,
-          keeper: set.keeper,
-          training: set.training,
+          // A keeper is finished and kept, so it is not being trained, and the other way round.
+          ...(set.keeper === true ? { keeper: true, training: false } : set.keeper === false ? { keeper: false } : {}),
+          ...(set.training === true && set.keeper !== true
+            ? { training: true, keeper: false }
+            : set.training === false && set.keeper === undefined
+              ? { training: false }
+              : {}),
           gender: set.gender,
           notes: set.notes,
           teraType: set.teraType,

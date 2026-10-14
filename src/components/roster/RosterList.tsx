@@ -6,7 +6,7 @@ import { PokemonSprite, progressOf } from './parts';
 import type { Lang } from '@/lib/i18n';
 import type { RosterView } from '@/lib/roster';
 import { useT } from '@/lib/translate-client';
-import { KeeperIcon } from '../KeeperIcon';
+import { KeeperIcon, TrainingIcon } from '../KeeperIcon';
 
 export const PAGE_SIZE = 12;
 
@@ -99,6 +99,11 @@ export function RosterList({
                       {p.keeper && (
                         <span className="text-violet-500" title={t('Keeper')} aria-label={t('Keeper')}>
                           <KeeperIcon size={20} />
+                        </span>
+                      )}
+                      {p.training && (
+                        <span className="text-teal-500" title={t('Training')} aria-label={t('Training')}>
+                          <TrainingIcon size={20} />
                         </span>
                       )}
                       <span>{t('Lv. {level}', { level: p.level })}</span>

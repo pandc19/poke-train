@@ -15,7 +15,7 @@ import { TYPE_COLORS, TYPE_NAMES_ES, TYPE_SLUGS } from '@/lib/pokemon-types';
 import type { EditorOptions, RosterView } from '@/lib/roster';
 import type { TaskKey, TaskStatus } from '@/lib/roster-status';
 import { useT } from '@/lib/translate-client';
-import { KeeperIcon } from '../KeeperIcon';
+import { KeeperIcon, TrainingIcon } from '../KeeperIcon';
 
 type Named = { id: number; nameEn: string; nameEs: string };
 
@@ -488,10 +488,13 @@ export function RosterDetail({
               type="button"
               aria-pressed={p.training}
               onClick={() => save({ training: !p.training })}
-              title={t('Being trained right now. It can be filtered.')}
-              className={`rounded-md border px-2.5 py-1 ${p.training ? 'border-pending/60 bg-pending/10 font-semibold text-pending' : 'border-line text-muted hover:text-ink'}`}
+              title={t('Being trained right now. A keeper is not being trained, so marking one clears the other.')}
+              className={`rounded-md border px-2.5 py-1 ${p.training ? 'border-teal-500/60 bg-teal-500/10 font-semibold text-teal-500' : 'border-line text-muted hover:text-ink'}`}
             >
-              {t('Training')}
+              <span className="flex items-center gap-1.5">
+                <TrainingIcon size={16} />
+                {t('Training')}
+              </span>
             </button>
           </div>
           <StagePanel p={p} label={label} onStage={onStage} />
