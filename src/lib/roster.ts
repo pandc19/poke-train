@@ -246,7 +246,7 @@ export async function loadEditorOptions(game: GameConfig) {
               in: [
                 'held-items', 'choice', 'bad-held-items', 'type-enhancement', 'species-specific', 'plates',
                 'in-a-pinch', 'picky-healing', 'type-protection', 'medicine', 'other', 'effort-training',
-                'training', 'scarves', 'jewels', 'mega-stones', 'z-crystals', 'memories', 'held-items-other',
+                'training', 'scarves', 'jewels', 'mega-stones', 'z-crystals', 'memories', 'held-items-other', 'tera-shard',
               ],
             },
           },
