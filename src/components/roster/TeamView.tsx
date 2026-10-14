@@ -409,6 +409,64 @@ export function TeamView({
   );
 }
 
+/**
+ * An arrow button that repeats while it is held: once on press, then after a short pause again and again,
+ * faster the longer it is held. Keyboard presses (Enter/Space) act once per press.
+ */
+function HoldButton({
+  onAct,
+  className,
+  children,
+  ...rest
+}: {
+  onAct: () => void;
+  className?: string;
+  children: React.ReactNode;
+  'aria-label': string;
+}) {
+  const act = useRef(onAct);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Kept current after every render, so a repeat uses the latest values.
+  useEffect(() => {
+    act.current = onAct;
+  });
+  const stop = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  useEffect(() => stop, []);
+  const repeat = (delay: number) => {
+    timer.current = setTimeout(() => {
+      act.current();
+      repeat(Math.max(40, delay * 0.85));
+    }, delay);
+  };
+  return (
+    <button
+      type="button"
+      {...rest}
+      className={`${className ?? ''} touch-none select-none`}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        stop();
+        act.current();
+        repeat(400);
+      }}
+      onPointerUp={stop}
+      onPointerCancel={stop}
+      onLostPointerCapture={stop}
+      onContextMenu={(e) => e.preventDefault()}
+      // A pointer press already acted; a click with no pointer (the keyboard) acts here.
+      onClick={(e) => {
+        if (e.detail === 0) act.current();
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
 /** One team member: the quick facts, the stats with arrows, and the EVs they imply. Remounted per Pokémon. */
 function TeamDetail({
   p,
@@ -479,11 +537,14 @@ function TeamDetail({
     timer.current = setTimeout(flush, SAVE_DELAY_MS);
   };
 
+  // Reads the latest values, not the render's, so a held arrow keeps adding up between renders.
   const step = (key: keyof EvSpread, d: number) => {
-    const base = stats ?? baseline;
+    const base = latest.current.stats ?? baseline;
     if (!base) return;
-    touch({ ...base, [key]: Math.min(999, Math.max(1, base[key] + d)) }, level);
+    touch({ ...base, [key]: Math.min(999, Math.max(1, base[key] + d)) }, latest.current.level);
   };
+  const stepLevel = (d: number) =>
+    touch(latest.current.stats, Math.min(100, Math.max(1, latest.current.level + d)));
 
   const iv = ivAssumption(p.potential);
   const range = useMemo(
@@ -618,13 +679,13 @@ function TeamDetail({
               <h3 className="text-sm font-semibold">{t('Stats')}</h3>
               <div className="flex items-center gap-1.5 text-sm">
                 <span className="text-muted">{t('Level')}</span>
-                <button type="button" className={arrow} aria-label={t('Lower the level')} onClick={() => touch(stats, Math.max(1, level - 1))}>
+                <HoldButton className={arrow} aria-label={t('Lower the level')} onAct={() => stepLevel(-1)}>
                   ▼
-                </button>
+                </HoldButton>
                 <span className="w-8 text-center font-semibold tabular-nums">{level}</span>
-                <button type="button" className={arrow} aria-label={t('Raise the level')} onClick={() => touch(stats, Math.min(100, level + 1))}>
+                <HoldButton className={arrow} aria-label={t('Raise the level')} onAct={() => stepLevel(1)}>
                   ▲
-                </button>
+                </HoldButton>
               </div>
             </div>
             {hints?.overTotal != null && (
@@ -651,18 +712,18 @@ function TeamDetail({
               color="#3b82f6"
               renderControl={(key) => (
                 <div className="flex w-24 flex-col items-center gap-1 text-center">
-                  <button type="button" className={arrow} aria-label={`${STAT_LABELS[key][lang]} +1`} onClick={() => step(key, 1)}>
+                  <HoldButton className={arrow} aria-label={`${STAT_LABELS[key][lang]} +1`} onAct={() => step(key, 1)}>
                     ▲
-                  </button>
+                  </HoldButton>
                   <div className="leading-tight">
                     <span className={`block text-[10px] font-semibold uppercase ${natureTint(key)}`}>
                       {STAT_LABELS[key][lang]} {natureMark(key)}
                     </span>
                     <span className="block text-base font-bold tabular-nums">{stats[key]}</span>
                   </div>
-                  <button type="button" className={arrow} aria-label={`${STAT_LABELS[key][lang]} −1`} onClick={() => step(key, -1)}>
+                  <HoldButton className={arrow} aria-label={`${STAT_LABELS[key][lang]} −1`} onAct={() => step(key, -1)}>
                     ▼
-                  </button>
+                  </HoldButton>
                 </div>
               )}
             />
