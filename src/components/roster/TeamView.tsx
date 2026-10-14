@@ -603,7 +603,7 @@ function TeamDetail({
     'grid h-9 w-11 place-items-center rounded-md border border-line bg-surface text-sm text-muted active:bg-surface-2 hover:text-ink';
 
   return (
-    <article className="space-y-4 rounded-xl border border-line bg-surface p-4">
+    <article className="@container space-y-4 rounded-xl border border-line bg-surface p-4">
       {/* quick facts */}
       <header className="flex flex-wrap items-start gap-3">
         <PokemonSprite p={p} size={72} />
@@ -672,7 +672,8 @@ function TeamDetail({
           {t('There is no data to draw the graphs for this Pokémon.')}
         </p>
       ) : (
-        <>
+        // Side by side when there is room, so the stats can be changed with the EVs they give in view.
+        <div className="grid gap-x-8 gap-y-4 @[54rem]:grid-cols-2">
           {/* stats */}
           <section>
             <div className="mb-1 flex items-center justify-between gap-3">
@@ -769,7 +770,7 @@ function TeamDetail({
             )}
             {/* The plan in numbers: what is still to train in each stat, and which ones to stop at. */}
             {p.evs ? (
-              <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
+              <ul className="mt-3 grid grid-cols-3 gap-2">
                 {HEX_ORDER.map((key) => {
                   const have = evs?.[key] ?? 0;
                   const target = p.evs![key];
@@ -815,12 +816,12 @@ function TeamDetail({
               </p>
             )}
             <p className="mt-1 text-center text-[11px] text-muted">
-              {range ? t('Worked out from the stats above.') : t('The EVs on record.')}
+              {range ? t('Worked out from the stats.') : t('The EVs on record.')}
               {p.evs ? ` ${t('The dashed line is your plan.')}` : ''}
               {natureShown ? '' : ` ${t('Its nature is not set, so none is applied.')}`}
             </p>
           </section>
-        </>
+        </div>
       )}
     </article>
   );

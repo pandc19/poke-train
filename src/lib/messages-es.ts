@@ -289,7 +289,7 @@ export const ES: Record<string, string> = {
   'No EV plan yet. Fix one in the audit or set a target in the full details.': 'Aún no hay plan de EVs. Fíjalo en la auditoría o pon un objetivo en los detalles completos.',
   'The dashed line is your plan.': 'La línea discontinua es tu plan.',
   'The EVs on record.': 'Los EVs guardados.',
-  'Worked out from the stats above.': 'Calculados a partir de las estadísticas de arriba.',
+  'Worked out from the stats.': 'Calculados a partir de las estadísticas.',
   'EVs': 'EVs',
   'Raise the level': 'Subir el nivel',
   'Lower the level': 'Bajar el nivel',
