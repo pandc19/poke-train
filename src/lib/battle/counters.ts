@@ -122,6 +122,8 @@ export type Counter = {
   move: { id: number; multiplier: number; stab: boolean; known: boolean };
   /** Worst hit it takes from the opponent's same-type attacks (0 = immune, 4 = double weak). */
   incoming: number;
+  /** Its base Speed is above the opponent's, so it moves first. */
+  faster: boolean;
   /** Other good moves of different types, best first, for coverage. */
   alternatives: { id: number; multiplier: number; stab: boolean; known: boolean }[];
 };
@@ -178,7 +180,9 @@ export function scoreCandidate(
     ...attackingTypes(opponent).map((t) => multiplier(chart, t, c.types) * (defenceFx[t] ?? 1))
   );
   const bulk = (c.stats.hp * (c.stats.defense + c.stats.specialDefense)) / 2 / 5000;
-  const score = best.value * survivability(incoming) * (0.7 + Math.min(bulk, 1.2) * 0.3);
+  const faster = c.stats.speed > opponent.stats.speed;
+  // Moving first is worth a lot when the hit it takes is not the end of it.
+  const score = best.value * survivability(incoming) * (0.7 + Math.min(bulk, 1.2) * 0.3) * (faster ? 1.15 : 1);
 
   // Moves of other types that also hit well, for coverage.
   const seen = new Set([best.m.type]);
@@ -196,11 +200,29 @@ export function scoreCandidate(
     score,
     move: { id: best.m.id, multiplier: best.mult, stab: best.stab, known: best.m.known },
     incoming,
+    faster,
     alternatives,
   };
 }
 
-/** Best counters first. Keeps one entry per species. */
+/**
+ * Safe first: 0 = hits it super effectively and resists (or is immune to) its attacks, 1 = hits it
+ * super effectively and takes neutral damage, 2 and 3 = the same with neutral hits, 4 = the rest
+ * (weak to it, or its best hit is resisted). Lower is better.
+ */
+export function safetyTier(c: Pick<Counter, 'incoming' | 'move'>): number {
+  const resists = c.incoming <= 0.5;
+  const neutralOrBetter = c.incoming <= 1;
+  const superEffective = c.move.multiplier >= 2;
+  const notResisted = c.move.multiplier >= 1;
+  if (superEffective && resists) return 0;
+  if (superEffective && neutralOrBetter) return 1;
+  if (notResisted && resists) return 2;
+  if (notResisted && neutralOrBetter) return 3;
+  return 4;
+}
+
+/** Best counters first: by safety tier, then score. Keeps one entry per species. */
 export function rankCounters(
   chart: TypeChart,
   opponent: OpponentInput,
@@ -215,5 +237,7 @@ export function rankCounters(
     const prev = bySpecies.get(r.speciesId);
     if (!prev || r.score > prev.score) bySpecies.set(r.speciesId, r);
   }
-  return [...bySpecies.values()].sort((a, b) => b.score - a.score).slice(0, limit);
+  return [...bySpecies.values()]
+    .sort((a, b) => safetyTier(a) - safetyTier(b) || b.score - a.score)
+    .slice(0, limit);
 }

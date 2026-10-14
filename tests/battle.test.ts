@@ -4,6 +4,7 @@ import {
   defendingTypes,
   multiplier,
   rankCounters,
+  safetyTier,
   weaknessTable,
   type BaseStats,
   type Candidate,
@@ -107,5 +108,25 @@ describe('ranking counters', () => {
       candidate(3, ['water'], 'water'),
     ], 5);
     expect(water.incoming).toBe(0.5);
+  });
+
+  it('puts the safe super-effective hitter before a stronger one that is weak to it', () => {
+    const fire = { ...opponent, types: ['fire'] };
+    const fireTable = weaknessTable(chart, fire, types);
+    // Water is x2 on fire and resists it; the rock one hits as hard but is only neutral on defence.
+    const brute = { ...candidate(1, ['rock'], 'rock', 150), stats: { ...stats, attack: 200, specialAttack: 200 } };
+    const safe = candidate(2, ['water'], 'water', 60);
+    const weak = { ...candidate(3, ['grass'], 'rock', 150), types: ['grass'] };
+    const ranked = rankCounters(chart, fire, fireTable, [brute, safe, weak], 5);
+    expect(ranked.map((c) => safetyTier(c))).toEqual([...ranked.map((c) => safetyTier(c))].sort((a, b) => a - b));
+    expect(ranked[0].speciesId).toBe(2);
+  });
+
+  it('a faster Pokémon outranks an identical slower one', () => {
+    const slow = candidate(1, ['water'], 'water');
+    const fast = { ...candidate(2, ['water'], 'water'), stats: { ...stats, speed: 120 } };
+    const [first] = rankCounters(chart, { ...opponent, types: ['fire'] }, weaknessTable(chart, { ...opponent, types: ['fire'] }, types), [slow, fast], 5);
+    expect(first.speciesId).toBe(2);
+    expect(first.faster).toBe(true);
   });
 });

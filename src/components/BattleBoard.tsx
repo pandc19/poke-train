@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ConfirmDialog } from './Dialog';
 import { Sprite } from './Sprite';
 import { TypeBadge } from './TypeBadge';
@@ -74,21 +74,22 @@ export function BattleBoard({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<BattleOpponentView | null>(null);
-  /** Cards that are expanded; the newest one starts open, the rest collapsed. */
-  const [openIds, setOpenIds] = useState<Set<string>>(
-    () => new Set(initial.filter((o) => !o.archived).slice(0, 1).map((o) => o.id))
-  );
-  /** Opponents being worked out again; "all" while every one is. */
+  /** Opponents being worked out again. */
   const [refreshing, setRefreshing] = useState<Set<string>>(new Set());
   const [showArchived, setShowArchived] = useState(false);
   const active = opponents.filter((o) => !o.archived);
   const archived = opponents.filter((o) => o.archived);
-  const toggleOpen = (id: string) =>
-    setOpenIds((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
+  /** The opponent whose details are shown; the newest one to begin with. */
+  const [selectedId, setSelectedId] = useState<string | null>(initial.find((o) => !o.archived)?.id ?? initial[0]?.id ?? null);
+  const selected = opponents.find((o) => o.id === selectedId) ?? active[0] ?? null;
+  const detailRef = useRef<HTMLDivElement>(null);
+  const select = (id: string) => {
+    setSelectedId(id);
+    // On a narrow screen the details sit below the list.
+    if (typeof window !== 'undefined' && !window.matchMedia('(min-width: 1024px)').matches) {
+      requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+  };
 
   const name = (x: Named) => (lang === 'en' ? x.nameEn : x.nameEs);
   const typeName = (type: string) => <TypeBadge key={type} type={type} lang={lang} />;
@@ -139,7 +140,7 @@ export function BattleBoard({
       } else {
         const data = await api<{ opponent: BattleOpponentView }>('/api/battle', 'POST', { gameId, ...body });
         setOpponents((prev) => [data.opponent, ...prev]);
-        setOpenIds((prev) => new Set(prev).add(data.opponent.id));
+        setSelectedId(data.opponent.id);
       }
       setDraft(null);
     } catch (err) {
@@ -154,6 +155,7 @@ export function BattleBoard({
     try {
       await api(`/api/battle/${o.id}`, 'DELETE');
       setOpponents((prev) => prev.filter((x) => x.id !== o.id));
+      setSelectedId((cur) => (cur === o.id ? null : cur));
     } catch {
       setError(t('Could not delete that opponent. Try again.'));
     }
@@ -180,11 +182,6 @@ export function BattleBoard({
     try {
       const data = await api<{ opponent: BattleOpponentView }>(`/api/battle/${o.id}`, 'PATCH', { archived: value });
       setOpponents((prev) => prev.map((x) => (x.id === o.id ? data.opponent : x)));
-      setOpenIds((prev) => {
-        const next = new Set(prev);
-        next.delete(o.id);
-        return next;
-      });
     } catch {
       setError(t('Could not archive that opponent. Try again.'));
     }
@@ -213,11 +210,12 @@ export function BattleBoard({
     }
   }
 
-  const renderCounter = (c: CounterView, o: BattleOpponentView) => (
+  const renderCounter = (c: CounterView, o: BattleOpponentView, rank: number) => (
     <li
       key={`${c.source}-${c.formId}-${c.rosterId ?? ''}`}
       className={`flex gap-2 rounded-lg border p-2 text-xs ${c.best ? 'border-star bg-star/10' : 'border-line'}`}
     >
+      <span className="w-4 shrink-0 pt-1 text-center text-[11px] font-semibold text-muted">{rank}</span>
       <Sprite src={c.spriteUrl} alt={name(c.species)} size={44} />
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-semibold">
@@ -231,6 +229,9 @@ export function BattleBoard({
             }`}
           >
             {c.source === 'roster' ? t('in your box') : c.have ? t('you have it') : t('not caught yet')}
+          </span>
+          <span className="rounded bg-surface-2 px-1 text-[10px] font-medium text-muted">
+            {c.faster ? t('Faster than it') : t('Slower than it')}
           </span>
           {c.best && <span className="rounded bg-star/20 px-1 text-[10px] font-semibold text-star">{t('Best so far')}</span>}
         </p>
@@ -265,6 +266,39 @@ export function BattleBoard({
     </li>
   );
 
+  const renderListItem = (o: BattleOpponentView) => {
+    const on = o.id === selected?.id;
+    return (
+      <li key={o.id}>
+        <button
+          type="button"
+          onClick={() => select(o.id)}
+          aria-current={on ? 'true' : undefined}
+          className={`flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left ${
+            on ? 'border-done bg-surface-2' : 'border-line bg-surface hover:bg-surface-2'
+          }`}
+        >
+          <Sprite src={o.spriteUrl} alt={name(o.species)} size={40} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium">{name(o.species)}</span>
+            <span className="flex flex-wrap items-center gap-1">
+              {o.types.map((ty) => (
+                <TypeBadge key={ty} type={ty} lang={lang} small />
+              ))}
+              {o.kind === 'RAID' && (
+                <span className="rounded bg-star/20 px-1 text-[10px] font-semibold text-star">
+                  {o.stars ? `${o.stars}★` : t('Raid')}
+                </span>
+              )}
+              {o.teraType && <TypeBadge type={o.teraType} lang={lang} small />}
+            </span>
+            {o.label && <span className="block truncate text-[11px] text-muted">{o.label}</span>}
+          </span>
+        </button>
+      </li>
+    );
+  };
+
   const renderOpponent = (o: BattleOpponentView) => {
     const groups: { label: string; items: typeof o.weaknesses; tone: string }[] = [
       { label: t('Very weak (×4)'), items: o.weaknesses.filter((w) => w.multiplier >= 4), tone: 'text-done' },
@@ -275,18 +309,8 @@ export function BattleBoard({
     ].filter((g) => g.items.length > 0);
 
     return (
-      <details key={o.id} open={openIds.has(o.id)} className="rounded-xl border border-line bg-surface">
-        <summary
-          onClick={(e) => {
-            // The open state lives in React so "collapse all" works; the browser must not toggle it too.
-            e.preventDefault();
-            toggleOpen(o.id);
-          }}
-          className="flex cursor-pointer list-none flex-wrap items-center gap-3 p-3"
-        >
-          <span aria-hidden="true" className={`text-xs text-muted transition-transform ${openIds.has(o.id) ? 'rotate-90' : ''}`}>
-            ▶
-          </span>
+      <div key={o.id} className="rounded-xl border border-line bg-surface">
+        <div className="flex flex-wrap items-center gap-3 p-3">
           <Sprite src={o.spriteUrl} alt={name(o.species)} size={56} />
           <div className="min-w-0 flex-1">
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-semibold">
@@ -310,13 +334,7 @@ export function BattleBoard({
               {[o.label, o.ability ? `${t('Ability')}: ${name(o.ability)}` : null].filter(Boolean).join(' · ')}
             </p>
           </div>
-          <div
-            className="flex gap-1.5"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-          >
+                    <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
               disabled={refreshing.has(o.id)}
@@ -357,7 +375,7 @@ export function BattleBoard({
               {t('Delete')}
             </button>
           </div>
-        </summary>
+        </div>
 
         <div className="space-y-4 border-t border-line p-3">
           {o.notes && <p className="text-xs text-muted">{o.notes}</p>}
@@ -413,7 +431,7 @@ export function BattleBoard({
                 {t('Nothing in your roster can hit it well. Add Pokémon to your roster, or look at the suggestions below.')}
               </p>
             ) : (
-              <ul className="grid gap-2 md:grid-cols-2">{o.roster.map((c) => renderCounter(c, o))}</ul>
+              <ul className="grid gap-2 md:grid-cols-2">{o.roster.map((c, i) => renderCounter(c, o, i + 1))}</ul>
             )}
           </section>
 
@@ -422,11 +440,11 @@ export function BattleBoard({
             {o.suggestions.length === 0 ? (
               <p className="text-xs text-muted">{t('No suggestions: this game has no Pokémon that can hit it well.')}</p>
             ) : (
-              <ul className="grid gap-2 md:grid-cols-2">{o.suggestions.map((c) => renderCounter(c, o))}</ul>
+              <ul className="grid gap-2 md:grid-cols-2">{o.suggestions.map((c, i) => renderCounter(c, o, i + 1))}</ul>
             )}
           </section>
         </div>
-      </details>
+      </div>
     );
   };
 
@@ -459,46 +477,44 @@ export function BattleBoard({
       {opponents.length === 0 ? (
         <p className="text-sm text-muted">{t('No opponents yet. Add the Pokémon you have to beat.')}</p>
       ) : (
-        <div>
-          {active.length > 0 && (
-            <div className="mb-2 flex justify-end gap-2 text-xs">
-              <button
-                type="button"
-                disabled={refreshing.size > 0}
-                onClick={() => refresh(active.map((o) => o.id))}
-                className="rounded border border-line px-2 py-1 text-muted hover:text-ink disabled:opacity-40"
-              >
-                {refreshing.size > 0 ? t('Refreshing…') : t('Refresh all')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setOpenIds(new Set(active.map((o) => o.id)))}
-                className="rounded border border-line px-2 py-1 text-muted hover:text-ink"
-              >
-                {t('Expand all')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setOpenIds(new Set())}
-                className="rounded border border-line px-2 py-1 text-muted hover:text-ink"
-              >
-                {t('Collapse all')}
-              </button>
-            </div>
-          )}
-          <div className="space-y-3">{active.map(renderOpponent)}</div>
-          {archived.length > 0 && (
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={() => setShowArchived((v) => !v)}
-                className="mb-2 text-xs font-medium text-muted hover:text-ink"
-              >
-                {showArchived ? '▼' : '▶'} {t('Archived ({n})', { n: archived.length })}
-              </button>
-              {showArchived && <div className="space-y-3">{archived.map(renderOpponent)}</div>}
-            </div>
-          )}
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+          <aside className="lg:sticky lg:top-[calc(var(--nav-h)+1rem)] lg:max-h-[calc(100vh-var(--nav-h)-2rem)] lg:self-start lg:overflow-y-auto">
+            {active.length > 0 && (
+              <div className="mb-2 flex justify-end text-xs">
+                <button
+                  type="button"
+                  disabled={refreshing.size > 0}
+                  onClick={() => refresh(active.map((o) => o.id))}
+                  className="rounded border border-line px-2 py-1 text-muted hover:text-ink disabled:opacity-40"
+                >
+                  {refreshing.size > 0 ? t('Refreshing…') : t('Refresh all')}
+                </button>
+              </div>
+            )}
+            <ul className="space-y-1.5">{active.map(renderListItem)}</ul>
+            {archived.length > 0 && (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowArchived((v) => !v)}
+                  className="mb-2 text-xs font-medium text-muted hover:text-ink"
+                >
+                  {showArchived ? '▼' : '▶'} {t('Archived ({n})', { n: archived.length })}
+                </button>
+                {showArchived && <ul className="space-y-1.5">{archived.map(renderListItem)}</ul>}
+              </div>
+            )}
+          </aside>
+
+          <div ref={detailRef} className="min-w-0 scroll-mt-16">
+            {selected ? (
+              renderOpponent(selected)
+            ) : (
+              <p className="rounded-xl border border-dashed border-line px-6 py-16 text-center text-sm text-muted">
+                {t('Select an opponent to see its counters.')}
+              </p>
+            )}
+          </div>
         </div>
       )}
 

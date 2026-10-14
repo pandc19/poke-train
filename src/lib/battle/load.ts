@@ -31,6 +31,8 @@ export type CounterView = {
   alternatives: (MoveView & { multiplier: number; stab: boolean; known: boolean })[];
   /** Worst hit it takes from the opponent's same-type attacks. */
   incoming: number;
+  /** It moves before the opponent (higher base Speed). */
+  faster: boolean;
   /** The roster entry it comes from; null for game suggestions. */
   rosterId: string | null;
   /** The one the player marked as the best against this opponent. */
@@ -360,6 +362,7 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
         move: withMove(c),
         alternatives: c.alternatives.map((a) => ({ ...moveView(a.id), ...a, id: a.id })),
         incoming: c.incoming,
+        faster: c.faster,
         rosterId: entry.r.id,
         best: entry.r.id === o.bestRosterId,
       };
@@ -376,10 +379,7 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
     const formByIndexId = new Map(index.forms.map((f) => [f.formId, f]));
     // Suggestions are spread over move types (at most three of each) so they are not all one kind.
     const perType = new Map<string, number>();
-    // Super-effective hits come first (best score within each group): a raw-power neutral move
-    // should not outrank a move that hits its weakness.
     const rankedGame = rankCounters(chart, input, table, index.forms, 80)
-      .sort((a, b) => Number(b.move.multiplier >= 2) - Number(a.move.multiplier >= 2) || b.score - a.score)
       .filter((c) => !inRoster.has(c.speciesId))
       .filter((c) => {
         const type = index.moves.get(c.move.id)?.type ?? '';
@@ -401,6 +401,7 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
         move: withMove(c),
         alternatives: c.alternatives.map((a) => ({ ...moveView(a.id), ...a, id: a.id })),
         incoming: c.incoming,
+        faster: c.faster,
         rosterId: null,
         best: false,
       };
