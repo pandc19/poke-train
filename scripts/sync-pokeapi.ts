@@ -12,7 +12,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { prisma } from '../src/lib/db';
 import { GAMES, NATIONAL_DEX_SLUG } from '../src/lib/games';
-import { SPANISH_FIXES } from '../src/lib/spanish-fixes';
+import { SPANISH_FIX_BY_SLUG } from '../src/lib/spanish-fixes';
 
 const API = 'https://pokeapi.co/api/v2';
 const CACHE_DIR = path.join(process.cwd(), '.cache', 'pokeapi');
@@ -76,7 +76,7 @@ const titleCase = (slug: string) =>
   slug.replace(/(^|-)(\w)/g, (_, sep, c) => (sep ? ' ' : '') + c.toUpperCase());
 const names = (d: Json) => {
   const nameEn = nameIn(d.names, 'en') ?? titleCase(d.name);
-  return { nameEn, nameEs: SPANISH_FIXES[d.name] ?? nameIn(d.names, 'es') ?? nameEn };
+  return { nameEn, nameEs: SPANISH_FIX_BY_SLUG.get(d.name) ?? nameIn(d.names, 'es') ?? nameEn };
 };
 
 async function chunked<T>(rows: T[], fn: (chunk: T[]) => Promise<unknown>, size = 5000) {
