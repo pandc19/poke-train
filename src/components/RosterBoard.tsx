@@ -498,7 +498,12 @@ export function RosterBoard({
           type="button"
           role="tab"
           aria-selected={view === v}
-          onClick={() => changeView(v)}
+          onClick={() => {
+            changeView(v);
+            // Back to the list: open the page the selected Pokémon is on, not the one the list was left at.
+            const index = v === 'list' ? visible.findIndex((p) => p.id === selectedId) : -1;
+            if (index >= 0) setPage(Math.floor(index / PAGE_SIZE));
+          }}
           className={`px-4 py-1.5 ${view === v ? 'bg-surface-2 font-semibold' : 'text-muted hover:text-ink'}`}
         >
           {v === 'list' ? t('List') : t('Team')}
