@@ -77,7 +77,7 @@ export function RosterBoard({
   const [view, setView] = useState<'list' | 'team'>('list');
   const [filter, setFilter] = useState<Filter>('all');
   // The player's marks narrow the list further, whichever of all / pending / done is chosen.
-  const [onlyTeamA, setOnlyTeamA] = useState(false);
+  const [onlyKeeper, setOnlyKeeper] = useState(false);
   const [onlyTraining, setOnlyTraining] = useState(false);
   const [sort, setSort] = useState<Sort>('complete');
   const [query, setQuery] = useState('');
@@ -306,7 +306,7 @@ export function RosterBoard({
       setAdding('');
       // Show it and open it, wherever the sort puts it: clear what could hide it, then go to its page.
       setFilter('all');
-      setOnlyTeamA(false);
+      setOnlyKeeper(false);
       setOnlyTraining(false);
       setQuery('');
       setReveal(data.pokemon.id);
@@ -382,7 +382,7 @@ export function RosterBoard({
     const q = query.trim().toLowerCase();
     const filtered = roster.filter((p) => {
       if (filter !== 'all' && progressOf(p).complete !== (filter === 'done')) return false;
-      if (onlyTeamA && !p.teamA) return false;
+      if (onlyKeeper && !p.keeper) return false;
       if (onlyTraining && !p.training) return false;
       if (!q) return true;
       return (
@@ -414,7 +414,7 @@ export function RosterBoard({
           return ratio(a) - ratio(b) || byName(a, b);
       }
     });
-  }, [roster, filter, onlyTeamA, onlyTraining, sort, query, lang, name]);
+  }, [roster, filter, onlyKeeper, onlyTraining, sort, query, lang, name]);
 
   // A Pokémon just added: once the list has it, turn to the page it is on.
   const [reveal, setReveal] = useState<string | null>(null);
@@ -592,14 +592,14 @@ export function RosterBoard({
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                aria-pressed={onlyTeamA}
+                aria-pressed={onlyKeeper}
                 onClick={() => {
-                  setOnlyTeamA(!onlyTeamA);
+                  setOnlyKeeper(!onlyKeeper);
                   setPage(0);
                 }}
-                className={`rounded-md border px-3 py-1.5 text-xs ${onlyTeamA ? 'border-star/60 bg-star/10 font-semibold text-star' : 'border-line text-muted'}`}
+                className={`rounded-md border px-3 py-1.5 text-xs ${onlyKeeper ? 'border-star/60 bg-star/10 font-semibold text-star' : 'border-line text-muted'}`}
               >
-                ★ {t('Team A')}
+                ◆ {t('Keeper')}
               </button>
               <button
                 type="button"

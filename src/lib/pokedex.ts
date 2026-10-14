@@ -34,8 +34,8 @@ export type DexCell = {
   genderRate: number;
   /** Short names of the *other* games where this species is already caught. */
   caughtIn: string[];
-  /** A roster Pokémon of this species is marked as part of team A. */
-  teamA: boolean;
+  /** A roster Pokémon of this species is marked as a keeper. */
+  keeper: boolean;
 };
 
 /**
@@ -150,11 +150,11 @@ export async function loadDex(
   }
 
   const rosterOwned = new Set<number>();
-  const rosterTeamA = new Set<number>();
+  const rosterKeeper = new Set<number>();
   for (const p of roster) {
     const key = rosterKey(p);
     if (p.owned) rosterOwned.add(key);
-    if (p.teamA) rosterTeamA.add(key);
+    if (p.keeper) rosterKeeper.add(key);
   }
 
   // Evolution lines, to say which later stage the player holds instead of this one.
@@ -202,7 +202,7 @@ export async function loadDex(
       hasFemale: gendersHere.get(key)?.hasFemale ?? false,
       genderRate: s.species.genderRate,
       caughtIn: [...(caughtIn.get(s.species.id) ?? [])],
-      teamA: rosterTeamA.has(key),
+      keeper: rosterKeeper.has(key),
       exclusive: side && versions ? { versionName: side === 'own' ? versions.ownName : versions.otherName, own: side === 'own' } : null,
       owned: holding(s.species.id, variant),
       ownedViaRoster: rosterOwned.has(key),

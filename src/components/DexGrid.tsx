@@ -364,9 +364,9 @@ export function DexGrid({
                     </button>
                   )}
                   <span className="font-mono text-[11px] text-muted">#{String(c.entryNumber).padStart(3, '0')}</span>
-                  {c.teamA ? (
-                    <span className="text-sm leading-none text-star" title={t('Team A')} aria-label={t('Team A')}>
-                      ★
+                  {c.keeper ? (
+                    <span className="text-sm leading-none text-star" title={t('Keeper')} aria-label={t('Keeper')}>
+                      ◆
                     </span>
                   ) : (
                     <span className="w-3" />

@@ -29,8 +29,8 @@ const Body = z.object({
   set: z
     .object({
       nickname: z.string().max(60).nullable(),
-      /** The player's marks: part of team A, and being trained now. */
-      teamA: z.boolean(),
+      /** The player's marks: a keeper (finished and kept), and being trained now. */
+      keeper: z.boolean(),
       training: z.boolean(),
       // One Pokémon has one gender; "both" is only a Pokédex notion (you have one of each).
       gender: z.enum(['MALE', 'FEMALE', 'GENDERLESS', 'UNKNOWN']),
@@ -175,7 +175,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
         where: { id: rosterId },
         data: {
           nickname: set.nickname,
-          teamA: set.teamA,
+          keeper: set.keeper,
           training: set.training,
           gender: set.gender,
           notes: set.notes,

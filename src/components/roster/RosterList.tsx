@@ -95,9 +95,9 @@ export function RosterList({
                   <span className="flex w-full items-center justify-between text-[10px] text-muted">
                     <span className="font-mono">{numberOf(p)}</span>
                     <span className="flex items-center gap-1">
-                      {p.teamA && (
-                        <span className="text-sm leading-none text-star" title={t('Team A')} aria-label={t('Team A')}>
-                          ★
+                      {p.keeper && (
+                        <span className="text-sm leading-none text-star" title={t('Keeper')} aria-label={t('Keeper')}>
+                          ◆
                         </span>
                       )}
                       <span>{t('Lv. {level}', { level: p.level })}</span>

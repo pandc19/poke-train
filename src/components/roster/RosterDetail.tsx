@@ -473,12 +473,12 @@ export function RosterDetail({
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
             <button
               type="button"
-              aria-pressed={p.teamA}
-              onClick={() => save({ teamA: !p.teamA })}
-              title={t('Part of team A. Marked ones show a star and can be filtered.')}
-              className={`rounded-md border px-2.5 py-1 ${p.teamA ? 'border-star/60 bg-star/10 font-semibold text-star' : 'border-line text-muted hover:text-ink'}`}
+              aria-pressed={p.keeper}
+              onClick={() => save({ keeper: !p.keeper })}
+              title={t('A keeper: finished and kept for good. Marked ones show a diamond and can be filtered.')}
+              className={`rounded-md border px-2.5 py-1 ${p.keeper ? 'border-star/60 bg-star/10 font-semibold text-star' : 'border-line text-muted hover:text-ink'}`}
             >
-              ★ {t('Team A')}
+              ◆ {t('Keeper')}
             </button>
             <button
               type="button"
