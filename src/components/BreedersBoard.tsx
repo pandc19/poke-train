@@ -12,6 +12,7 @@ import { TYPE_COLORS } from '@/lib/pokemon-types';
 import { IV_RATINGS, type IvRatings } from '@/lib/iv-ratings';
 import type { EditorOptions, RosterView } from '@/lib/roster';
 import { useT } from '@/lib/translate-client';
+import { TrashIcon } from './ActionIcons';
 
 type Named = { id: number; nameEn: string; nameEs: string };
 
@@ -281,7 +282,7 @@ export function BreedersBoard({
                         type="button"
                         onClick={() => setSelectedId(p.id)}
                         aria-current={active ? 'true' : undefined}
-                        className={`flex w-full flex-col items-center rounded-lg border border-line px-1.5 pb-2 pt-1.5 text-center ${
+                        className={`flex h-full w-full flex-col items-center rounded-lg border border-line px-1.5 pb-2 pt-1.5 text-center ${
                           active ? 'bg-surface-2' : 'bg-surface hover:bg-surface-2'
                         }`}
                         style={active ? { outline: `2px solid ${accent}`, outlineOffset: 1 } : undefined}
@@ -291,7 +292,10 @@ export function BreedersBoard({
                         <span className={`mt-1 text-[10px] ${perfect >= 5 ? 'text-star' : perfect > 0 ? 'text-done' : 'text-muted'}`}>
                           {judgedCount(p) === 0 ? t('IVs not recorded') : `${perfect}/6 ${t('perfect')}`}
                         </span>
-                        {p.roles.includes('ROSTER') && <span className="text-[10px] text-muted">{t('also on the roster')}</span>}
+                        {/* The line is always there so every card has the same height. */}
+                        <span className="h-3.5 text-[10px] leading-3.5 text-muted">
+                          {p.roles.includes('ROSTER') ? t('also on the roster') : ''}
+                        </span>
                       </button>
                     </li>
                   );
@@ -379,11 +383,31 @@ export function BreedersBoard({
   );
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+/** `inline` puts the control beside the label, for a single yes/no switch. */
+function Field({
+  label,
+  hint,
+  inline,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  inline?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <div>
-      <span className="mb-1 block text-xs font-medium text-muted">{label}</span>
-      {children}
+      {inline ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-muted">{label}</span>
+          {children}
+        </div>
+      ) : (
+        <>
+          <span className="mb-1 block text-xs font-medium text-muted">{label}</span>
+          {children}
+        </>
+      )}
       {hint && <span className="mt-1 block text-[11px] text-muted">{hint}</span>}
     </div>
   );
@@ -491,7 +515,29 @@ function BreederDetail({
       <header className="flex flex-wrap items-start gap-4">
         <PokemonSprite p={p} size={96} />
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg font-bold">{label(p.species)}</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-bold">{label(p.species)}</h2>
+          <div className="ml-auto flex items-center gap-2 text-xs">
+            <label className="flex items-center gap-2 text-muted">
+              {t('Nickname')}
+              <input
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                onBlur={() => nickname.trim() !== (p.nickname ?? '') && void onSave({ nickname: nickname.trim() || null })}
+                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                className="w-40 rounded-md border border-line bg-bg px-2 py-1.5 text-sm text-ink"
+              />
+            </label>
+            <button
+              onClick={onRemove}
+              title={t('Remove')}
+              aria-label={t('Remove')}
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-line text-muted hover:text-red-400"
+            >
+              <TrashIcon />
+            </button>
+          </div>
+          </div>
           <div className="mt-1 flex flex-wrap gap-1">
             {p.types.map((type) => (
               <TypeBadge key={type} type={type} lang={lang} />
@@ -500,63 +546,51 @@ function BreederDetail({
           <p className={`mt-2 text-sm font-semibold ${perfect >= 5 ? 'text-star' : perfect > 0 ? 'text-done' : 'text-muted'}`}>
             {perfect}/6 {t('perfect IVs')}
           </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <label className="flex items-center gap-2 text-muted">
-            {t('Nickname')}
-            <input
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              onBlur={() => nickname.trim() !== (p.nickname ?? '') && void onSave({ nickname: nickname.trim() || null })}
-              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-              className="w-40 rounded-md border border-line bg-bg px-2 py-1.5 text-sm text-ink"
-            />
-          </label>
-          {stages && stages.before.length + stages.after.length > 0 && (
-            <div
-              className="flex flex-wrap items-center gap-1.5"
-              title={t('Swap this breeder for another stage of its line. Its moves, IVs and nature stay.')}
-            >
-              {[...stages.before].reverse().map((prev) => (
-                <button
-                  key={prev.id}
-                  disabled={changing}
-                  onClick={async () => {
-                    setChanging(true);
-                    await onStage(prev.id).finally(() => setChanging(false));
-                  }}
-                  className="rounded-md border border-line px-3 py-1.5 hover:bg-surface-2 disabled:opacity-40"
-                >
-                  ← {label(prev)}
-                </button>
-              ))}
-              {stages.after.map((next) => (
-                <button
-                  key={next.id}
-                  disabled={changing}
-                  onClick={async () => {
-                    setChanging(true);
-                    await onStage(next.id).finally(() => setChanging(false));
-                  }}
-                  className="rounded-md border border-line px-3 py-1.5 hover:bg-surface-2 disabled:opacity-40"
-                >
-                  {label(next)} →
-                </button>
-              ))}
-              <p className="basis-full text-[10px] text-muted">
-                {t('Swap it for another stage of its line. Breeding plans update by themselves.')}
-              </p>
-            </div>
-          )}
-          <button onClick={onRemove} className="rounded-md border border-line px-3 py-1.5 text-muted hover:text-red-400">
-            {t('Remove')}
-          </button>
+          <div className="mt-2 text-xs">
+            {stages && stages.before.length + stages.after.length > 0 && (
+              <div
+                className="flex flex-wrap items-center gap-1.5"
+                title={t('Swap this breeder for another stage of its line. Its moves, IVs and nature stay.')}
+              >
+                {[...stages.before].reverse().map((prev) => (
+                  <button
+                    key={prev.id}
+                    disabled={changing}
+                    onClick={async () => {
+                      setChanging(true);
+                      await onStage(prev.id).finally(() => setChanging(false));
+                    }}
+                    className="rounded-md border border-line px-3 py-1.5 hover:bg-surface-2 disabled:opacity-40"
+                  >
+                    ← {label(prev)}
+                  </button>
+                ))}
+                {stages.after.map((next) => (
+                  <button
+                    key={next.id}
+                    disabled={changing}
+                    onClick={async () => {
+                      setChanging(true);
+                      await onStage(next.id).finally(() => setChanging(false));
+                    }}
+                    className="rounded-md border border-line px-3 py-1.5 hover:bg-surface-2 disabled:opacity-40"
+                  >
+                    {label(next)} →
+                  </button>
+                ))}
+                <p className="basis-full text-[10px] text-muted">
+                  {t('Swap it for another stage of its line. Breeding plans update by themselves.')}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
       <div className="mt-4 grid gap-6 xl:grid-cols-2">
         <div className="space-y-4">
           <Field
+            inline
             label={t('Also on the roster')}
             hint={t('A trained Pokémon can be a breeder too: it is kept once and shows on both pages.')}
           >
@@ -567,6 +601,7 @@ function BreederDetail({
             />
           </Field>
           <Field
+            inline
             label={t('Obtained')}
             hint={t('Only Pokémon you have are used as parents.')}
           >

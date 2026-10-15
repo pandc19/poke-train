@@ -15,6 +15,7 @@ import { ABILITY_PATCH, DESTINY_KNOT, EVERSTONE, MIRROR_HERB, POWER_ITEMS } from
 import type { IvPlan, ParentPick } from '@/lib/breeding/ivs';
 import type { Lang } from '@/lib/i18n';
 import { useT } from '@/lib/translate-client';
+import { TrashIcon } from './ActionIcons';
 
 type Named = { id: number; nameEn: string; nameEs: string };
 type RosterBuild = { speciesId: number; species: Named; moves: Named[] };
@@ -677,8 +678,13 @@ export function BreedingBoard({
                 </option>
               ))}
             </select>
-            <button onClick={() => setDeleting(goal)} className="text-muted hover:text-red-400">
-              {t('Delete')}
+            <button
+              onClick={() => setDeleting(goal)}
+              title={t('Delete')}
+              aria-label={t('Delete')}
+              className="flex h-8 w-8 items-center justify-center rounded border border-line text-muted hover:text-red-400"
+            >
+              <TrashIcon />
             </button>
           </div>
         </div>

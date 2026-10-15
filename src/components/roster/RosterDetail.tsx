@@ -16,6 +16,7 @@ import type { EditorOptions, RosterView } from '@/lib/roster';
 import type { TaskKey, TaskStatus } from '@/lib/roster-status';
 import { useT } from '@/lib/translate-client';
 import { KeeperIcon, TrainingIcon } from '../KeeperIcon';
+import { TrashIcon } from '../ActionIcons';
 
 type Named = { id: number; nameEn: string; nameEs: string };
 
@@ -113,13 +114,28 @@ function Field({
   hint,
   children,
   action,
+  actionBesideLabel,
 }: {
   label: string;
   hint?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   /** A status toggle that sits beside the control. */
   action?: React.ReactNode;
+  /** Puts the action next to the label, with the control below it. */
+  actionBesideLabel?: boolean;
 }) {
+  if (actionBesideLabel) {
+    return (
+      <div>
+        <div className="mb-1 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-muted">{label}</span>
+          {action}
+        </div>
+        {children}
+        {hint && <span className="mt-1 block text-[11px] text-muted">{hint}</span>}
+      </div>
+    );
+  }
   return (
     <div>
       <span className="mb-1 block text-xs font-medium text-muted">{label}</span>
@@ -132,11 +148,15 @@ function Field({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+/** `columns` lays the fields out side by side when there is room instead of one per row. */
+function Section({ title, columns, children }: { title: string; columns?: 2 | 3; children: React.ReactNode }) {
+  // Container queries: what matters is the width this section gets, not the screen's.
+  const grid =
+    columns === 3 ? 'grid gap-3 @xl:grid-cols-3' : columns === 2 ? 'grid gap-3 @md:grid-cols-2' : 'space-y-3';
   return (
-    <section className="space-y-3">
+    <section className="@container space-y-3">
       <h3 className="border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-muted">{title}</h3>
-      {children}
+      <div className={grid}>{children}</div>
     </section>
   );
 }
@@ -457,7 +477,7 @@ export function RosterDetail({
   }
 
   return (
-    <article className="rounded-xl border border-line bg-surface p-4">
+    <article className="@container rounded-xl border border-line bg-surface p-4">
       {/* ---------- header ---------- */}
       <header className="flex flex-wrap items-start gap-4">
         <PokemonSprite p={p} size={96} />
@@ -468,6 +488,26 @@ export function RosterDetail({
             {p.finalSpecies && (
               <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">→ {label(p.finalSpecies)}</span>
             )}
+            <div className="ml-auto flex items-center gap-2 text-xs">
+              <label className="flex items-center gap-2 text-muted">
+                {t('Nickname')}
+                <input
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  onBlur={() => nickname.trim() !== (p.nickname ?? '') && save({ nickname: nickname.trim() || null })}
+                  onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                  className="w-40 rounded-md border border-line bg-bg px-2 py-1.5 text-sm text-ink"
+                />
+              </label>
+              <button
+                onClick={onRemove}
+                title={t('Remove')}
+                aria-label={t('Remove')}
+                className="flex h-8 w-8 items-center justify-center rounded-md border border-line text-muted hover:text-red-400"
+              >
+                <TrashIcon />
+              </button>
+            </div>
           </div>
           <p className="text-xs text-muted">
             {p.baseSpecies ? t('from {name}', { name: label(p.baseSpecies) }) : ''}
@@ -533,21 +573,6 @@ export function RosterDetail({
             </span>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <label className="flex items-center gap-2 text-muted">
-            {t('Nickname')}
-            <input
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              onBlur={() => nickname.trim() !== (p.nickname ?? '') && save({ nickname: nickname.trim() || null })}
-              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-              className="w-40 rounded-md border border-line bg-bg px-2 py-1.5 text-sm text-ink"
-            />
-          </label>
-          <button onClick={onRemove} className="rounded-md border border-line px-3 py-1.5 text-muted hover:text-red-400">
-            {t('Remove')}
-          </button>
-        </div>
       </header>
 
       <p className="mt-3 text-xs text-muted">
@@ -562,10 +587,11 @@ export function RosterDetail({
       )}
 
       {/* ---------- body ---------- */}
-      <div className="mt-4 grid gap-6 xl:grid-cols-2">
+      <div className="mt-4 grid gap-6 @2xl:grid-cols-2">
         <div className="space-y-5">
           <Section title={t('Basics')}>
             <Field
+              actionBesideLabel
               label={t('Obtained')}
               action={
                 <TaskToggle
@@ -579,6 +605,7 @@ export function RosterDetail({
               <span className="text-xs text-muted">{t('Do you have this Pokémon?')}</span>
             </Field>
             <Field
+              actionBesideLabel
               label={t('Breeding')}
               hint={t('A breeder is kept on the Breeders page with its IVs, and used as a parent by the breeding planner.')}
               action={
