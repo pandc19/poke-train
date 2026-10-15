@@ -15,6 +15,8 @@ export type EvEstimateInfo = {
   nature: NatureEffect;
   /** Display name of the nature that is applied, when there is one. */
   natureName: string | null;
+  /** A Mint's effect is applied in place of the nature's own, so it is worth saying which one was used. */
+  mint?: boolean;
   /**
    * The nature effect in force now. `nature` is the one the recorded stats were read under; stats typed
    * now are read under this one.
@@ -202,6 +204,11 @@ export function StatsEvsEditor({
       return r != null && r.low === r.high;
     });
   const total = evs ? evTotal(evs) : 0;
+  const highTotalShown = range ? Math.min(510, evTotal(range.high)) : total;
+  const realRange =
+    highTotalShown > total
+      ? t('Real total: between {low} and {high}.', { low: total, high: highTotalShown })
+      : t('Real total: {total}.', { total });
 
   const [copied, setCopied] = useState(false);
   /** The level, the stats and the EVs as plain text, to paste somewhere else. */
@@ -332,7 +339,7 @@ export function StatsEvsEditor({
           ))}
           {hints.overTotal != null && (
             <p role="alert" className="mt-1 text-center text-[11px] text-pending">
-              {t('These stats ask for {total} EVs, more than a Pokémon can have (508). If it has leveled up, change the level.', {
+              {t('These stats ask for {total} EVs, more than the 508 a Pokémon can use. If it has leveled up, change the level.', {
                 total: hints.overTotal,
               })}
             </p>
@@ -351,9 +358,7 @@ export function StatsEvsEditor({
           {/* An IV the Judge left open means more EVs may be hidden; at the 510 limit nothing more is gained. */}
           {estimated && range && evTotal(range.high) >= 508 && (
             <p role="note" className="mt-1 text-center text-[11px] text-star">
-              {t('Not every IV is known, so it could already have {n} EVs, the most a Pokémon can hold. If it does, the EVs it gains in battle do not count: lower a stat it does not need (with a berry) first.', {
-                n: Math.min(510, evTotal(range.high)),
-              })}
+              {t('Not every IV is known, so it may already have the most EVs it can use (508). If so, the EVs it gains in battle are lost: lower a stat it does not need (with a berry) first.')}
             </p>
           )}
           {estimated && (
@@ -362,13 +367,11 @@ export function StatsEvsEditor({
                 {exact
                   ? t('Exact: every IV is known from the ratings.')
                   : hasInfo
-                    ? t('The fewest EVs that give these stats. The real total is between {low} and {high}.', {
-                        low: total,
-                        high: range ? Math.min(510, evTotal(range.high)) : total,
-                      })
+                    ? realRange
                     : t('The fewest EVs that give these stats. Rate its IVs or set its potential to see how many more it could have.')}
               </p>
-              {info && (
+              {/* Only when it is not obvious: no nature set (none applied), or a Mint's effect used. */}
+              {info && (!info.natureName || info.mint) && (
                 <p>
                   {info.natureName
                     ? t('Nature used for the calculation: {nature}.', { nature: natureText(info, lang) })

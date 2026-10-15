@@ -201,6 +201,7 @@ export function RosterBoard({
       baseStats: p.baseStats,
       nature: effectOf(read),
       natureName: read ? name(read) : null,
+      mint: p.mintNature != null,
       live: { nature: effectOf(now), natureName: now ? name(now) : null },
     };
   };

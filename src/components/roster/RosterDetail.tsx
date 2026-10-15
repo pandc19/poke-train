@@ -590,34 +590,20 @@ export function RosterDetail({
       <div className="mt-4 grid gap-6 @2xl:grid-cols-2">
         <div className="space-y-5">
           <Section title={t('Basics')}>
-            <Field
-              actionBesideLabel
-              label={t('Obtained')}
-              action={
-                <TaskToggle
-                  status={p.owned ? 'DONE' : 'PENDING'}
-                  onToggle={() => onToggle('owned', p.owned ? 'DONE' : 'PENDING')}
-                  label={p.owned ? t('Yes') : t('Not yet')}
-                  title={p.owned ? t('You have this Pokémon. Click to undo') : t('Not obtained yet. Click when you have it')}
-                />
-              }
-            >
-              <span className="text-xs text-muted">{t('Do you have this Pokémon?')}</span>
-            </Field>
-            <Field
-              actionBesideLabel
-              label={t('Breeding')}
-              hint={t('A breeder is kept on the Breeders page with its IVs, and used as a parent by the breeding planner.')}
-              action={
-                <TaskToggle
-                  status={p.roles.includes('BREEDER') ? 'DONE' : 'PENDING'}
-                  onToggle={() => onBreeder(!p.roles.includes('BREEDER'))}
-                  label={p.roles.includes('BREEDER') ? t('Also a breeder') : t('Not a breeder')}
-                />
-              }
-            >
-              <span className="text-xs text-muted">{t('Keep it for breeding too?')}</span>
-            </Field>
+            <div className="flex flex-wrap gap-2">
+              <TaskToggle
+                status={p.owned ? 'DONE' : 'PENDING'}
+                onToggle={() => onToggle('owned', p.owned ? 'DONE' : 'PENDING')}
+                label={p.owned ? t('I have it') : t('I do not have it')}
+                title={p.owned ? t('You have this Pokémon. Click to undo') : t('Not obtained yet. Click when you have it')}
+              />
+              <TaskToggle
+                status={p.roles.includes('BREEDER') ? 'DONE' : 'PENDING'}
+                onToggle={() => onBreeder(!p.roles.includes('BREEDER'))}
+                label={p.roles.includes('BREEDER') ? t('Is a breeder') : t('Not a breeder')}
+                title={t('A breeder is kept on the Breeders page with its IVs, and used as a parent by the breeding planner.')}
+              />
+            </div>
             <Field label={t('Gender')} hint={t('Used by the breeding planner to know which parents you have.')}>
               <GenderControl p={p} onChange={onGender} />
             </Field>

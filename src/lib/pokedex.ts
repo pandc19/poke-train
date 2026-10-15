@@ -1,6 +1,7 @@
 import { prisma } from './db';
 import { LOCAL_USER_ID } from './constants';
 import { NATIONAL_DEX_SLUG, getGame } from './games';
+import { rosterProgress } from './roster-status';
 import { exclusiveBySpecies } from './games/exclusives';
 import { type Variant, REGIONS, encodeKey, variantOfSlug } from './dex-variant';
 
@@ -40,6 +41,8 @@ export type DexCell = {
   keeper: boolean;
   /** A roster Pokémon of this species is marked as being trained now. */
   training: boolean;
+  /** A roster Pokémon of this species has every task done. */
+  ready: boolean;
 };
 
 /**
@@ -99,7 +102,7 @@ export async function loadDex(
     }),
     prisma.rosterPokemon.findMany({
       where: profileId ? { profileId } : { profile: { userId: LOCAL_USER_ID } },
-      include: { moves: true },
+      include: { moves: true, roles: true },
     }),
     // A game's National Dex lists every species; this marks which ones the game has.
     opts.gameId && pokedexSlug === NATIONAL_DEX_SLUG
@@ -156,11 +159,13 @@ export async function loadDex(
   const rosterOwned = new Set<number>();
   const rosterKeeper = new Set<number>();
   const rosterTraining = new Set<number>();
+  const rosterReady = new Set<number>();
   for (const p of roster) {
     const key = rosterKey(p);
     if (p.owned) rosterOwned.add(key);
     if (p.keeper) rosterKeeper.add(key);
     if (p.training) rosterTraining.add(key);
+    if (p.roles.some((r) => r.role === 'ROSTER') && rosterProgress(p).complete) rosterReady.add(key);
   }
 
   // Evolution lines, to say which later stage the player holds instead of this one.
@@ -220,6 +225,7 @@ export async function loadDex(
       caughtIn: [...(caughtIn.get(s.species.id) ?? [])],
       keeper: rosterKeeper.has(key),
       training: rosterTraining.has(key),
+      ready: rosterReady.has(key),
       exclusive: side && versions ? { versionName: side === 'own' ? versions.ownName : versions.otherName, own: side === 'own' } : null,
       owned: holding(s.species.id, variant),
       ownedViaRoster: rosterOwned.has(key),

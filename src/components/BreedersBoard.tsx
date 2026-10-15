@@ -5,7 +5,7 @@ import { ConfirmDialog } from './Dialog';
 import { SearchInput } from './SearchInput';
 import { TypeBadge } from './TypeBadge';
 import { STAT_LABELS, STAT_ORDER } from './EvInputs';
-import { ComboInput, GenderControl, PokemonSprite, PotentialSelect, TaskToggle, type Gender } from './roster/parts';
+import { ComboInput, GenderControl, PokemonSprite, genderMark, PotentialSelect, TaskToggle, type Gender } from './roster/parts';
 import { IV_STATS } from '@/lib/breeding/engine';
 import type { Lang } from '@/lib/i18n';
 import { TYPE_COLORS } from '@/lib/pokemon-types';
@@ -288,7 +288,14 @@ export function BreedersBoard({
                         style={active ? { outline: `2px solid ${accent}`, outlineOffset: 1 } : undefined}
                       >
                         <PokemonSprite p={p} size={56} animated={false} />
-                        <span className="mt-0.5 w-full truncate text-xs font-medium">{p.nickname ?? name(p.species)}</span>
+                        <span className="mt-0.5 flex w-full items-center justify-center gap-1 text-xs font-medium">
+                          <span className="truncate">{p.nickname ?? name(p.species)}</span>
+                          {genderMark(p) && (
+                            <span className={`shrink-0 font-bold ${genderMark(p)!.color}`} title={genderMark(p)!.label[lang]}>
+                              {genderMark(p)!.symbol}
+                            </span>
+                          )}
+                        </span>
                         <span className={`mt-1 text-[10px] ${perfect >= 5 ? 'text-star' : perfect > 0 ? 'text-done' : 'text-muted'}`}>
                           {judgedCount(p) === 0 ? t('IVs not recorded') : `${perfect}/6 ${t('perfect')}`}
                         </span>
@@ -589,28 +596,20 @@ function BreederDetail({
 
       <div className="mt-4 grid gap-6 xl:grid-cols-2">
         <div className="space-y-4">
-          <Field
-            inline
-            label={t('Also on the roster')}
-            hint={t('A trained Pokémon can be a breeder too: it is kept once and shows on both pages.')}
-          >
-            <TaskToggle
-              status={p.roles.includes('ROSTER') ? 'DONE' : 'PENDING'}
-              onToggle={() => onRoster(!p.roles.includes('ROSTER'))}
-              label={p.roles.includes('ROSTER') ? t('Yes') : t('No')}
-            />
-          </Field>
-          <Field
-            inline
-            label={t('Obtained')}
-            hint={t('Only Pokémon you have are used as parents.')}
-          >
+          <div className="flex flex-wrap gap-2">
             <TaskToggle
               status={p.owned ? 'DONE' : 'PENDING'}
               onToggle={onOwned}
-              label={p.owned ? t('Yes') : t('Not yet')}
+              label={p.owned ? t('I have it') : t('I do not have it')}
+              title={t('Only Pokémon you have are used as parents.')}
             />
-          </Field>
+            <TaskToggle
+              status={p.roles.includes('ROSTER') ? 'DONE' : 'PENDING'}
+              onToggle={() => onRoster(!p.roles.includes('ROSTER'))}
+              label={p.roles.includes('ROSTER') ? t('On the roster') : t('Not on the roster')}
+              title={t('A trained Pokémon can be a breeder too: it is kept once and shows on both pages.')}
+            />
+          </div>
           <Field label={t('Gender')}>
             <GenderControl p={p} onChange={onGender} />
           </Field>

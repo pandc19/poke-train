@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { useDismissed } from '../useDismissed';
 import { Dialog } from '../Dialog';
 import { SearchInput } from '../SearchInput';
+import { ExpandIcon, MinusCircleIcon } from '../ActionIcons';
 import { TeraBadge, TypeBadge } from '../TypeBadge';
 import { STAT_LABELS } from '../EvInputs';
 import type { EvEstimateInfo } from '../StatsEvs';
@@ -158,10 +159,24 @@ export function TeamView({
     return after >= 0 ? after : slots.findIndex((x) => x == null);
   };
 
+  // The training bar sticks under the site tabs; the big slot's header sticks right under it, so its
+  // height is measured instead of guessed (a guess leaves a strip where the content scrolls through).
+  const barRef = useRef<HTMLDivElement>(null);
+  const [barH, setBarH] = useState<number | null>(null);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const measure = () => setBarH(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
-    <div>
+    <div style={barH != null ? ({ '--team-bar': `${barH}px` } as React.CSSProperties) : undefined}>
     {/* ---------- what the team is training now ---------- */}
-    <div className="-mx-4 mb-4 bg-bg/95 px-4 py-2 backdrop-blur md:sticky md:top-[var(--nav-h)] md:z-30">
+    <div ref={barRef} className="-mx-4 mb-4 bg-bg/95 px-4 py-2 backdrop-blur md:sticky md:top-[var(--nav-h)] md:z-30">
     <section className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line bg-surface px-3 py-2.5">
       <h2 className="text-sm font-semibold">{t('Training')}</h2>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('Stat being trained')}>
@@ -579,7 +594,6 @@ function TeamDetail({
   const [levelHintGone, goneLevelHint] = useDismissed(`level:${p.id}:${level}:${(hints?.atMax ?? []).join(',')}`);
   // The stats alone could allow more than a Pokémon can hold; what it can have is 510 at most.
   const highRaw = range ? evTotal(range.high) : 0;
-  const highTotal = Math.min(510, highRaw);
   const total = evs ? evTotal(evs) : 0;
   const natureShown = p.mintNature ?? p.currentNature ?? p.targetNature;
   const nowNature = natureShown;
@@ -612,7 +626,8 @@ function TeamDetail({
   return (
     <article className="@container space-y-4 rounded-xl border border-line bg-surface p-4">
       {/* quick facts */}
-      <header className="flex flex-wrap items-start gap-3">
+      {/* Stays in view right under the site tabs and the training bar (its height is measured) while the rest of the card scrolls. */}
+      <header className="z-10 -mx-4 -mt-4 flex flex-wrap items-start gap-3 rounded-t-xl border-b border-line bg-surface px-4 pb-3 pt-4 md:sticky md:top-[calc(var(--nav-h)+var(--team-bar,6rem))]">
         <PokemonSprite p={p} size={72} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -653,13 +668,37 @@ function TeamDetail({
             <dd>{moves.length ? moves.map((m) => label(m)).join(' · ') : '—'}</dd>
           </dl>
         </div>
-        <div className="flex flex-col items-end gap-1.5 text-xs">
-          <button type="button" onClick={onOpenDetails} className="rounded-md border border-line px-2.5 py-1.5 text-muted hover:text-ink">
-            {t('Open full details')}
-          </button>
-          <button type="button" onClick={onRemove} className="rounded-md border border-line px-2.5 py-1.5 text-muted hover:text-ink">
-            {t('Remove from team')}
-          </button>
+        <div className="ml-auto flex flex-col items-end gap-2">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onOpenDetails}
+              title={t('Open full details')}
+              aria-label={t('Open full details')}
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-line text-muted hover:text-ink"
+            >
+              <ExpandIcon />
+            </button>
+            <button
+              type="button"
+              onClick={onRemove}
+              title={t('Remove from team')}
+              aria-label={t('Remove from team')}
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-line text-muted hover:text-red-400"
+            >
+              <MinusCircleIcon />
+            </button>
+          </div>
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className="text-muted">{t('Level')}</span>
+            <HoldButton className={arrow} aria-label={t('Lower the level')} onAct={() => stepLevel(-1)}>
+              ▼
+            </HoldButton>
+            <span className="w-9 text-center text-lg font-semibold tabular-nums">{level}</span>
+            <HoldButton className={arrow} aria-label={t('Raise the level')} onAct={() => stepLevel(1)}>
+              ▲
+            </HoldButton>
+          </div>
         </div>
       </header>
 
@@ -692,20 +731,10 @@ function TeamDetail({
           <section>
             <div className="mb-1 flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold">{t('Stats')}</h3>
-              <div className="flex items-center gap-1.5 text-sm">
-                <span className="text-muted">{t('Level')}</span>
-                <HoldButton className={arrow} aria-label={t('Lower the level')} onAct={() => stepLevel(-1)}>
-                  ▼
-                </HoldButton>
-                <span className="w-8 text-center font-semibold tabular-nums">{level}</span>
-                <HoldButton className={arrow} aria-label={t('Raise the level')} onAct={() => stepLevel(1)}>
-                  ▲
-                </HoldButton>
-              </div>
             </div>
             {hints?.overTotal != null && (
               <p role="alert" className="mb-1 text-xs text-pending">
-                {t('These stats ask for {total} EVs, more than a Pokémon can have (508). If it has leveled up, change the level.', {
+                {t('These stats ask for {total} EVs, more than the 508 a Pokémon can use. If it has leveled up, change the level.', {
                   total: hints.overTotal,
                 })}
               </p>
@@ -777,9 +806,7 @@ function TeamDetail({
             />
             {highRaw >= 508 && (
               <p role="note" className="mt-2 text-xs text-star">
-                {t('Not every IV is known, so it could already have {n} EVs, the most a Pokémon can hold. If it does, the EVs it gains in battle do not count: lower a stat it does not need (with a berry) first.', {
-                  n: highTotal,
-                })}
+                {t('Not every IV is known, so it may already have the most EVs it can use (508). If so, the EVs it gains in battle are lost: lower a stat it does not need (with a berry) first.')}
               </p>
             )}
             {/* The plan in numbers: what is still to train in each stat, and which ones to stop at. */}

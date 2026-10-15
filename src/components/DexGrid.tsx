@@ -11,7 +11,7 @@ import { decodeKey } from '@/lib/dex-variant';
 import type { DexCell } from '@/lib/pokedex';
 import type { Lang } from '@/lib/i18n';
 import { useT } from '@/lib/translate-client';
-import { KeeperIcon, TrainingIcon } from './KeeperIcon';
+import { KeeperIcon, ReadyIcon, TrainingIcon } from './KeeperIcon';
 
 type Filter = 'all' | 'missing' | 'caught' | 'have' | 'registered';
 
@@ -239,81 +239,123 @@ export function DexGrid({
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="min-w-48 flex-1">
-          <div className="mb-1 flex justify-between text-xs text-muted">
-            <span>
-              <span className="font-semibold text-ink">{count}</span> / {total} {t('caught')}
-              <span className="ml-2">
-                · <span className="font-semibold text-done">{haveCount}</span> {t('in team')}
-              </span>
-            </span>
-            <span>{pct}%</span>
+      {/* ---------- progress ---------- */}
+      <section className="mb-4 rounded-xl border border-line bg-surface p-3" aria-label={t('Progress')}>
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
+          <div>
+            <p className="text-xs text-muted">{t('Caught')}</p>
+            <p className="text-2xl font-bold leading-none tabular-nums">
+              {count}
+              <span className="ml-1 text-sm font-medium text-muted">{t('of {total}', { total })}</span>
+            </p>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-surface-2">
-            <motion.div
-              className="h-full rounded-full"
-              style={{ background: accent }}
-              animate={{ width: `${pct}%` }}
-              transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-            />
+          <div>
+            <p className="text-xs text-muted">{t('In team')}</p>
+            <p className="text-2xl font-bold leading-none tabular-nums text-done">{haveCount}</p>
           </div>
+          <div>
+            <p className="text-xs text-muted">{t('Missing')}</p>
+            <p className="text-2xl font-bold leading-none tabular-nums text-muted">{total - count}</p>
+          </div>
+          <p className="ml-auto text-3xl font-bold leading-none tabular-nums" style={{ color: accent }}>
+            {pct}%
+          </p>
+        </div>
+        <div
+          className="relative mt-3 h-3 overflow-hidden rounded-full bg-bg"
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
+          {/* Caught, with what you have right now drawn over it. */}
+          <motion.div
+            className="absolute inset-y-0 left-0 rounded-full opacity-60"
+            style={{ background: accent }}
+            animate={{ width: `${pct}%` }}
+            transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+          />
+          <motion.div
+            className="absolute inset-y-0 left-0 rounded-full bg-done"
+            animate={{ width: `${total ? Math.round((haveCount / total) * 100) : 0}%` }}
+            transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+          />
+        </div>
+        <p className="mt-1.5 flex flex-wrap gap-x-4 text-[11px] text-muted">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-done" /> {t('In team')}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full opacity-60" style={{ background: accent }} /> {t('Caught')}
+          </span>
+        </p>
+      </section>
+
+      {/* ---------- find ---------- */}
+      <div className="mb-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder={t('Search name or number')}
+            label={t('Search Pokémon')}
+            className="min-w-52 flex-1 sm:max-w-sm"
+          />
+          {hasUnavailable && (
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted">
+              <input type="checkbox" checked={onlyInGame} onChange={(e) => setOnlyInGame(e.target.checked)} />
+              {t('Only Pokémon in {game}', { game: gameName ?? t('this game') })}
+            </label>
+          )}
+          {!readOnly && (
+            <div className="relative ml-auto">
+              <button
+                onClick={() => setMenuOpen((o) => !o)}
+                aria-expanded={menuOpen}
+                className="rounded-md border border-line px-3 py-1.5 text-xs text-muted hover:text-ink"
+              >
+                {t('Bulk actions')} ▾
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 z-10 mt-1 w-64 rounded-lg border border-line bg-surface p-1 text-xs shadow-xl">
+                  <p className="px-3 py-2 text-muted">
+                    {t('These act on the Pokémon currently shown, so search or filter first.')}
+                  </p>
+                  <button onClick={() => askBulk(true)} className="block w-full rounded px-3 py-2 text-left hover:bg-surface-2">
+                    {t('Mark all shown as caught…')}
+                  </button>
+                  <button
+                    onClick={() => askBulk(false)}
+                    className="block w-full rounded px-3 py-2 text-left text-red-400 hover:bg-surface-2"
+                  >
+                    {t('Remove all shown from caught…')}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        <SearchInput
-          value={query}
-          onChange={setQuery}
-          placeholder={t('Search name or number')}
-          label={t('Search Pokémon')}
-          className="w-52"
-        />
-
-        <div className="flex flex-wrap rounded-md border border-line text-xs">
-          {(['all', 'missing', 'caught', 'have', 'registered'] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 ${filter === f ? 'bg-surface-2 font-semibold' : 'text-muted'}`}
-            >
-              {filterLabels[f]}
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('Filter')}>
+          {(['all', 'missing', 'caught', 'have', 'registered'] as const).map((f) => {
+            const n = { all: total, missing: total - count, caught: count, have: haveCount, registered: count - haveCount }[f];
+            const on = filter === f;
+            return (
+              <button
+                key={f}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setFilter(f)}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${
+                  on ? 'border-ink bg-surface-2 font-semibold text-ink' : 'border-line text-muted hover:text-ink'
+                }`}
+              >
+                {filterLabels[f]}
+                <span className={`rounded-full px-1.5 text-[10px] tabular-nums ${on ? 'bg-bg' : 'bg-surface-2'}`}>{n}</span>
+              </button>
+            );
+          })}
         </div>
-
-        {hasUnavailable && (
-          <label className="flex items-center gap-2 text-xs text-muted">
-            <input type="checkbox" checked={onlyInGame} onChange={(e) => setOnlyInGame(e.target.checked)} />
-            {t('Only Pokémon in {game}', { game: gameName ?? t('this game') })}
-          </label>
-        )}
-
-        {!readOnly && (
-          <div className="relative ml-auto">
-            <button
-              onClick={() => setMenuOpen((o) => !o)}
-              aria-expanded={menuOpen}
-              className="rounded-md border border-line px-3 py-1.5 text-xs text-muted hover:text-ink"
-            >
-              {t('Bulk actions')} ▾
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 z-10 mt-1 w-64 rounded-lg border border-line bg-surface p-1 text-xs shadow-xl">
-                <p className="px-3 py-2 text-muted">
-                  {t('These act on the Pokémon currently shown, so search or filter first.')}
-                </p>
-                <button onClick={() => askBulk(true)} className="block w-full rounded px-3 py-2 text-left hover:bg-surface-2">
-                  {t('Mark all shown as caught…')}
-                </button>
-                <button
-                  onClick={() => askBulk(false)}
-                  className="block w-full rounded px-3 py-2 text-left text-red-400 hover:bg-surface-2"
-                >
-                  {t('Remove all shown from caught…')}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {error && (
@@ -367,8 +409,13 @@ export function DexGrid({
                     </button>
                   )}
                   <span className="font-mono text-[11px] text-muted">#{String(c.entryNumber).padStart(3, '0')}</span>
-                  {c.keeper || c.training ? (
+                  {c.keeper || c.training || c.ready ? (
                     <span className="flex items-center gap-1">
+                      {c.ready && (
+                        <span className="text-done" title={t('Ready')} aria-label={t('Ready')}>
+                          <ReadyIcon size={18} />
+                        </span>
+                      )}
                       {c.keeper && (
                         <span className="text-violet-500" title={t('Keeper')} aria-label={t('Keeper')}>
                           <KeeperIcon size={18} />

@@ -19,6 +19,21 @@ function Svg({ size = 16, children }: { size?: number; children: React.ReactNode
 
 type IconProps = { size?: number };
 
+/** Arrows out to the corners: open something in full. */
+export const ExpandIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6" />
+  </Svg>
+);
+
+/** A minus in a circle: take something out of a group without deleting it. */
+export const MinusCircleIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M8 12h8" />
+  </Svg>
+);
+
 export const CheckIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="m5 12.5 4.5 4.5L19 7.5" />

@@ -38,3 +38,24 @@ export function KeeperIcon({ size = 16, className }: { size?: number; className?
     </svg>
   );
 }
+
+/** A check in a circle: marks a Pokémon with every task done. Drawn, so it takes the text color wherever it sits. */
+export function ReadyIcon({ size = 16, className }: { size?: number; className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className={className}
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8 12.5 3 3 5-6" />
+    </svg>
+  );
+}

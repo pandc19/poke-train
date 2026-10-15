@@ -6,7 +6,7 @@ import { PokemonSprite, genderMark, progressOf } from './parts';
 import type { Lang } from '@/lib/i18n';
 import type { RosterView } from '@/lib/roster';
 import { useT } from '@/lib/translate-client';
-import { KeeperIcon, TrainingIcon } from '../KeeperIcon';
+import { KeeperIcon, ReadyIcon, TrainingIcon } from '../KeeperIcon';
 
 export const PAGE_SIZE = 12;
 
@@ -118,7 +118,18 @@ export function RosterList({
                       <span>{t('Lv. {level}', { level: p.level })}</span>
                     </span>
                   </span>
-                  <PokemonSprite p={p} size={56} animated={false} />
+                  <span className="relative">
+                    <PokemonSprite p={p} size={56} animated={false} />
+                    {prog.complete && (
+                      <span
+                        className="absolute -right-2 top-0 rounded-full bg-surface text-done"
+                        title={t('Ready')}
+                        aria-label={t('Ready')}
+                      >
+                        <ReadyIcon size={18} />
+                      </span>
+                    )}
+                  </span>
                   <span className="mt-0.5 flex w-full items-center justify-center gap-1 text-xs font-medium">
                     <span className="truncate">{name}</span>
                     {genderMark(p) && (
@@ -182,9 +193,11 @@ export function RosterList({
               type="button"
               onClick={() => onPage(page - 1)}
               disabled={page === 0}
+              aria-label={t('Previous')}
+              title={t('Previous')}
               className="rounded-md border border-line px-3 py-1.5 disabled:opacity-40"
             >
-              ← {t('Previous')}
+              ‹
             </button>
           </div>
           <span className="text-muted">
@@ -195,9 +208,11 @@ export function RosterList({
               type="button"
               onClick={() => onPage(page + 1)}
               disabled={page >= pageCount - 1}
+              aria-label={t('Next')}
+              title={t('Next')}
               className="rounded-md border border-line px-3 py-1.5 disabled:opacity-40"
             >
-              {t('Next')} →
+              ›
             </button>
             <button
               type="button"
