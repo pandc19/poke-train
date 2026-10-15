@@ -392,6 +392,7 @@ export const ES: Record<string, string> = {
   'Total {total} / 508': 'Total {total} / 508',
   'Unfix': 'Quitar',
   'Unknown Pokémon': 'Pokémon desconocido',
+  'Unknown move': 'Movimiento desconocido',
   'Unknown Pokémon "{value}"': 'Pokémon desconocido "{value}"',
   'Unknown Tera type "{value}"': 'Teratipo desconocido "{value}"',
   'Unknown ability "{value}"': 'Habilidad desconocida "{value}"',
@@ -664,6 +665,12 @@ export const ES: Record<string, string> = {
   'Could not save that choice. Try again.': 'No se pudo guardar esa elección. Inténtalo de nuevo.',
   'Not in your roster': 'No está en tu equipo',
   'Refresh all': 'Actualizar todo',
+  'Its moves': 'Sus movimientos',
+  'Not set: what hits your Pokémon is guessed from its own types. Edit it to add the moves you saw.':
+    'Sin indicar: lo que golpea a tus Pokémon se supone por sus propios tipos. Edítalo para añadir los movimientos que viste.',
+  'Its moves (optional, up to 4): the suggestions avoid being weak to them':
+    'Sus movimientos (opcional, hasta 4): las sugerencias evitan ser débiles a ellos',
+  'e.g. Flamethrower': 'p. ej. Lanzallamas',
   'Archive': 'Archivar',
   'Restore': 'Restaurar',
   'Archived ({n})': 'Archivados ({n})',

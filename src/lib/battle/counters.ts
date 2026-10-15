@@ -69,6 +69,8 @@ export type OpponentInput = {
   stats: BaseStats;
   /** PokéAPI slug of its ability, when known. */
   ability: string | null;
+  /** Types of the attacking moves the player has seen it use; when present they replace its same-type guess. */
+  moveTypes?: string[];
 };
 
 /** The types it defends with. */
@@ -77,8 +79,10 @@ export function defendingTypes(o: Pick<OpponentInput, 'types' | 'teraType'>): st
   return o.teraType && o.teraType !== 'stellar' ? [o.teraType] : o.types;
 }
 
-/** The types its own attacks get the same-type bonus on: its own types plus the Tera type. */
-export function attackingTypes(o: Pick<OpponentInput, 'types' | 'teraType'>): string[] {
+/** The types of its attacks: the known moves, or else its own types plus the Tera type (same-type bonus). */
+export function attackingTypes(o: Pick<OpponentInput, 'types' | 'teraType' | 'moveTypes'>): string[] {
+  // Moves it is known to have are what it will hit with, whatever its own types are.
+  if (o.moveTypes?.length) return [...new Set(o.moveTypes)];
   return o.teraType && o.teraType !== 'stellar' && !o.types.includes(o.teraType) ? [...o.types, o.teraType] : o.types;
 }
 
@@ -120,7 +124,7 @@ export type Counter = {
   score: number;
   /** The move to use, with what it does to the opponent. */
   move: { id: number; multiplier: number; stab: boolean; known: boolean };
-  /** Worst hit it takes from the opponent's same-type attacks (0 = immune, 4 = double weak). */
+  /** Worst hit it takes from the opponent's known moves (or its same-type attacks) (0 = immune, 4 = double weak). */
   incoming: number;
   /** Its base Speed is above the opponent's, so it moves first. */
   faster: boolean;

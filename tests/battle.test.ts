@@ -129,4 +129,19 @@ describe('ranking counters', () => {
     expect(first.speciesId).toBe(2);
     expect(first.faster).toBe(true);
   });
+
+  it('known moves replace its own types when judging the hits a counter takes', () => {
+    const dragon = { ...charizard, types: ['dragon'] };
+    const water = candidate(1, ['water'], 'water');
+    const table = weaknessTable(chart, dragon, types);
+    // Guessed from its own type: dragon attacks, which nothing here resists or fears.
+    const guessed = rankCounters(chart, dragon, table, [water], 5)[0];
+    // It was seen using Rock moves; the Water Pokémon takes them neutrally, a Flying one is weak.
+    const withMoves = { ...dragon, moveTypes: ['rock'] };
+    const flying = { ...candidate(2, ['water'], 'water'), types: ['flying'] };
+    const [a, b] = rankCounters(chart, withMoves, table, [water, flying], 5).sort((x, y) => x.speciesId - y.speciesId);
+    expect(guessed.incoming).toBe(1);
+    expect(a.incoming).toBe(1);
+    expect(b.incoming).toBe(2);
+  });
 });

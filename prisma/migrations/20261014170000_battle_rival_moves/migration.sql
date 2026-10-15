@@ -1,0 +1,1 @@
+ALTER TABLE "battle_opponents" ADD COLUMN "move_ids" INTEGER[] NOT NULL DEFAULT ARRAY[]::INTEGER[];

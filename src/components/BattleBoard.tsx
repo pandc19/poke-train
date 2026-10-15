@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { ArchiveIcon, CloneIcon, EditIcon, RefreshIcon, RestoreIcon, TrashIcon } from './ActionIcons';
 import { ConfirmDialog } from './Dialog';
 import { Sprite } from './Sprite';
 import { TypeBadge } from './TypeBadge';
@@ -11,6 +12,7 @@ import { TYPE_NAMES_ES as TYPE_LABEL_ES } from '@/lib/pokemon-types';
 import { useT } from '@/lib/translate-client';
 
 type Named = { id: number; nameEn: string; nameEs: string };
+type MoveOption = Named & { type: string };
 type FormOption = {
   id: number;
   slug: string;
@@ -29,6 +31,7 @@ type Draft = {
   teraType: string;
   stars: string;
   abilityId: number | null;
+  moveIds: number[];
   label: string;
   notes: string;
 };
@@ -41,16 +44,19 @@ const EMPTY: Draft = {
   teraType: '',
   stars: '',
   abilityId: null,
+  moveIds: [],
   label: '',
   notes: '',
 };
 
+const iconButton = 'flex h-8 w-8 items-center justify-center rounded border border-line hover:bg-surface-2';
 const inputClass = 'w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm placeholder:text-muted';
 
 export function BattleBoard({
   gameId,
   initial,
   species,
+  moves,
   types,
   features,
   lang,
@@ -58,6 +64,7 @@ export function BattleBoard({
   gameId: string;
   initial: BattleOpponentView[];
   species: Named[];
+  moves: MoveOption[];
   types: string[];
   features: { raids: boolean; tera: boolean };
   lang: Lang;
@@ -114,6 +121,7 @@ export function BattleBoard({
       teraType: o.teraType ?? '',
       stars: o.stars != null ? String(o.stars) : '',
       abilityId: o.ability?.id ?? null,
+      moveIds: o.moves.map((m) => m.id),
       label: o.label ?? '',
       notes: o.notes ?? '',
     };
@@ -130,6 +138,7 @@ export function BattleBoard({
       teraType: features.tera && d.teraType ? d.teraType : null,
       stars: features.raids && d.kind === 'RAID' && d.stars ? Number(d.stars) : null,
       abilityId: d.abilityId,
+      moveIds: d.moveIds,
       label: d.label.trim() || null,
       notes: d.notes.trim() || null,
     };
@@ -334,51 +343,74 @@ export function BattleBoard({
               {[o.label, o.ability ? `${t('Ability')}: ${name(o.ability)}` : null].filter(Boolean).join(' · ')}
             </p>
           </div>
-                    <div className="flex flex-wrap gap-1.5">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
-              disabled={refreshing.has(o.id)}
-              title={t('Work out the counters again, for example after adding Pokémon to your roster')}
-              onClick={() => refresh([o.id])}
-              className="rounded border border-line px-2 py-1 text-xs hover:bg-surface-2 disabled:opacity-40"
-            >
-              {refreshing.has(o.id) ? t('Refreshing…') : t('Refresh')}
-            </button>
-            <button
-              type="button"
-              title={o.archived ? undefined : t('Put it away so it is not shown open; you can bring it back')}
-              onClick={() => setArchived(o, !o.archived)}
-              className="rounded border border-line px-2 py-1 text-xs hover:bg-surface-2"
-            >
-              {o.archived ? t('Restore') : t('Archive')}
-            </button>
-            <button
-              type="button"
+              title={t('Edit')}
+              aria-label={t('Edit')}
               onClick={() => setDraft(draftOf(o, 'edit'))}
-              className="rounded border border-line px-2 py-1 text-xs hover:bg-surface-2"
+              className={iconButton}
             >
-              {t('Edit')}
+              <EditIcon />
             </button>
             <button
               type="button"
               title={t('Make a copy to change something, like the Tera type, without losing this one')}
+              aria-label={t('Clone')}
               onClick={() => setDraft(draftOf(o, 'clone'))}
-              className="rounded border border-line px-2 py-1 text-xs hover:bg-surface-2"
+              className={iconButton}
             >
-              {t('Clone')}
+              <CloneIcon />
+            </button>
+            <span aria-hidden className="mx-0.5 w-px self-stretch bg-line" />
+            <button
+              type="button"
+              disabled={refreshing.has(o.id)}
+              title={refreshing.has(o.id) ? t('Refreshing…') : t('Work out the counters again, for example after adding Pokémon to your roster')}
+              aria-label={t('Refresh')}
+              onClick={() => refresh([o.id])}
+              className={`${iconButton} ${refreshing.has(o.id) ? 'animate-spin' : ''} disabled:opacity-40`}
+            >
+              <RefreshIcon />
             </button>
             <button
               type="button"
-              onClick={() => setDeleting(o)}
-              className="rounded border border-line px-2 py-1 text-xs text-muted hover:text-pending"
+              title={o.archived ? t('Restore') : t('Put it away so it is not shown open; you can bring it back')}
+              aria-label={o.archived ? t('Restore') : t('Archive')}
+              onClick={() => setArchived(o, !o.archived)}
+              className={iconButton}
             >
-              {t('Delete')}
+              {o.archived ? <RestoreIcon /> : <ArchiveIcon />}
+            </button>
+            <span aria-hidden className="mx-0.5 w-px self-stretch bg-line" />
+            <button
+              type="button"
+              title={t('Delete')}
+              aria-label={t('Delete')}
+              onClick={() => setDeleting(o)}
+              className={`${iconButton} text-muted hover:text-pending`}
+            >
+              <TrashIcon />
             </button>
           </div>
         </div>
 
         <div className="space-y-4 border-t border-line p-3">
           {o.notes && <p className="text-xs text-muted">{o.notes}</p>}
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs">
+            <span className="font-medium">{t('Its moves')}:</span>
+            {o.moves.length === 0 ? (
+              <span className="text-muted">
+                {t('Not set: what hits your Pokémon is guessed from its own types. Edit it to add the moves you saw.')}
+              </span>
+            ) : (
+              o.moves.map((m) => (
+                <span key={m.id} className="flex items-center gap-1">
+                  {name(m)} <TypeBadge type={m.type} lang={lang} small />
+                </span>
+              ))
+            )}
+          </p>
           {o.teraType && (
             <p className="text-xs text-muted">
               {t('Terastallized: it defends as a {type} type only.', {
@@ -456,6 +488,7 @@ export function BattleBoard({
           gameId={gameId}
           draft={draft}
           species={species}
+          moves={moves}
           types={types}
           features={features}
           lang={lang}
@@ -536,6 +569,7 @@ function OpponentForm({
   gameId,
   draft: initial,
   species,
+  moves,
   types,
   features,
   lang,
@@ -546,6 +580,7 @@ function OpponentForm({
   gameId: string;
   draft: Draft;
   species: Named[];
+  moves: MoveOption[];
   types: string[];
   features: { raids: boolean; tera: boolean };
   lang: Lang;
@@ -557,6 +592,7 @@ function OpponentForm({
   const [d, setD] = useState(initial);
   const [forms, setForms] = useState<FormOption[]>([]);
   const [loadError, setLoadError] = useState(false);
+  const [moveText, setMoveText] = useState('');
   const name = (x: Named) => (lang === 'en' ? x.nameEn : x.nameEs);
   const text = d.species.trim().toLowerCase();
   const chosen = species.find((s) => s.nameEn.toLowerCase() === text || s.nameEs.toLowerCase() === text);
@@ -585,6 +621,17 @@ function OpponentForm({
   }, [speciesId, gameId]);
 
   const form = forms.find((f) => f.id === d.formId) ?? forms[0];
+  const chosenMoves = d.moveIds.flatMap((id) => moves.find((m) => m.id === id) ?? []);
+
+  /** Adds the typed move once it matches one by name (either language). */
+  function addMove(text: string) {
+    setMoveText(text);
+    const q = text.trim().toLowerCase();
+    const m = q ? moves.find((x) => x.nameEn.toLowerCase() === q || x.nameEs.toLowerCase() === q) : undefined;
+    if (!m || d.moveIds.includes(m.id) || d.moveIds.length >= 4) return;
+    set({ moveIds: [...d.moveIds, m.id] });
+    setMoveText('');
+  }
   const defaultFormId = forms.find((f) => f.isDefault)?.id ?? null;
 
   return (
@@ -685,6 +732,36 @@ function OpponentForm({
           </label>
         )}
 
+        <div className="md:col-span-4">
+          <span className="mb-1 block text-xs font-medium text-muted">
+            {t('Its moves (optional, up to 4): the suggestions avoid being weak to them')}
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {chosenMoves.map((m) => (
+              <span key={m.id} className="flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs">
+                {name(m)} <TypeBadge type={m.type} lang={lang} small />
+                <button
+                  type="button"
+                  aria-label={t('Remove')}
+                  onClick={() => set({ moveIds: d.moveIds.filter((id) => id !== m.id) })}
+                  className="text-muted hover:text-pending"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            {d.moveIds.length < 4 && (
+              <ComboInput
+                list="battle-moves"
+                value={moveText}
+                onChange={addMove}
+                placeholder={t('e.g. Flamethrower')}
+                className={`${inputClass} !w-48`}
+              />
+            )}
+          </div>
+        </div>
+
         <label className="block md:col-span-2">
           <span className="mb-1 block text-xs font-medium text-muted">{t('Name for this opponent (optional)')}</span>
           <input
@@ -720,6 +797,11 @@ function OpponentForm({
           {t('Cancel')}
         </button>
       </div>
+      <datalist id="battle-moves">
+        {moves.map((m) => (
+          <option key={m.id} value={name(m)} label={lang === 'en' ? m.nameEs : m.nameEn} />
+        ))}
+      </datalist>
       <datalist id="battle-species">
         {species.map((s) => (
           <option key={s.id} value={name(s)} label={lang === 'en' ? s.nameEs : s.nameEn} />

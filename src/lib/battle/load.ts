@@ -55,6 +55,8 @@ export type BattleOpponentView = {
   /** Its own types, whatever its Tera type is. */
   types: string[];
   ability: Named | null;
+  /** Moves the player has seen it use; the counters' resistance is judged against these. */
+  moves: (Named & { type: string })[];
   /** Types that do something other than normal damage to it, most damaging first. */
   weaknesses: { type: string; multiplier: number }[];
   /** The strongest moves of each type it is weak to that Pokémon of this game can learn. */
@@ -276,6 +278,12 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
     select: { id: true, slug: true, nameEn: true, nameEs: true },
   });
   const abilityById = new Map(abilities.map((a) => [a.id, a]));
+  // The rivals' own moves may be any move, status ones included, so they are read apart from the index.
+  const rivalMoves = await prisma.move.findMany({
+    where: { id: { in: [...new Set(rows.flatMap((r) => r.moveIds))] } },
+    select: { id: true, nameEn: true, nameEs: true, type: true, damageClass: true },
+  });
+  const rivalMoveById = new Map(rivalMoves.map((m) => [m.id, m]));
 
   // Roster candidates: only the moves each knows now (the player will not retrain them), with its ability.
   const rosterForms = roster.flatMap((r) => {
@@ -318,7 +326,11 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
     const form = formOf(o.speciesId, o.formId);
     if (!form) throw new Error(`No form for species ${o.speciesId}`);
     const ability = o.abilityId ? (abilityById.get(o.abilityId) ?? null) : null;
+    const known = o.moveIds.flatMap((id) => rivalMoveById.get(id) ?? []);
+    // Status moves do no damage, so they say nothing about what a counter has to take.
+    const damaging = known.filter((m) => m.damageClass !== 'status');
     const input: OpponentInput = {
+      moveTypes: damaging.map((m) => m.type),
       types: form.types,
       teraType: o.teraType,
       stats: form.baseStats as BaseStats,
@@ -422,6 +434,7 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
       spriteUrl: form.spriteUrl,
       types: form.types,
       ability: ability ? { id: ability.id, nameEn: ability.nameEn, nameEs: ability.nameEs } : null,
+      moves: known.map((m) => ({ id: m.id, nameEn: m.nameEn, nameEs: m.nameEs, type: m.type })),
       weaknesses,
       strongMoves,
       roster: rosterViews,

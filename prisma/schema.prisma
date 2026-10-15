@@ -519,6 +519,9 @@ model BattleOpponent {
   /// Raid star level, 1..7.
   stars      Int?
   abilityId  Int?       @map("ability_id")
+  /// Moves the player has seen it use (up to 4). When set, the hits a counter takes come from
+  /// these instead of from the opponent's own types.
+  moveIds    Int[]      @default([]) @map("move_ids")
   /// The player's own label, e.g. "Charizard 7★ raid".
   label      String?
   notes      String?

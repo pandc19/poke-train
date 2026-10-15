@@ -41,6 +41,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/battle/[id
     teraType: parsed.data.teraType !== undefined ? parsed.data.teraType : current.teraType,
     stars: parsed.data.stars !== undefined ? parsed.data.stars : current.stars,
     abilityId: parsed.data.abilityId !== undefined ? parsed.data.abilityId : speciesChanged ? null : current.abilityId,
+    moveIds: parsed.data.moveIds ?? current.moveIds,
     label: parsed.data.label !== undefined ? parsed.data.label : current.label,
     notes: parsed.data.notes !== undefined ? parsed.data.notes : current.notes,
   };

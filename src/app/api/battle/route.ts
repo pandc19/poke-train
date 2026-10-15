@@ -21,6 +21,7 @@ export async function POST(request: Request) {
     teraType: body.teraType ?? null,
     stars: body.stars ?? null,
     abilityId: body.abilityId ?? null,
+    moveIds: body.moveIds ?? [],
     label: body.label ?? null,
     notes: body.notes ?? null,
   });

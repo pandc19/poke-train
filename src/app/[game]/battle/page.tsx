@@ -9,10 +9,16 @@ export default async function BattlePage({ params }: PageProps<'/[game]/battle'>
   const { game: gameId } = await params;
   const { game, profileId } = await requireGameProfile(gameId);
 
-  const [opponents, species, lang, t] = await Promise.all([
+  const [opponents, species, moves, lang, t] = await Promise.all([
     loadOpponents(game, profileId),
     // Any Pokémon can be an opponent, not only the ones obtainable in this game.
     prisma.species.findMany({ select: { id: true, nameEn: true, nameEs: true }, orderBy: { id: 'asc' } }),
+    // Only moves that deal damage: they are what the counters have to withstand.
+    prisma.move.findMany({
+      where: { damageClass: { not: 'status' } },
+      select: { id: true, nameEn: true, nameEs: true, type: true },
+      orderBy: { nameEn: 'asc' },
+    }),
     getLang(),
     getT(),
   ]);
@@ -29,6 +35,7 @@ export default async function BattlePage({ params }: PageProps<'/[game]/battle'>
         gameId={game.id}
         initial={opponents}
         species={species}
+        moves={moves}
         types={TYPE_SLUGS.filter((s) => s !== 'stellar' || game.features.teraType)}
         features={{ raids: game.features.raids, tera: game.features.teraType }}
         lang={lang}
