@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { BreedersBoard } from '@/components/BreedersBoard';
+import { BreedingSwitch } from '@/components/BreedingSwitch';
 import { getLang, getT } from '@/lib/i18n';
 import { requireGameProfile } from '@/lib/profile';
 import { loadEditorOptions, loadRoster } from '@/lib/roster';
@@ -20,11 +21,12 @@ export default async function BreedersPage({ params, searchParams }: PageProps<'
   return (
     <div>
       <h1 className="text-xl font-bold">{t('{game} breeders', { game: game.shortName })}</h1>
-      <p className="mb-5 mt-1 max-w-3xl text-sm text-muted">
+      <p className="mt-1 max-w-3xl text-sm text-muted">
         {t(
           'Record the Pokémon you keep to breed with: the Judge’s word for each IV, its nature and its ability. The breeding plans pick the best pair from these, and from the Pokémon in your Pokédex.'
         )}
       </p>
+      <BreedingSwitch gameId={game.id} />
       <BreedersBoard
         gameId={game.id}
         initial={breeders}

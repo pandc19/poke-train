@@ -41,19 +41,19 @@ export function Header({ games }: { games: GameLink[] }) {
   const onPokedex = /\/(pokedex|national|exclusives)(\/|$)/.test(pathname);
   const catalog = onPokedex ? [] : current.catalog.filter((s) => (s.topic ?? 'training') === (onBreeding ? 'breeding' : 'training'));
 
-  const tabs = [
+  // Breeders are a view inside Breeding (see BreedingSwitch), so both pages light up its tab.
+  // Exclusives and Search sit apart, on the right.
+  const tabs: { href: string; label: string; also?: string; right?: boolean }[] = [
     { href: `/${current.id}/pokedex`, label: t('Pokédex') },
-    ...(current.exclusives ? [{ href: `/${current.id}/exclusives`, label: t('Exclusives') }] : []),
     { href: `/${current.id}/roster`, label: t('Roster') },
-    { href: `/${current.id}/search`, label: t('Search') },
     { href: `/${current.id}/battle`, label: t('Battle') },
     ...(current.breeding
-      ? [
-          { href: `/${current.id}/breeders`, label: t('Breeders') },
-          { href: `/${current.id}/breeding`, label: t('Breeding') },
-        ]
+      ? [{ href: `/${current.id}/breeding`, label: t('Breeding'), also: `/${current.id}/breeders` }]
       : []),
+    ...(current.exclusives ? [{ href: `/${current.id}/exclusives`, label: t('Exclusives'), right: true }] : []),
+    { href: `/${current.id}/search`, label: t('Search'), right: true },
   ];
+  const firstRight = tabs.findIndex((x) => x.right);
 
   return (
     <>
@@ -162,13 +162,13 @@ export function Header({ games }: { games: GameLink[] }) {
           )}
         </div>
         <nav aria-label={t('Sections')} className="flex flex-1 gap-1 overflow-x-auto">
-          {tabs.map((tab) => {
-            const active = pathname.startsWith(tab.href);
+          {tabs.map((tab, i) => {
+            const active = pathname.startsWith(tab.href) || (tab.also != null && pathname.startsWith(tab.also));
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`relative flex items-center whitespace-nowrap px-3 text-sm ${
+                className={`relative flex items-center whitespace-nowrap px-3 text-sm ${i === firstRight ? 'ml-auto' : ''} ${
                   active ? 'text-ink' : 'text-muted hover:text-ink'
                 }`}
               >

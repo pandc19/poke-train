@@ -709,7 +709,7 @@ export function BreedingBoard({
         style={{ borderColor: `${STAGE_COLOR[goal.status]}${goal.status === 'PLANNED' ? '55' : 'aa'}` }}
       >
         {/* Who it is, what it needs and whether you are ready stay in view while the plan scrolls underneath. */}
-        <div className="sticky top-[var(--nav-h)] z-10 max-h-[40dvh] overflow-y-auto rounded-t-xl border-b border-line bg-surface p-4 shadow-sm lg:max-h-[60dvh]">
+        <div className="sticky top-[var(--nav-h)] z-10 md:top-[calc(var(--nav-h)+3.25rem)] max-h-[40dvh] overflow-y-auto rounded-t-xl border-b border-line bg-surface p-4 shadow-sm lg:max-h-[60dvh]">
         <div className="flex flex-wrap items-center gap-3">
           {pic(goal.species, 64)}
           <div className="min-w-0 flex-1">
@@ -1044,7 +1044,7 @@ export function BreedingBoard({
         <p className="py-10 text-center text-sm text-muted">{t('No breeding plans yet. Create one above.')}</p>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-          <aside ref={listRef} className="relative lg:sticky lg:top-[calc(var(--nav-h)+1rem)] lg:max-h-[calc(100dvh-var(--nav-h)-2rem)] lg:self-start lg:overflow-y-auto">
+          <aside ref={listRef} className="relative lg:sticky lg:top-[calc(var(--nav-h)+4rem)] lg:max-h-[calc(100dvh-var(--nav-h)-5rem)] lg:self-start lg:overflow-y-auto">
             <button
               type="button"
               aria-expanded={listOpen}

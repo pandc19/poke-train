@@ -76,6 +76,7 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
     const isCaught = caught.has(e.dex) || inRoster.has(e.dex);
     return {
       dex: e.dex,
+      lineRoot: position(e.dex).root,
       form: e.form ?? null,
       nameEn: s?.nameEn ?? `#${e.dex}`,
       nameEs: s?.nameEs ?? `#${e.dex}`,
