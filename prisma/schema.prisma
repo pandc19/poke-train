@@ -528,6 +528,8 @@ model BattleOpponent {
   createdAt  DateTime   @default(now()) @map("created_at")
   /// Set when put away: it stays saved but is kept out of the open list.
   archivedAt DateTime?  @map("archived_at")
+  /// Set when the player has beaten it; it stays in the list, marked.
+  defeatedAt DateTime?  @map("defeated_at")
   /// The roster entry the player found best against it. Kept across refreshes; a stale id is ignored.
   bestRosterId String? @map("best_roster_id") @db.Uuid
 

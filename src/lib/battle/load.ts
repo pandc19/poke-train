@@ -43,6 +43,8 @@ export type BattleOpponentView = {
   id: string;
   label: string | null;
   archived: boolean;
+  /** The player has beaten it. */
+  defeated: boolean;
   kind: 'RAID' | 'STANDARD';
   stars: number | null;
   teraType: string | null;
@@ -423,6 +425,7 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
       id: o.id,
       label: o.label,
       archived: o.archivedAt != null,
+      defeated: o.defeatedAt != null,
       kind: o.kind,
       stars: o.stars,
       teraType: o.teraType,

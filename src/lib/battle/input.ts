@@ -28,7 +28,7 @@ export const CreateBody = z.object({ gameId: z.string() }).extend({
   notes: fields.notes.optional(),
 });
 
-export const UpdateBody = z.object({ ...fields, archived: z.boolean(), bestRosterId: z.uuid().nullable() }).partial();
+export const UpdateBody = z.object({ ...fields, archived: z.boolean(), defeated: z.boolean(), bestRosterId: z.uuid().nullable() }).partial();
 
 export type OpponentData = {
   speciesId: number;

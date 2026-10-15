@@ -48,7 +48,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/battle/[id
   const checked = await checkOpponent(game, merged);
   if ('error' in checked) return opponentError(checked.error);
 
-  const { archived, bestRosterId } = parsed.data;
+  const { archived, defeated, bestRosterId } = parsed.data;
   if (bestRosterId) {
     const owned = await prisma.rosterPokemon.findFirst({
       where: { id: bestRosterId, profileId: current.profileId },
@@ -61,6 +61,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/battle/[id
     data: {
       ...checked.data,
       ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }),
+      ...(defeated === undefined ? {} : { defeatedAt: defeated ? new Date() : null }),
       ...(bestRosterId === undefined ? {} : { bestRosterId }),
     },
   });

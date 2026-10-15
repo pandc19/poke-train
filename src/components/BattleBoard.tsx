@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArchiveIcon, CloneIcon, EditIcon, RefreshIcon, RestoreIcon, TrashIcon } from './ActionIcons';
+import { ArchiveIcon, CheckIcon, CloneIcon, EditIcon, RestoreIcon, TrashIcon } from './ActionIcons';
 import { ConfirmDialog } from './Dialog';
 import { Sprite } from './Sprite';
-import { TypeBadge } from './TypeBadge';
+import { TeraBadge, TypeBadge } from './TypeBadge';
 import { ComboInput } from './roster/parts';
 import type { BattleOpponentView, CounterView, MoveView } from '@/lib/battle/load';
 import type { Lang } from '@/lib/i18n';
@@ -81,8 +81,6 @@ export function BattleBoard({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<BattleOpponentView | null>(null);
-  /** Opponents being worked out again. */
-  const [refreshing, setRefreshing] = useState<Set<string>>(new Set());
   const [showArchived, setShowArchived] = useState(false);
   const active = opponents.filter((o) => !o.archived);
   const archived = opponents.filter((o) => o.archived);
@@ -170,19 +168,15 @@ export function BattleBoard({
     }
   }
 
-  /** Works the counters out again, e.g. after the roster changed. */
+  /** Works the counters out again, e.g. after the roster changed in another tab. */
   async function refresh(ids: string[]) {
-    setError(null);
-    setRefreshing((prev) => new Set([...prev, ...ids]));
     try {
       const results = await Promise.all(
         ids.map((id) => api<{ opponent: BattleOpponentView }>(`/api/battle/${id}`, 'GET').then((r) => r.opponent))
       );
       setOpponents((prev) => prev.map((o) => results.find((r) => r.id === o.id) ?? o));
     } catch {
-      setError(t('Could not refresh. Try again.'));
-    } finally {
-      setRefreshing((prev) => new Set([...prev].filter((id) => !ids.includes(id))));
+      // Quiet: the counters shown are still valid, only possibly out of date.
     }
   }
 
@@ -196,6 +190,26 @@ export function BattleBoard({
     }
   }
 
+  // The roster changes on other pages (or tabs), so the counters are worked out again when this one is
+  // looked at again. Opening the page already loads them fresh.
+  const activeIds = useRef<string[]>([]);
+  const activeKey = active.map((o) => o.id).join(',');
+  useEffect(() => {
+    activeIds.current = activeKey ? activeKey.split(',') : [];
+  }, [activeKey]);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && activeIds.current.length > 0) void refresh(activeIds.current);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const multLabel = (m: number) => (m === 0 ? t('immune') : `×${m}`);
 
   const moveLine = (m: MoveView & { multiplier: number; stab: boolean; known: boolean }) => (
@@ -208,6 +222,16 @@ export function BattleBoard({
       </span>
     </span>
   );
+
+  async function setDefeated(o: BattleOpponentView, value: boolean) {
+    setError(null);
+    try {
+      const data = await api<{ opponent: BattleOpponentView }>(`/api/battle/${o.id}`, 'PATCH', { defeated: value });
+      setOpponents((prev) => prev.map((x) => (x.id === o.id ? data.opponent : x)));
+    } catch {
+      setError(t('Could not save that choice. Try again.'));
+    }
+  }
 
   async function setBest(o: BattleOpponentView, rosterId: string | null) {
     setError(null);
@@ -285,7 +309,7 @@ export function BattleBoard({
           aria-current={on ? 'true' : undefined}
           className={`flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left ${
             on ? 'border-done bg-surface-2' : 'border-line bg-surface hover:bg-surface-2'
-          }`}
+          } ${o.defeated && !on ? 'opacity-60' : ''}`}
         >
           <Sprite src={o.spriteUrl} alt={name(o.species)} size={56} smooth />
           <span className="min-w-0 flex-1">
@@ -299,10 +323,15 @@ export function BattleBoard({
                   {o.stars ? `${o.stars}★` : t('Raid')}
                 </span>
               )}
-              {o.teraType && <TypeBadge type={o.teraType} lang={lang} small />}
+              {o.teraType && <TeraBadge type={o.teraType} lang={lang} title={t('Tera type')} />}
             </span>
             {o.label && <span className="block truncate text-[11px] text-muted">{o.label}</span>}
           </span>
+          {o.defeated && (
+            <span className="shrink-0 text-done" title={t('Defeated')}>
+              <CheckIcon size={18} />
+            </span>
+          )}
         </button>
       </li>
     );
@@ -333,9 +362,10 @@ export function BattleBoard({
                   {o.stars ? t('Raid {n}★', { n: o.stars }) : t('Raid')}
                 </span>
               )}
-              {o.teraType && (
-                <span className="flex items-center gap-1 text-[11px] text-muted">
-                  {t('Tera')} {typeName(o.teraType)}
+              {o.teraType && <TeraBadge type={o.teraType} lang={lang} title={t('Tera type')} />}
+              {o.defeated && (
+                <span className="flex items-center gap-1 rounded bg-done/15 px-1.5 text-[11px] font-semibold text-done">
+                  <CheckIcon size={12} /> {t('Defeated')}
                 </span>
               )}
             </p>
@@ -344,6 +374,19 @@ export function BattleBoard({
             </p>
           </div>
           <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              aria-pressed={o.defeated}
+              onClick={() => setDefeated(o, !o.defeated)}
+              title={o.defeated ? t('Defeated. Click to undo') : t('Mark it as defeated')}
+              className={`flex h-8 items-center gap-1 rounded border px-2 text-xs font-medium ${
+                o.defeated ? 'border-done bg-done/15 text-done' : 'border-line hover:bg-surface-2'
+              }`}
+            >
+              <CheckIcon size={14} />
+              {t('Defeated')}
+            </button>
+            <span aria-hidden className="mx-0.5 w-px self-stretch bg-line" />
             <button
               type="button"
               title={t('Edit')}
@@ -363,16 +406,6 @@ export function BattleBoard({
               <CloneIcon />
             </button>
             <span aria-hidden className="mx-0.5 w-px self-stretch bg-line" />
-            <button
-              type="button"
-              disabled={refreshing.has(o.id)}
-              title={refreshing.has(o.id) ? t('Refreshing…') : t('Work out the counters again, for example after adding Pokémon to your roster')}
-              aria-label={t('Refresh')}
-              onClick={() => refresh([o.id])}
-              className={`${iconButton} ${refreshing.has(o.id) ? 'animate-spin' : ''} disabled:opacity-40`}
-            >
-              <RefreshIcon />
-            </button>
             <button
               type="button"
               title={o.archived ? t('Restore') : t('Put it away so it is not shown open; you can bring it back')}
@@ -512,18 +545,6 @@ export function BattleBoard({
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
           <aside className="lg:sticky lg:top-[calc(var(--nav-h)+1rem)] lg:max-h-[calc(100dvh-var(--nav-h)-2rem)] lg:self-start lg:overflow-y-auto">
-            {active.length > 0 && (
-              <div className="mb-2 flex justify-end text-xs">
-                <button
-                  type="button"
-                  disabled={refreshing.size > 0}
-                  onClick={() => refresh(active.map((o) => o.id))}
-                  className="rounded border border-line px-2 py-1 text-muted hover:text-ink disabled:opacity-40"
-                >
-                  {refreshing.size > 0 ? t('Refreshing…') : t('Refresh all')}
-                </button>
-              </div>
-            )}
             <ul className="space-y-1.5">{active.map(renderListItem)}</ul>
             {archived.length > 0 && (
               <div className="mt-4">
@@ -634,6 +655,15 @@ function OpponentForm({
   }
   const defaultFormId = forms.find((f) => f.isDefault)?.id ?? null;
 
+  const typeLabel = (ty: string) => (lang === 'es' ? (TYPE_LABEL_ES[ty] ?? ty) : ty);
+  const heading = 'mb-2 border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-muted';
+  const labelClass = 'mb-1 block text-xs font-medium text-muted';
+  /** A pill of a segmented choice. */
+  const pill = (on: boolean) =>
+    `rounded-md border px-3 py-1.5 text-sm ${
+      on ? 'border-done bg-done/15 font-semibold text-done' : 'border-line text-muted hover:bg-surface-2 hover:text-ink'
+    }`;
+
   return (
     <form
       onSubmit={(e) => {
@@ -642,103 +672,168 @@ function OpponentForm({
       }}
       className="mb-6 rounded-xl border border-line bg-surface p-4"
     >
-      <h2 className="mb-3 text-sm font-semibold">
+      <h2 className="mb-4 text-base font-semibold">
         {d.id ? t('Edit opponent') : initial.species ? t('New opponent (copy)') : t('New opponent')}
       </h2>
-      <div className="grid gap-3 md:grid-cols-4">
-        <label className="block">
-          <span className="mb-1 block text-xs font-medium text-muted">{t('Pokémon')}</span>
-          <ComboInput
-            list="battle-species"
-            value={d.species}
-            onChange={(v) => set({ species: v })}
-            placeholder={t('e.g. Charizard')}
-            required
-            className={inputClass}
-          />
-        </label>
 
-        {features.raids && (
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-muted">{t('Battle')}</span>
-            <select value={d.kind} onChange={(e) => set({ kind: e.target.value as Draft['kind'] })} className={inputClass}>
-              <option value="RAID">{t('Raid boss')}</option>
-              <option value="STANDARD">{t('Other battle')}</option>
-            </select>
-          </label>
-        )}
-
-        {features.tera && (
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-muted">{t('Tera type')}</span>
-            <select value={d.teraType} onChange={(e) => set({ teraType: e.target.value })} className={inputClass}>
-              <option value="">{t('Not Terastallized')}</option>
-              {types.map((ty) => (
-                <option key={ty} value={ty}>
-                  {lang === 'es' ? (TYPE_LABEL_ES[ty] ?? ty) : ty}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        {features.raids && d.kind === 'RAID' && (
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-muted">{t('Stars')}</span>
-            <select value={d.stars} onChange={(e) => set({ stars: e.target.value })} className={inputClass}>
-              <option value="">{t('Not set')}</option>
-              {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-                <option key={n} value={n}>
-                  {n}★
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        {forms.length > 1 && (
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-muted">{t('Form')}</span>
-            <select
-              value={form?.id ?? ''}
-              onChange={(e) => set({ formId: Number(e.target.value), abilityId: null })}
-              className={inputClass}
+      <div className="space-y-5">
+        {/* ---------- who ---------- */}
+        <section>
+          <h3 className={heading}>{t('Who is it?')}</h3>
+          <div className="flex flex-wrap items-start gap-4">
+            <div
+              className="flex h-24 w-24 shrink-0 items-center justify-center rounded-lg border border-dashed border-line bg-bg"
+              aria-hidden
             >
-              {forms.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.isDefault ? t('Normal') : f.slug.split('-').slice(1).join(' ')} ({f.types.join(' / ')})
-                </option>
-              ))}
-            </select>
-          </label>
+              {form?.spriteUrl && speciesId != null ? (
+                <Sprite src={form.spriteUrl} alt="" size={80} smooth />
+              ) : (
+                <span className="text-2xl text-muted">?</span>
+              )}
+            </div>
+            <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <label className="block sm:col-span-2 lg:col-span-1">
+                <span className={labelClass}>{t('Pokémon')}</span>
+                <ComboInput
+                  list="battle-species"
+                  value={d.species}
+                  onChange={(v) => set({ species: v })}
+                  placeholder={t('e.g. Charizard')}
+                  required
+                  className={inputClass}
+                />
+              </label>
+              {forms.length > 1 && (
+                <label className="block">
+                  <span className={labelClass}>{t('Form')}</span>
+                  <select
+                    value={form?.id ?? ''}
+                    onChange={(e) => set({ formId: Number(e.target.value), abilityId: null })}
+                    className={inputClass}
+                  >
+                    {forms.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.isDefault ? t('Normal') : f.slug.split('-').slice(1).join(' ')} ({f.types.join(' / ')})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {form && form.abilities.length > 0 && (
+                <label className="block">
+                  <span className={labelClass}>{t('Ability (optional)')}</span>
+                  <select
+                    value={d.abilityId ?? ''}
+                    onChange={(e) => set({ abilityId: e.target.value ? Number(e.target.value) : null })}
+                    className={inputClass}
+                  >
+                    <option value="">{t('Not set')}</option>
+                    {form.abilities.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {name(a)}
+                        {a.isHidden ? ` (${t('hidden')})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {form && (
+                <div className="flex flex-wrap items-center gap-1 sm:col-span-2 lg:col-span-3">
+                  {form.types.map((ty) => (
+                    <TypeBadge key={ty} type={ty} lang={lang} />
+                  ))}
+                </div>
+              )}
+              {speciesId == null && !d.species.trim() && (
+                <p className="text-xs text-muted sm:col-span-2 lg:col-span-3">
+                  {t('Pick a Pokémon to see its forms and abilities.')}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* ---------- the battle ---------- */}
+        {(features.raids || features.tera) && (
+          <section>
+            <h3 className={heading}>{t('The battle')}</h3>
+            <div className="space-y-3">
+              {features.raids && (
+                <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+                  <div>
+                    <span className={labelClass}>{t('Battle')}</span>
+                    <div className="flex gap-1.5">
+                      <button type="button" aria-pressed={d.kind === 'RAID'} onClick={() => set({ kind: 'RAID' })} className={pill(d.kind === 'RAID')}>
+                        {t('Raid boss')}
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={d.kind === 'STANDARD'}
+                        onClick={() => set({ kind: 'STANDARD', stars: '' })}
+                        className={pill(d.kind === 'STANDARD')}
+                      >
+                        {t('Other battle')}
+                      </button>
+                    </div>
+                  </div>
+                  {d.kind === 'RAID' && (
+                    <div>
+                      <span className={labelClass}>{t('Stars')}</span>
+                      <div className="flex flex-wrap gap-1">
+                        {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            aria-pressed={d.stars === String(n)}
+                            onClick={() => set({ stars: d.stars === String(n) ? '' : String(n) })}
+                            className={`${pill(d.stars === String(n))} !px-2.5`}
+                          >
+                            {n}★
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {features.tera && (
+                <div>
+                  <span className={labelClass}>{t('Tera type')}</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      aria-pressed={d.teraType === ''}
+                      onClick={() => set({ teraType: '' })}
+                      className={`${pill(d.teraType === '')} !py-0.5 text-xs`}
+                    >
+                      {t('Not Terastallized')}
+                    </button>
+                    {types.map((ty) => (
+                      <button
+                        key={ty}
+                        type="button"
+                        aria-pressed={d.teraType === ty}
+                        title={typeLabel(ty)}
+                        onClick={() => set({ teraType: d.teraType === ty ? '' : ty })}
+                        className={`rounded p-0.5 ${d.teraType === ty ? 'ring-2 ring-ink ring-offset-1 ring-offset-surface' : 'opacity-70 hover:opacity-100'}`}
+                      >
+                        <TypeBadge type={ty} lang={lang} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
         )}
 
-        {form && form.abilities.length > 0 && (
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-muted">{t('Ability (optional)')}</span>
-            <select
-              value={d.abilityId ?? ''}
-              onChange={(e) => set({ abilityId: e.target.value ? Number(e.target.value) : null })}
-              className={inputClass}
-            >
-              <option value="">{t('Not set')}</option>
-              {form.abilities.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {name(a)}
-                  {a.isHidden ? ` (${t('hidden')})` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        <div className="md:col-span-4">
-          <span className="mb-1 block text-xs font-medium text-muted">
-            {t('Its moves (optional, up to 4): the suggestions avoid being weak to them')}
-          </span>
+        {/* ---------- its moves ---------- */}
+        <section>
+          <h3 className={heading}>{t('Its moves')}</h3>
+          <p className="mb-2 text-xs text-muted">{t('Up to 4. The suggestions avoid Pokémon that are weak to them.')}</p>
           <div className="flex flex-wrap items-center gap-2">
             {chosenMoves.map((m) => (
-              <span key={m.id} className="flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs">
+              <span key={m.id} className="flex items-center gap-1.5 rounded-md border border-line bg-bg px-2 py-1 text-sm">
                 {name(m)} <TypeBadge type={m.type} lang={lang} small />
                 <button
                   type="button"
@@ -750,42 +845,49 @@ function OpponentForm({
                 </button>
               </span>
             ))}
-            {d.moveIds.length < 4 && (
+            {d.moveIds.length < 4 ? (
               <ComboInput
                 list="battle-moves"
                 value={moveText}
                 onChange={addMove}
-                placeholder={t('e.g. Flamethrower')}
-                className={`${inputClass} !w-48`}
+                placeholder={t('Add a move, e.g. Flamethrower')}
+                className={`${inputClass} !w-56`}
               />
-            )}
+            ) : null}
+            {chosenMoves.length === 0 && <span className="text-xs text-muted">{t('No moves added yet')}</span>}
           </div>
-        </div>
+        </section>
 
-        <label className="block md:col-span-2">
-          <span className="mb-1 block text-xs font-medium text-muted">{t('Name for this opponent (optional)')}</span>
-          <input
-            value={d.label}
-            maxLength={80}
-            onChange={(e) => set({ label: e.target.value })}
-            placeholder={t('e.g. Wednesday 7★ raid')}
-            className={inputClass}
-          />
-        </label>
-        <label className="block md:col-span-2">
-          <span className="mb-1 block text-xs font-medium text-muted">{t('Notes (optional)')}</span>
-          <input value={d.notes} maxLength={1000} onChange={(e) => set({ notes: e.target.value })} className={inputClass} />
-        </label>
+        {/* ---------- extras ---------- */}
+        <section>
+          <h3 className={heading}>{t('Extras')}</h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block">
+              <span className={labelClass}>{t('Name for this opponent (optional)')}</span>
+              <input
+                value={d.label}
+                maxLength={80}
+                onChange={(e) => set({ label: e.target.value })}
+                placeholder={t('e.g. Wednesday 7★ raid')}
+                className={inputClass}
+              />
+            </label>
+            <label className="block">
+              <span className={labelClass}>{t('Notes (optional)')}</span>
+              <input value={d.notes} maxLength={1000} onChange={(e) => set({ notes: e.target.value })} className={inputClass} />
+            </label>
+          </div>
+        </section>
       </div>
 
       {d.species.trim() && speciesId == null && (
-        <p className="mt-2 text-xs text-pending">
+        <p className="mt-3 text-xs text-pending">
           {t('"{name}" is not a Pokémon. Pick one from the suggestions.', { name: d.species })}
         </p>
       )}
-      {loadError && <p className="mt-2 text-xs text-pending">{t('Could not load the forms for that Pokémon. Try again.')}</p>}
+      {loadError && <p className="mt-3 text-xs text-pending">{t('Could not load the forms for that Pokémon. Try again.')}</p>}
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-5 flex gap-2 border-t border-line pt-4">
         <button
           type="submit"
           disabled={busy || speciesId == null}

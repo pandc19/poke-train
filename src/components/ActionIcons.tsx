@@ -19,6 +19,12 @@ function Svg({ size = 16, children }: { size?: number; children: React.ReactNode
 
 type IconProps = { size?: number };
 
+export const CheckIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m5 12.5 4.5 4.5L19 7.5" />
+  </Svg>
+);
+
 export const RefreshIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M20 11a8 8 0 0 0-14.5-4M4 5v4h4M4 13a8 8 0 0 0 14.5 4M20 19v-4h-4" />
