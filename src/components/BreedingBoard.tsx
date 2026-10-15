@@ -15,12 +15,14 @@ import { ABILITY_PATCH, DESTINY_KNOT, EVERSTONE, MIRROR_HERB, POWER_ITEMS } from
 import type { IvPlan, ParentPick } from '@/lib/breeding/ivs';
 import type { Lang } from '@/lib/i18n';
 import { useT } from '@/lib/translate-client';
-import { TrashIcon } from './ActionIcons';
+import { EditIcon, TrashIcon } from './ActionIcons';
 
 type Named = { id: number; nameEn: string; nameEs: string };
 type RosterBuild = { speciesId: number; species: Named; moves: Named[] };
 type LocationState = { busy: boolean; result?: LocationResult; error?: string };
 
+const heading = 'mb-2 border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-muted';
+const labelClass = 'mb-1 block text-xs font-medium text-muted';
 const inputClass = 'w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm placeholder:text-muted';
 /** One green per stage, from a quiet one for planned to a bright one for done. */
 const STAGE_COLOR: Record<BreedingGoalView['status'], string> = {
@@ -103,12 +105,36 @@ export function BreedingBoard({
   const detailRef = useRef<HTMLDivElement>(null);
   const select = (id: string) => {
     setSelectedId(id);
+    setListOpen(false);
     // On a narrow screen the details sit below the list.
     if (!window.matchMedia('(min-width: 1024px)').matches) {
       requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     }
   };
   const [hatchOpen, setHatchOpen] = useState(false);
+  /** The new-plan form is shown on demand once there are plans. */
+  const [formOpen, setFormOpen] = useState(initial.length === 0);
+  /** The plan being edited in the form; null when it makes a new one. */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  /** The Pokémon of the plan being edited: its moves are kept instead of being filled in from the roster. */
+  const editSpecies = useRef<number | null>(null);
+  /** On a narrow screen the plan list is a dropdown, folded away until asked for. */
+  const [listOpen, setListOpen] = useState(false);
+  const listRef = useRef<HTMLElement>(null);
+  // The menu closes on Escape or a tap outside it.
+  useEffect(() => {
+    if (!listOpen) return;
+    const away = (e: PointerEvent) => {
+      if (!listRef.current?.contains(e.target as Node)) setListOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setListOpen(false);
+    document.addEventListener('pointerdown', away);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('pointerdown', away);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [listOpen]);
   const [target, setTarget] = useState('');
   /** One move id (or none) per slot, chosen from the moves the Pokémon can have. */
   const [wanted, setWanted] = useState<(number | null)[]>([null, null, null, null]);
@@ -170,7 +196,7 @@ export function BreedingBoard({
       .then((data: { egg: Named[]; other: Named[] }) => {
         setOptions(data);
         const build = rosterBuilds.find((b) => b.speciesId === targetId);
-        if (!build) return;
+        if (!build || editSpecies.current === targetId) return;
         // Only egg moves need breeding; the rest the Pokémon learns normally, so they are not slots to fill.
         const eggIds = new Set(data.egg.map((m) => m.id));
         const usable = build.moves.map((m) => m.id).filter((id) => eggIds.has(id)).slice(0, 4);
@@ -184,6 +210,38 @@ export function BreedingBoard({
       });
     return () => controller.abort();
   }, [targetId, gameId, rosterBuilds, t]);
+
+  function resetForm() {
+    setEditingId(null);
+    editSpecies.current = null;
+    setTarget('');
+    setIvTargets([]);
+    setNatureText('');
+    setHiddenAbility(false);
+    setWanted([null, null, null, null]);
+    setOptions(null);
+    setFilledFromRoster(false);
+    setSkipped(0);
+    setError(null);
+  }
+
+  /** Opens the form with the plan's current choices. */
+  function startEdit(goal: BreedingGoalView) {
+    // Not resetForm: when the Pokémon is the same, the moves already loaded are still the right ones.
+    if (goal.species.id !== targetId) setOptions(null);
+    setFilledFromRoster(false);
+    setSkipped(0);
+    setError(null);
+    setEditingId(goal.id);
+    editSpecies.current = goal.species.id;
+    setTarget(name(goal.species));
+    setWanted([0, 1, 2, 3].map((i) => goal.moves[i]?.id ?? null));
+    setIvTargets(goal.ivTargets);
+    setNatureText(goal.nature ? name(goal.nature) : '');
+    setHiddenAbility(goal.hiddenAbility);
+    setFormOpen(true);
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  }
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -201,24 +259,18 @@ export function BreedingBoard({
     setBusy(true);
     setError(null);
     try {
-      const data = await api<{ goal: BreedingGoalView }>('/api/breeding', 'POST', {
-        gameId,
-        speciesId: s.id,
-        moveIds,
-        ivTargets,
-        natureId: nature?.id ?? null,
-        hiddenAbility,
-      });
-      setGoals((prev) => [data.goal, ...prev]);
-      setSelectedId(data.goal.id);
-      setTarget('');
-      setIvTargets([]);
-      setNatureText('');
-      setHiddenAbility(false);
-      setWanted([null, null, null, null]);
-      setOptions(null);
-      setFilledFromRoster(false);
-      setSkipped(0);
+      const fields = { speciesId: s.id, moveIds, ivTargets, natureId: nature?.id ?? null, hiddenAbility };
+      if (editingId) {
+        const data = await api<{ goal: BreedingGoalView }>(`/api/breeding/${editingId}`, 'PATCH', fields);
+        setGoals((prev) => prev.map((g) => (g.id === editingId ? data.goal : g)));
+        setSelectedId(data.goal.id);
+      } else {
+        const data = await api<{ goal: BreedingGoalView }>('/api/breeding', 'POST', { gameId, ...fields });
+        setGoals((prev) => [data.goal, ...prev]);
+        setSelectedId(data.goal.id);
+      }
+      resetForm();
+      setFormOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('Could not create the plan.'));
     } finally {
@@ -653,9 +705,11 @@ export function BreedingBoard({
     const natural = plan?.moves.filter((m) => m.kind === 'natural') ?? [];
     return (
       <div
-        className="rounded-xl border bg-surface p-4"
+        className="rounded-xl border bg-surface"
         style={{ borderColor: `${STAGE_COLOR[goal.status]}${goal.status === 'PLANNED' ? '55' : 'aa'}` }}
       >
+        {/* Who it is, what it needs and whether you are ready stay in view while the plan scrolls underneath. */}
+        <div className="sticky top-[var(--nav-h)] z-10 max-h-[40dvh] overflow-y-auto rounded-t-xl border-b border-line bg-surface p-4 shadow-sm lg:max-h-[60dvh]">
         <div className="flex flex-wrap items-center gap-3">
           {pic(goal.species, 64)}
           <div className="min-w-0 flex-1">
@@ -678,6 +732,14 @@ export function BreedingBoard({
                 </option>
               ))}
             </select>
+            <button
+              onClick={() => startEdit(goal)}
+              title={t('Edit')}
+              aria-label={t('Edit')}
+              className="flex h-8 w-8 items-center justify-center rounded border border-line text-muted hover:text-ink"
+            >
+              <EditIcon />
+            </button>
             <button
               onClick={() => setDeleting(goal)}
               title={t('Delete')}
@@ -707,17 +769,23 @@ export function BreedingBoard({
           </p>
         )}
 
+        {/* Once the plan is done there is nothing left to get ready for. */}
+        {plan && plan.parents.canBreed && goal.status !== 'DONE' && (
+          <div
+            className={`mt-3 rounded-lg px-3 py-2 text-sm font-medium ${
+              state.need.length === 0 ? 'bg-done/10 text-done' : 'bg-pending/10 text-pending'
+            }`}
+          >
+            {state.need.length === 0
+              ? t('You have everything. Go breed!')
+              : t('Still missing: {names}', { names: state.need.map((s) => name(s.species)).join(', ') })}
+          </div>
+        )}
+        </div>
+
+        <div className="p-4 pt-0">
         {plan && plan.parents.canBreed && (
           <>
-            <div
-              className={`mt-3 rounded-lg px-3 py-2 text-sm font-medium ${
-                state.need.length === 0 ? 'bg-done/10 text-done' : 'bg-pending/10 text-pending'
-              }`}
-            >
-              {state.need.length === 0
-                ? t('You have everything. Go breed!')
-                : t('Still missing: {names}', { names: state.need.map((s) => name(s.species)).join(', ') })}
-            </div>
             <h4 className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-muted">
               {t('1. Parents to put in the nursery')}
             </h4>
@@ -761,152 +829,238 @@ export function BreedingBoard({
             </div>
           </div>
         )}
+        </div>
       </div>
     );
   };
 
   return (
     <div>
-      <div className="mb-3 flex justify-end">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {!formOpen && (
+          <button
+            type="button"
+            onClick={() => {
+              resetForm();
+              setFormOpen(true);
+            }}
+            className="rounded-md bg-done px-4 py-2 text-sm font-semibold text-bg"
+          >
+            {t('New plan')}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setHatchOpen(true)}
-          className="rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:bg-surface-2"
+          className="rounded-md border border-line px-3 py-2 text-xs font-medium hover:bg-surface-2 sm:ml-auto"
         >
           🥚 {t('Hatch eggs faster')}
         </button>
       </div>
       <HatchDialog open={hatchOpen} onClose={() => setHatchOpen(false)} gameId={gameId} lang={lang} picnic={picnic} />
-      <form onSubmit={create} className="mb-6 rounded-xl border border-line bg-surface p-4">
-        <div className="grid gap-3 md:grid-cols-[1.2fr_repeat(4,1fr)]">
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-muted">{t('Pokémon you want')}</span>
-            <ComboInput
-              list="breed-species"
-              value={target}
-              onChange={onTargetChange}
-              placeholder={t('e.g. Garchomp')}
-              required
-              className={inputClass}
-            />
-          </label>
-          {wanted.map((value, i) => {
-            const taken = new Set(wanted.filter((m, k) => m != null && k !== i));
-            const list = (moves: Named[]) => moves.filter((m) => !taken.has(m.id));
-            return (
-              <label key={i} className="block">
-                <span className="mb-1 block text-xs font-medium text-muted">{t('Move {n}', { n: i + 1 })}</span>
-                <select
-                  value={value ?? ''}
-                  disabled={!options}
-                  onChange={(e) => {
-                    setFilledFromRoster(false);
-                    setWanted((prev) => prev.map((w, k) => (k === i ? (e.target.value ? Number(e.target.value) : null) : w)));
-                  }}
-                  className={inputClass}
-                >
-                  <option value="">{options ? t('None') : t('Pick a Pokémon first')}</option>
-                  {options && list(options.egg).length > 0 && (
-                    <optgroup label={t('Egg moves (need breeding)')}>
-                      {list(options.egg).map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {name(m)}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-              </label>
-            );
-          })}
-        </div>
-        <div className="mt-3 grid gap-3 md:grid-cols-[2fr_1fr_1fr]">
-          <fieldset>
-            <legend className="mb-1 text-xs font-medium text-muted">{t('IVs that must be 31 (Best)')}</legend>
-            <div className="flex flex-wrap gap-1.5">
-              {IV_STATS.map((stat) => {
-                const on = ivTargets.includes(stat);
-                return (
-                  <button
-                    key={stat}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => setIvTargets((prev) => (on ? prev.filter((s) => s !== stat) : [...prev, stat]))}
-                    className={`rounded-md border px-2.5 py-1 text-xs ${
-                      on ? 'border-done/60 bg-done/15 text-done' : 'border-line text-muted hover:text-ink'
-                    }`}
-                  >
-                    {STAT_LABELS[stat][lang]}
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-muted">{t('Nature')}</span>
-            <ComboInput
-              list="breed-natures"
-              value={natureText}
-              onChange={setNatureText}
-              placeholder={t('Any')}
-              className={inputClass}
-            />
-          </label>
-          <label
-            className="flex items-end gap-2 pb-1.5 text-xs text-muted"
-            title={t('The plan looks for a mother with the hidden ability recorded in Breeders. An Ability Patch is the alternative.')}
-          >
-            <input type="checkbox" checked={hiddenAbility} onChange={(e) => setHiddenAbility(e.target.checked)} />
-            {t('Hidden ability')}
-          </label>
-        </div>
-        <p className="mt-2 text-xs text-muted">
-          {!targetId
-            ? t('Choose a Pokémon to see the egg moves it can get in this game.')
-            : !options
-              ? t('Loading its moves…')
-              : [
-                  filledFromRoster
-                    ? t('Egg moves filled in from the build you are training in your roster.')
-                    : options.egg.length === 0
-                      ? t('This Pokémon has no egg moves in this game: everything it can have it learns normally.')
-                      : t('{egg} egg moves this Pokémon can get from breeding. Pick the ones you want (up to 4); they are optional.', {
-                          egg: options.egg.length,
-                        }),
-                  skipped > 0
-                    ? t('{count} of its other moves are learned normally (or cannot be learned here), so they need no breeding and were left out.', { count: skipped })
-                    : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
+      {error && !formOpen && (
+        <p role="alert" className="mb-4 text-sm text-pending">
+          {error}
         </p>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <button disabled={busy} className="rounded-md bg-done px-4 py-2 text-sm font-semibold text-bg disabled:opacity-40">
-            {busy ? t('Planning…') : t('Make a plan')}
-          </button>
-          {error && (
-            <span role="alert" className="text-sm text-pending">
-              {error}
-            </span>
-          )}
-        </div>
-        <datalist id="breed-natures">
-          {natures.map((n) => (
-            <option key={n.id} value={name(n)} label={lang === 'en' ? n.nameEs : n.nameEn} />
-          ))}
-        </datalist>
-        <datalist id="breed-species">
-          {species.map((s) => (
-            <option key={s.id} value={name(s)} label={lang === 'en' ? s.nameEs : s.nameEn} />
-          ))}
-        </datalist>
-      </form>
+      )}
+      {formOpen && (
+        <form onSubmit={create} className="mb-6 rounded-xl border border-line bg-surface p-4">
+          <h2 className="mb-4 text-base font-semibold">{editingId ? t('Edit plan') : t('New plan')}</h2>
+          <div className="space-y-5">
+            {/* ---------- who ---------- */}
+            <section>
+              <h3 className={heading}>{t('Pokémon you want')}</h3>
+              <div className="flex items-center gap-3">
+                {targetId != null ? pic({ id: targetId }, 56) : <span className="block h-14 w-14 shrink-0 rounded-lg border border-dashed border-line" />}
+                <label className="block w-full max-w-sm">
+                  <span className={labelClass}>{t('Pokémon you want')}</span>
+                  <ComboInput
+                    list="breed-species"
+                    value={target}
+                    onChange={onTargetChange}
+                    placeholder={t('e.g. Garchomp')}
+                    required
+                    className={inputClass}
+                  />
+                </label>
+              </div>
+            </section>
+
+            {/* ---------- egg moves ---------- */}
+            <section>
+              <h3 className={heading}>{t('Egg moves')}</h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {wanted.map((value, i) => {
+                  const taken = new Set(wanted.filter((m, k) => m != null && k !== i));
+                  const list = (moves: Named[]) => moves.filter((m) => !taken.has(m.id));
+                  return (
+                    <label key={i} className="block">
+                      <span className={labelClass}>{t('Move {n}', { n: i + 1 })}</span>
+                      <select
+                        value={value ?? ''}
+                        disabled={!options}
+                        onChange={(e) => {
+                          setFilledFromRoster(false);
+                          setWanted((prev) => prev.map((w, k) => (k === i ? (e.target.value ? Number(e.target.value) : null) : w)));
+                        }}
+                        className={inputClass}
+                      >
+                        <option value="">{options ? t('None') : t('Pick a Pokémon first')}</option>
+                        {options && value != null && !options.egg.some((m) => m.id === value) && (
+                          <option value={value}>
+                            {name(goals.find((g) => g.id === editingId)?.moves.find((m) => m.id === value) ?? { id: value, nameEn: `#${value}`, nameEs: `#${value}` })}
+                          </option>
+                        )}
+                        {options && list(options.egg).length > 0 && (
+                          <optgroup label={t('Egg moves (need breeding)')}>
+                            {list(options.egg).map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {name(m)}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </select>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs text-muted">
+                {!targetId
+                  ? t('Choose a Pokémon to see the egg moves it can get in this game.')
+                  : !options
+                    ? t('Loading its moves…')
+                    : [
+                        filledFromRoster
+                          ? t('Egg moves filled in from the build you are training in your roster.')
+                          : options.egg.length === 0
+                            ? t('This Pokémon has no egg moves in this game: everything it can have it learns normally.')
+                            : t('{egg} egg moves this Pokémon can get from breeding. Pick the ones you want (up to 4); they are optional.', {
+                                egg: options.egg.length,
+                              }),
+                        skipped > 0
+                          ? t('{count} of its other moves are learned normally (or cannot be learned here), so they need no breeding and were left out.', { count: skipped })
+                          : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+              </p>
+            </section>
+
+            {/* ---------- what it should be like ---------- */}
+            <section>
+              <h3 className={heading}>{t('How it should be')}</h3>
+              <div className="grid gap-3 md:grid-cols-[2fr_1fr_1fr]">
+                <fieldset>
+                  <legend className={labelClass}>{t('IVs that must be 31 (Best)')}</legend>
+                  <div className="flex flex-wrap gap-1.5">
+                    {IV_STATS.map((stat) => {
+                      const on = ivTargets.includes(stat);
+                      return (
+                        <button
+                          key={stat}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => setIvTargets((prev) => (on ? prev.filter((s) => s !== stat) : [...prev, stat]))}
+                          className={`rounded-md border px-2.5 py-1 text-xs ${
+                            on ? 'border-done/60 bg-done/15 text-done' : 'border-line text-muted hover:text-ink'
+                          }`}
+                        >
+                          {STAT_LABELS[stat][lang]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+                <label className="block">
+                  <span className={labelClass}>{t('Nature')}</span>
+                  <ComboInput
+                    list="breed-natures"
+                    value={natureText}
+                    onChange={setNatureText}
+                    placeholder={t('Any')}
+                    className={inputClass}
+                  />
+                </label>
+                <div>
+                  {/* An empty caption keeps the checkbox on the same line as the fields beside it. */}
+                  <span aria-hidden className={`${labelClass} select-none`}>
+                    &nbsp;
+                  </span>
+                  <label
+                    className="flex h-[2.125rem] items-center gap-2 text-sm"
+                    title={t('The plan looks for a mother with the hidden ability recorded in Breeders. An Ability Patch is the alternative.')}
+                  >
+                    <input type="checkbox" checked={hiddenAbility} onChange={(e) => setHiddenAbility(e.target.checked)} />
+                    {t('Hidden ability')}
+                  </label>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <button disabled={busy} className="rounded-md bg-done px-4 py-2 text-sm font-semibold text-bg disabled:opacity-40">
+              {busy ? t('Planning…') : editingId ? t('Save changes') : t('Make a plan')}
+            </button>
+            {goals.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  setFormOpen(false);
+                }}
+                className="rounded-md border border-line px-4 py-2 text-sm"
+              >
+                {t('Cancel')}
+              </button>
+            )}
+            {error && (
+              <span role="alert" className="text-sm text-pending">
+                {error}
+              </span>
+            )}
+          </div>
+          <datalist id="breed-natures">
+            {natures.map((n) => (
+              <option key={n.id} value={name(n)} label={lang === 'en' ? n.nameEs : n.nameEn} />
+            ))}
+          </datalist>
+          <datalist id="breed-species">
+            {species.map((s) => (
+              <option key={s.id} value={name(s)} label={lang === 'en' ? s.nameEs : s.nameEn} />
+            ))}
+          </datalist>
+        </form>
+      )}
 
       {goals.length === 0 ? (
         <p className="py-10 text-center text-sm text-muted">{t('No breeding plans yet. Create one above.')}</p>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-          <aside className="lg:sticky lg:top-[calc(var(--nav-h)+1rem)] lg:max-h-[calc(100dvh-var(--nav-h)-2rem)] lg:self-start lg:overflow-y-auto">
+          <aside ref={listRef} className="relative lg:sticky lg:top-[calc(var(--nav-h)+1rem)] lg:max-h-[calc(100dvh-var(--nav-h)-2rem)] lg:self-start lg:overflow-y-auto">
+            <button
+              type="button"
+              aria-expanded={listOpen}
+              onClick={() => setListOpen((v) => !v)}
+              className="flex w-full items-center gap-2 rounded-lg border border-line bg-surface px-2 py-1.5 text-left lg:hidden"
+            >
+              {selected && pic(selected.species, 40)}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{selected ? name(selected.species) : ''}</span>
+                <span className="block text-[11px] text-muted">{t('Plans ({n})', { n: goals.length })}</span>
+              </span>
+              <span aria-hidden className="text-xs text-muted">
+                {listOpen ? '▲' : '▼'}
+              </span>
+            </button>
+            <div
+              className={`${
+                listOpen
+                  ? 'absolute inset-x-0 top-full z-30 mt-1 max-h-[70dvh] overflow-y-auto rounded-lg border border-line bg-surface p-2 shadow-lg'
+                  : 'hidden'
+              } lg:static lg:mt-0 lg:block lg:max-h-none lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none`}
+            >
             <ul className="space-y-1.5">
               {goals.map((goal) => {
                 const on = goal.id === selected?.id;
@@ -929,7 +1083,7 @@ export function BreedingBoard({
                           <span className="block truncate text-[11px] text-muted">{goal.moves.map(name).join(' · ')}</span>
                         )}
                         <span className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                          <span className={state.tone}>{state.label}</span>
+                          {goal.status !== 'DONE' && <span className={state.tone}>{state.label}</span>}
                           <StageBadge status={goal.status} label={statusLabels[goal.status]} size="sm" />
                         </span>
                       </span>
@@ -938,6 +1092,7 @@ export function BreedingBoard({
                 );
               })}
             </ul>
+            </div>
           </aside>
 
           <div ref={detailRef} className="min-w-0 scroll-mt-16">
