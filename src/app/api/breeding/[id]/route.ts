@@ -3,6 +3,7 @@ import { apiError } from '@/lib/api-error';
 import { IV_STATS } from '@/lib/breeding/engine';
 import { loadGoals } from '@/lib/breeding/goals';
 import { LOCAL_USER_ID } from '@/lib/constants';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getGame } from '@/lib/games';
 
@@ -39,6 +40,8 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/breeding/[
   await prisma.breedingGoal.update({
     where: { id },
     data: {
+      // Re-worked from what you have now; a plan that is still done is locked again when loaded.
+      frozen: Prisma.DbNull,
       status,
       speciesId,
       moveIds: moveIds ? [...new Set(moveIds)] : undefined,

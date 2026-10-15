@@ -763,6 +763,12 @@ export function BreedingBoard({
           </p>
         )}
 
+        {goal.locked && (
+          <p className="mt-3 rounded-md bg-surface-2 px-2 py-1 text-xs text-muted">
+            {t('Locked while done: the plan stays as it was, whatever you change in your roster or Pokédex. Change its status to update it.')}
+          </p>
+        )}
+
         {plan && !plan.parents.canBreed && (
           <p className="mt-3 text-sm text-red-400">
             {t('{name} cannot breed (it is in the "no eggs" group), so it has to be caught.', { name: name(goal.species) })}

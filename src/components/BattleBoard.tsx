@@ -464,6 +464,11 @@ export function BattleBoard({
               ))
             )}
           </p>
+          {o.locked && (
+            <p className="rounded-md bg-surface-2 px-2 py-1 text-xs text-muted">
+              {t('Locked while defeated: the matchups and counters stay as they were, whatever you change in your roster. Mark it as not defeated to update them.')}
+            </p>
+          )}
           {o.ability && (
             <p className="text-xs">
               <span className="font-medium">{name(o.ability)}:</span>{' '}

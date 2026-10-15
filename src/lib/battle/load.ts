@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import type { GameConfig } from '../games';
 import { TYPE_SLUGS } from '../pokemon-types';
@@ -48,6 +49,8 @@ export type BattleOpponentView = {
   archived: boolean;
   /** The player has beaten it. */
   defeated: boolean;
+  /** Defeated: the matchups and counters are what they were when it was marked, not worked out again. */
+  locked: boolean;
   kind: 'RAID' | 'STANDARD';
   stars: number | null;
   teraType: string | null;
@@ -327,7 +330,9 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
     known: c.move.known,
   });
 
-  return rows.map((o) => {
+  type Frozen = Pick<BattleOpponentView, 'weaknesses' | 'strongMoves' | 'roster' | 'suggestions'>;
+  const toFreeze: { id: string; frozen: Frozen }[] = [];
+  const views = rows.map((o): BattleOpponentView => {
     const form = formOf(o.speciesId, o.formId);
     if (!form) throw new Error(`No form for species ${o.speciesId}`);
     const ability = o.abilityId ? (abilityById.get(o.abilityId) ?? null) : null;
@@ -424,11 +429,17 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
       };
     });
 
+    const saved = o.defeatedAt != null ? (o.frozen as Frozen | null) : null;
+    const live: Frozen = saved ?? { weaknesses, strongMoves, roster: rosterViews, suggestions };
+    // Defeated before locking existed: locked the first time it is loaded.
+    if (o.defeatedAt != null && !saved) toFreeze.push({ id: o.id, frozen: live });
+
     return {
       id: o.id,
       label: o.label,
       archived: o.archivedAt != null,
       defeated: o.defeatedAt != null,
+      locked: o.defeatedAt != null,
       kind: o.kind,
       stars: o.stars,
       teraType: o.teraType,
@@ -449,10 +460,16 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
           }
         : null,
       moves: known.map((m) => ({ id: m.id, nameEn: m.nameEn, nameEs: m.nameEs, type: m.type })),
-      weaknesses,
-      strongMoves,
-      roster: rosterViews,
-      suggestions,
+      weaknesses: live.weaknesses,
+      strongMoves: live.strongMoves,
+      roster: live.roster,
+      suggestions: live.suggestions,
     };
   });
+  await Promise.all(
+    toFreeze.map((f) =>
+      prisma.battleOpponent.update({ where: { id: f.id }, data: { frozen: f.frozen as unknown as Prisma.InputJsonValue } })
+    )
+  );
+  return views;
 }

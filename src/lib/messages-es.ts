@@ -565,6 +565,8 @@ export const ES: Record<string, string> = {
   'Delete this opponent?': '¿Eliminar este rival?',
   'Edit': 'Editar',
   'Edit plan': 'Editar plan',
+  'Locked while defeated: the matchups and counters stay as they were, whatever you change in your roster. Mark it as not defeated to update them.': 'Fijado mientras está derrotado: los enfrentamientos y contrarios se quedan como estaban, cambies lo que cambies en tu plantilla. Márcalo como no derrotado para actualizarlos.',
+  'Locked while done: the plan stays as it was, whatever you change in your roster or Pokédex. Change its status to update it.': 'Fijado mientras está completado: el plan se queda como estaba, cambies lo que cambies en tu plantilla o Pokédex. Cambia su estado para actualizarlo.',
   'Edit opponent': 'Editar rival',
   'Every type does normal damage to it.': 'Todos los tipos le hacen daño normal.',
   'Form': 'Forma',

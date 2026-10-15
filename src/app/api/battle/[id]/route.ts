@@ -3,6 +3,7 @@ import { apiError } from '@/lib/api-error';
 import { checkOpponent, opponentError, UpdateBody } from '@/lib/battle/input';
 import { loadOpponents } from '@/lib/battle/load';
 import { LOCAL_USER_ID } from '@/lib/constants';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getGame } from '@/lib/games';
 
@@ -62,6 +63,9 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/battle/[id
       ...checked.data,
       ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }),
       ...(defeated === undefined ? {} : { defeatedAt: defeated ? new Date() : null }),
+      // Anything but putting it away or restoring it re-works what a defeated opponent shows; it is
+      // locked again as loaded. Marking it not defeated unlocks it.
+      ...(Object.keys(parsed.data).some((k) => k !== 'archived') ? { frozen: Prisma.DbNull } : {}),
       ...(bestRosterId === undefined ? {} : { bestRosterId }),
     },
   });

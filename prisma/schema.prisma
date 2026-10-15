@@ -456,6 +456,8 @@ model BreedingGoal {
   status        BreedingStatus @default(PLANNED)
   /// Last computed plan (see src/lib/breeding).
   plan          Json?
+  /// The plan as it was when marked done: shown as is while it stays done.
+  frozen        Json?
   notes         String?
   createdAt     DateTime       @default(now()) @map("created_at")
 
@@ -535,6 +537,8 @@ model BattleOpponent {
   defeatedAt DateTime?  @map("defeated_at")
   /// The roster entry the player found best against it. Kept across refreshes; a stale id is ignored.
   bestRosterId String? @map("best_roster_id") @db.Uuid
+  /// What the counters looked like when it was marked defeated: shown as is while it stays defeated.
+  frozen     Json?
 
   profile GameProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   species Species     @relation(fields: [speciesId], references: [id])
