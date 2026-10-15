@@ -1,3 +1,4 @@
+import { HelpTip } from '@/components/HelpTip';
 import { RosterBoard } from '@/components/RosterBoard';
 import { getAiProvider } from '@/lib/ai';
 import { getLang, getT } from '@/lib/i18n';
@@ -21,7 +22,20 @@ export default async function RosterPage({ params, searchParams }: PageProps<'/[
 
   return (
     <div>
-      <h1 className="mb-4 text-xl font-bold">{t('{game} trained roster', { game: game.shortName })}</h1>
+      <h1 className="mb-4 flex items-center gap-2 text-xl font-bold">
+        {t('{game} trained roster', { game: game.shortName })}
+        <HelpTip>
+          <span className="block">
+            {t('Your roster is the Pokémon you train: the ones you have, with their moves, items and EVs, and the ones you plan to get.')}
+          </span>
+          <span className="block">
+            {t('Mark “Have” on the ones you own now. Those also count as caught in your Pokédex.')}
+          </span>
+          <span className="block">
+            {t('A Pokémon can be both on the roster and a breeder: it is kept once and shows on both pages. Removing it from one list leaves it in the other.')}
+          </span>
+        </HelpTip>
+      </h1>
       <RosterBoard
         gameId={game.id}
         initial={roster}

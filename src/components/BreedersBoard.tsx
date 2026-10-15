@@ -5,14 +5,14 @@ import { ConfirmDialog } from './Dialog';
 import { SearchInput } from './SearchInput';
 import { TypeBadge } from './TypeBadge';
 import { STAT_LABELS, STAT_ORDER } from './EvInputs';
-import { ComboInput, GenderControl, PokemonSprite, genderMark, PotentialSelect, TaskToggle, type Gender } from './roster/parts';
+import { ComboInput, GenderControl, PokemonSprite, genderMark, PotentialSelect, type Gender } from './roster/parts';
 import { IV_STATS } from '@/lib/breeding/engine';
 import type { Lang } from '@/lib/i18n';
 import { TYPE_COLORS } from '@/lib/pokemon-types';
 import { IV_RATINGS, type IvRatings } from '@/lib/iv-ratings';
 import type { EditorOptions, RosterView } from '@/lib/roster';
 import { useT } from '@/lib/translate-client';
-import { TrashIcon } from './ActionIcons';
+import { CheckIcon, TrashIcon } from './ActionIcons';
 
 type Named = { id: number; nameEn: string; nameEs: string };
 
@@ -55,6 +55,8 @@ export function BreedersBoard({
   const [rosterChoices, setRosterChoices] = useState<RosterView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<RosterView | null>(null);
+  /** When removing: also take its Have mark off in the Pokédex. */
+  const [clearHave, setClearHave] = useState(true);
 
   const name = (x: Named | null | undefined) => (x ? (lang === 'en' ? x.nameEn : x.nameEs) : '');
   const other = (x: Named) => (lang === 'en' ? x.nameEs : x.nameEn);
@@ -93,36 +95,12 @@ export function BreedersBoard({
     replace(data.pokemon);
   }
 
-  async function toggleOwned(p: RosterView) {
-    const status = p.owned ? 'PENDING' : 'DONE';
-    setError(null);
-    replace({ ...p, owned: !p.owned });
-    try {
-      await api(`/api/roster/${p.id}`, 'PATCH', { task: { key: 'owned', status } });
-    } catch {
-      replace(p);
-      setError(t('Could not save that change. It has been undone; try again.'));
-    }
-  }
-
-  async function setRoster(p: RosterView, on: boolean) {
-    setError(null);
-    try {
-      if (on) {
-        const data = await api<{ pokemon: RosterView }>('/api/roster', 'POST', { gameId, existingId: p.id, role: 'ROSTER' });
-        replace(data.pokemon);
-      } else {
-        await api(`/api/roster/${p.id}?role=ROSTER`, 'DELETE');
-        replace({ ...p, roles: p.roles.filter((r) => r !== 'ROSTER') });
-      }
-    } catch {
-      setError(t('Could not save that change. It has been undone; try again.'));
-    }
-  }
-
   async function remove(p: RosterView) {
     setRemoving(null);
     try {
+      // A breeder is one you have, so taking it out can take the Have mark off too (the Pokédex keeps it caught).
+      // Still on the roster, it is still one you have: nothing to ask or change there.
+      if (clearHave && p.owned && !p.roles.includes('ROSTER')) await api(`/api/roster/${p.id}`, 'PATCH', { task: { key: 'owned', status: 'PENDING' } });
       await api(`/api/roster/${p.id}?role=BREEDER`, 'DELETE');
       const rest = list.filter((x) => x.id !== p.id);
       setList(rest);
@@ -342,12 +320,13 @@ export function BreedersBoard({
                 lang={lang}
                 judge={judge}
                 onSave={(set) => save(selected, set)}
-                onOwned={() => toggleOwned(selected)}
                 onGender={(g: Gender) => save(selected, { gender: g })}
                 onPotential={(v) => save(selected, { potential: v })}
-                onRoster={(on) => setRoster(selected, on)}
                 onStage={(speciesId) => changeStage(selected, speciesId).catch((e) => setError(e instanceof Error ? e.message : t('Could not change its stage. Try again.')))}
-                onRemove={() => setRemoving(selected)}
+                onRemove={() => {
+                  setClearHave(true);
+                  setRemoving(selected);
+                }}
               />
             ) : (
               <p className="rounded-xl border border-dashed border-line px-6 py-16 text-center text-sm text-muted">
@@ -371,10 +350,21 @@ export function BreedersBoard({
             ? t('{name} stays on your roster. Only its place in the breeders is removed.', {
                 name: removing ? (removing.nickname ?? name(removing.species)) : '',
               })
-            : t('{name} will be deleted. Your Pokédex is not changed.', {
+            : t('{name} will be deleted from the breeders.', {
                 name: removing ? (removing.nickname ?? name(removing.species)) : '',
               })}
         </p>
+        {removing?.owned && !removing.roles.includes('ROSTER') && (
+          <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm">
+            <input type="checkbox" checked={clearHave} onChange={(e) => setClearHave(e.target.checked)} className="mt-1" />
+            <span>
+              {t('Also take off its Have mark in the Pokédex (it stays caught).')}
+              <span className="block text-xs text-muted">
+                {t('Leave it ticked if you no longer have this Pokémon; untick it if you still do.')}
+              </span>
+            </span>
+          </label>
+        )}
       </ConfirmDialog>
       <datalist id="breeder-species">
         {options.species.map((s) => (
@@ -435,10 +425,8 @@ function BreederDetail({
   lang,
   judge,
   onSave,
-  onOwned,
   onGender,
   onPotential,
-  onRoster,
   onStage,
   onRemove,
 }: {
@@ -448,10 +436,8 @@ function BreederDetail({
   lang: Lang;
   judge: boolean;
   onSave: (set: Record<string, unknown>) => Promise<void>;
-  onOwned: () => void;
   onGender: (g: Gender) => void;
   onPotential: (v: RosterView['potential']) => void;
-  onRoster: (on: boolean) => void;
   onStage: (speciesId: number) => Promise<void>;
   onRemove: () => void;
 }) {
@@ -596,20 +582,23 @@ function BreederDetail({
 
       <div className="mt-4 grid gap-6 xl:grid-cols-2">
         <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <TaskToggle
-              status={p.owned ? 'DONE' : 'PENDING'}
-              onToggle={onOwned}
-              label={p.owned ? t('I have it') : t('I do not have it')}
-              title={t('Only Pokémon you have are used as parents.')}
-            />
-            <TaskToggle
-              status={p.roles.includes('ROSTER') ? 'DONE' : 'PENDING'}
-              onToggle={() => onRoster(!p.roles.includes('ROSTER'))}
-              label={p.roles.includes('ROSTER') ? t('On the roster') : t('Not on the roster')}
-              title={t('A trained Pokémon can be a breeder too: it is kept once and shows on both pages.')}
-            />
-          </div>
+          {/* Being here means you have it; whether it is also trained is just information. */}
+          <span
+            title={t('A trained Pokémon can be a breeder too: it is kept once and shows on both pages.')}
+            className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+              p.roles.includes('ROSTER') ? 'border-done/50 bg-done/10 text-done' : 'border-line text-muted'
+            }`}
+          >
+            {p.roles.includes('ROSTER') ? (
+              <>
+                <CheckIcon size={12} /> {t('On the roster')}
+              </>
+            ) : (
+              <>
+                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-muted/60" /> {t('Not on the roster')}
+              </>
+            )}
+          </span>
           <Field label={t('Gender')}>
             <GenderControl p={p} onChange={onGender} />
           </Field>

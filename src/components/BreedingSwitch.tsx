@@ -9,8 +9,8 @@ export function BreedingSwitch({ gameId }: { gameId: string }) {
   const { t } = useT();
   const pathname = usePathname();
   const views = [
-    { href: `/${gameId}/breeding`, label: t('Plans') },
     { href: `/${gameId}/breeders`, label: t('Breeders') },
+    { href: `/${gameId}/breeding`, label: t('Plans') },
   ];
   return (
     // Stays under the menu while the page scrolls, like the roster's List / Team switch.

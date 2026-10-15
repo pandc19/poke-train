@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { apiError } from '@/lib/api-error';
 import { LOCAL_USER_ID } from '@/lib/constants';
+import { variantOfSlug } from '@/lib/dex-variant';
 import { prisma } from '@/lib/db';
 import { findProfileId } from '@/lib/profile';
 import { loadRoster } from '@/lib/roster';
@@ -15,6 +16,21 @@ const Body = z
     role: z.enum(['ROSTER', 'BREEDER']).default('ROSTER'),
   })
   .refine((b) => (b.speciesId != null) !== (b.existingId != null), { message: 'Give a species or an existing Pokémon' });
+
+/** A breeder is one you have: it is caught in the Pokédex and marked as in your box. */
+async function markHave(rosterId: string, profileId: string) {
+  const p = await prisma.rosterPokemon.update({
+    where: { id: rosterId },
+    data: { owned: true },
+    select: { speciesId: true, form: { select: { slug: true } } },
+  });
+  const variant = variantOfSlug(p.form?.slug ?? '');
+  await prisma.pokedexEntry.upsert({
+    where: { profileId_speciesId_variant: { profileId, speciesId: p.speciesId, variant } },
+    update: { owned: true },
+    create: { profileId, speciesId: p.speciesId, variant, owned: true },
+  });
+}
 
 /** Adds a Pokémon to the roster or to the breeders; a new one starts empty and is filled in afterwards. */
 export async function POST(request: Request) {
@@ -35,6 +51,7 @@ export async function POST(request: Request) {
       update: {},
       create: { rosterPokemonId: existingId, role },
     });
+    if (role === 'BREEDER') await markHave(existingId, profileId);
     const [view] = await loadRoster(profileId, [existingId]);
     return Response.json({ pokemon: view });
   }
@@ -48,11 +65,11 @@ export async function POST(request: Request) {
       profileId,
       speciesId: species.id,
       sortOrder: (last._max.sortOrder ?? 0) + 1,
-      // A breeder is one you have: it is what the breeding planner pairs up.
-      owned: role === 'BREEDER',
       roles: { create: { role } },
     },
   });
+  // A breeder is one you have: it is what the breeding planner pairs up.
+  if (role === 'BREEDER') await markHave(created.id, profileId);
   const [view] = await loadRoster(profileId, [created.id]);
   return Response.json({ pokemon: view });
 }

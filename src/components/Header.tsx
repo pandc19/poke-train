@@ -48,7 +48,7 @@ export function Header({ games }: { games: GameLink[] }) {
     { href: `/${current.id}/roster`, label: t('Roster') },
     { href: `/${current.id}/battle`, label: t('Battle') },
     ...(current.breeding
-      ? [{ href: `/${current.id}/breeding`, label: t('Breeding'), also: `/${current.id}/breeders` }]
+      ? [{ href: `/${current.id}/breeders`, label: t('Breeding'), also: `/${current.id}/breeding` }]
       : []),
     ...(current.exclusives ? [{ href: `/${current.id}/exclusives`, label: t('Exclusives'), right: true }] : []),
     { href: `/${current.id}/search`, label: t('Search'), right: true },
