@@ -79,6 +79,18 @@ const names = (d: Json) => {
   return { nameEn, nameEs: SPANISH_FIX_BY_SLUG.get(d.name) ?? nameIn(d.names, 'es') ?? nameEn };
 };
 
+/** One sentence on what an ability does, in each language (Spanish is flavor text, English the short effect). */
+const abilityDescriptions = (d: Json) => {
+  const clean = (s?: string) => s?.replace(/[\n\f]+/g, ' ').replace(/\s+/g, ' ').trim() || null;
+  const flavorEs = [...(d.flavor_text_entries ?? [])].reverse().find((f: Json) => f.language.name === 'es');
+  const effectEn = d.effect_entries?.find((e: Json) => e.language.name === 'en');
+  const flavorEn = [...(d.flavor_text_entries ?? [])].reverse().find((f: Json) => f.language.name === 'en');
+  return {
+    descriptionEn: clean(effectEn?.short_effect) ?? clean(flavorEn?.flavor_text),
+    descriptionEs: clean(flavorEs?.flavor_text),
+  };
+};
+
 async function chunked<T>(rows: T[], fn: (chunk: T[]) => Promise<unknown>, size = 5000) {
   for (let i = 0; i < rows.length; i += size) await fn(rows.slice(i, i + size));
 }
@@ -104,6 +116,17 @@ async function main() {
   await prisma.typeEffect.createMany({ data: effects, skipDuplicates: true });
   console.log(`  type effects: ${effects.length} rows`);
   if (process.argv.includes('--only-types')) return;
+
+  if (process.argv.includes('--only-abilities')) {
+    console.log('abilities');
+    const list = await get('ability?limit=1000');
+    const all = await mapPool('abilities', list.results, (r: Json) => get(`ability/${idFromUrl(r.url)}`));
+    for (const a of all) {
+      const data = { slug: a.name, ...names(a), ...abilityDescriptions(a) };
+      await prisma.ability.upsert({ where: { id: a.id }, update: data, create: { id: a.id, ...data } });
+    }
+    return;
+  }
 
   console.log('natures');
   const natureList = await get('nature?limit=100');
@@ -195,7 +218,7 @@ async function main() {
   const abilityIds = [...new Set(pokemon.flatMap((p) => p.abilities.map((a: Json) => idFromUrl(a.ability.url))))];
   const abilities = await mapPool('abilities', abilityIds, (id) => get(`ability/${id}`));
   for (const a of abilities) {
-    const data = { slug: a.name, ...names(a) };
+    const data = { slug: a.name, ...names(a), ...abilityDescriptions(a) };
     await prisma.ability.upsert({ where: { id: a.id }, update: data, create: { id: a.id, ...data } });
   }
   const formAbilities = new Map<string, { formId: number; abilityId: number; isHidden: boolean }>();

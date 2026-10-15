@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       types: true,
       spriteUrl: true,
       abilities: {
-        select: { isHidden: true, ability: { select: { id: true, nameEn: true, nameEs: true } } },
+        select: { isHidden: true, ability: { select: { id: true, nameEn: true, nameEs: true, descriptionEn: true, descriptionEs: true } } },
       },
     },
   });

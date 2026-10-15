@@ -121,6 +121,9 @@ model Ability {
   slug   String @unique
   nameEn String @map("name_en")
   nameEs String @map("name_es")
+  /** What it does, in a sentence (PokéAPI short effect / flavor text). */
+  descriptionEn String? @map("description_en")
+  descriptionEs String? @map("description_es")
 
   forms  FormAbility[]
   roster RosterPokemon[]

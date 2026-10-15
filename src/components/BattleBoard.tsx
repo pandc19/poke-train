@@ -19,7 +19,7 @@ type FormOption = {
   isDefault: boolean;
   types: string[];
   spriteUrl: string | null;
-  abilities: (Named & { isHidden: boolean })[];
+  abilities: (Named & { isHidden: boolean; descriptionEn: string | null; descriptionEs: string | null })[];
 };
 
 /** What the form edits. `id` is set when an existing opponent is being changed. */
@@ -82,14 +82,32 @@ export function BattleBoard({
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<BattleOpponentView | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  /** On a narrow screen the list is folded away so the details take the top of the page. */
+  const [listOpen, setListOpen] = useState(false);
   const active = opponents.filter((o) => !o.archived);
   const archived = opponents.filter((o) => o.archived);
   /** The opponent whose details are shown; the newest one to begin with. */
   const [selectedId, setSelectedId] = useState<string | null>(initial.find((o) => !o.archived)?.id ?? initial[0]?.id ?? null);
   const selected = opponents.find((o) => o.id === selectedId) ?? active[0] ?? null;
   const detailRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLElement>(null);
+  // The menu closes on Escape or a tap outside it.
+  useEffect(() => {
+    if (!listOpen) return;
+    const away = (e: PointerEvent) => {
+      if (!listRef.current?.contains(e.target as Node)) setListOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setListOpen(false);
+    document.addEventListener('pointerdown', away);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('pointerdown', away);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [listOpen]);
   const select = (id: string) => {
     setSelectedId(id);
+    setListOpen(false);
     // On a narrow screen the details sit below the list.
     if (typeof window !== 'undefined' && !window.matchMedia('(min-width: 1024px)').matches) {
       requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
@@ -348,6 +366,8 @@ export function BattleBoard({
 
     return (
       <div key={o.id} className="rounded-xl border border-line bg-surface">
+        {/* Header and what it is weak to stay in view while the counters scroll underneath. */}
+        <div className="sticky top-[var(--nav-h)] z-10 max-h-[40dvh] overflow-y-auto rounded-t-xl border-b border-line bg-surface shadow-sm lg:max-h-[60dvh]">
         <div className="flex flex-wrap items-center gap-3 p-3">
           <Sprite src={o.spriteUrl} alt={name(o.species)} size={72} smooth />
           <div className="min-w-0 flex-1">
@@ -444,6 +464,17 @@ export function BattleBoard({
               ))
             )}
           </p>
+          {o.ability && (
+            <p className="text-xs">
+              <span className="font-medium">{name(o.ability)}:</span>{' '}
+              <span className="text-muted">
+                {(lang === 'es' ? o.ability.descriptionEs : o.ability.descriptionEn) ??
+                  o.ability.descriptionEn ??
+                  o.ability.descriptionEs ??
+                  t('No description available.')}
+              </span>
+            </p>
+          )}
           {o.teraType && (
             <p className="text-xs text-muted">
               {t('Terastallized: it defends as a {type} type only.', {
@@ -488,7 +519,10 @@ export function BattleBoard({
               </ul>
             </section>
           )}
+        </div>
+        </div>
 
+        <div className="space-y-4 p-3">
           <section>
             <h3 className="mb-1 text-sm font-semibold">{t('From your roster')}</h3>
             {o.roster.length === 0 ? (
@@ -544,7 +578,29 @@ export function BattleBoard({
         <p className="text-sm text-muted">{t('No opponents yet. Add the Pokémon you have to beat.')}</p>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-          <aside className="lg:sticky lg:top-[calc(var(--nav-h)+1rem)] lg:max-h-[calc(100dvh-var(--nav-h)-2rem)] lg:self-start lg:overflow-y-auto">
+          <aside ref={listRef} className="relative lg:sticky lg:top-[calc(var(--nav-h)+1rem)] lg:max-h-[calc(100dvh-var(--nav-h)-2rem)] lg:self-start lg:overflow-y-auto">
+            <button
+              type="button"
+              aria-expanded={listOpen}
+              onClick={() => setListOpen((v) => !v)}
+              className="flex w-full items-center gap-2 rounded-lg border border-line bg-surface px-2 py-1.5 text-left lg:hidden"
+            >
+              {selected && <Sprite src={selected.spriteUrl} alt="" size={40} smooth />}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{selected ? name(selected.species) : ''}</span>
+                <span className="block text-[11px] text-muted">{t('Opponents ({n})', { n: opponents.length })}</span>
+              </span>
+              <span aria-hidden className="text-xs text-muted">
+                {listOpen ? '▲' : '▼'}
+              </span>
+            </button>
+            <div
+              className={`${
+                listOpen
+                  ? 'absolute inset-x-0 top-full z-30 mt-1 max-h-[70dvh] overflow-y-auto rounded-lg border border-line bg-surface p-2 shadow-lg'
+                  : 'hidden'
+              } lg:static lg:mt-0 lg:block lg:max-h-none lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none`}
+            >
             <ul className="space-y-1.5">{active.map(renderListItem)}</ul>
             {archived.length > 0 && (
               <div className="mt-4">
@@ -558,6 +614,7 @@ export function BattleBoard({
                 {showArchived && <ul className="space-y-1.5">{archived.map(renderListItem)}</ul>}
               </div>
             )}
+            </div>
           </aside>
 
           <div ref={detailRef} className="min-w-0 scroll-mt-16">
@@ -642,6 +699,7 @@ function OpponentForm({
   }, [speciesId, gameId]);
 
   const form = forms.find((f) => f.id === d.formId) ?? forms[0];
+  const chosenAbility = form?.abilities.find((a) => a.id === d.abilityId);
   const chosenMoves = d.moveIds.flatMap((id) => moves.find((m) => m.id === id) ?? []);
 
   /** Adds the typed move once it matches one by name (either language). */
@@ -735,6 +793,13 @@ function OpponentForm({
                       </option>
                     ))}
                   </select>
+                  {chosenAbility && (
+                    <span className="mt-1 block text-xs text-muted">
+                      {(lang === 'es' ? chosenAbility.descriptionEs : chosenAbility.descriptionEn) ??
+                        chosenAbility.descriptionEn ??
+                        chosenAbility.descriptionEs}
+                    </span>
+                  )}
                 </label>
               )}
               {form && (

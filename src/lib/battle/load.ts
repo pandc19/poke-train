@@ -15,6 +15,9 @@ import {
 
 export type Named = { id: number; nameEn: string; nameEs: string };
 
+/** An ability with a sentence on what it does, in each language (null when the data has none). */
+export type AbilityInfo = Named & { descriptionEn: string | null; descriptionEs: string | null };
+
 export type MoveView = Named & { type: string; power: number | null; damageClass: string };
 
 export type CounterView = {
@@ -56,7 +59,7 @@ export type BattleOpponentView = {
   spriteUrl: string | null;
   /** Its own types, whatever its Tera type is. */
   types: string[];
-  ability: Named | null;
+  ability: AbilityInfo | null;
   /** Moves the player has seen it use; the counters' resistance is judged against these. */
   moves: (Named & { type: string })[];
   /** Types that do something other than normal damage to it, most damaging first. */
@@ -277,7 +280,7 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
   ];
   const abilities = await prisma.ability.findMany({
     where: { id: { in: abilityIds } },
-    select: { id: true, slug: true, nameEn: true, nameEs: true },
+    select: { id: true, slug: true, nameEn: true, nameEs: true, descriptionEn: true, descriptionEs: true },
   });
   const abilityById = new Map(abilities.map((a) => [a.id, a]));
   // The rivals' own moves may be any move, status ones included, so they are read apart from the index.
@@ -436,7 +439,15 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
       isDefaultForm: form.isDefault,
       spriteUrl: form.spriteUrl,
       types: form.types,
-      ability: ability ? { id: ability.id, nameEn: ability.nameEn, nameEs: ability.nameEs } : null,
+      ability: ability
+        ? {
+            id: ability.id,
+            nameEn: ability.nameEn,
+            nameEs: ability.nameEs,
+            descriptionEn: ability.descriptionEn,
+            descriptionEs: ability.descriptionEs,
+          }
+        : null,
       moves: known.map((m) => ({ id: m.id, nameEn: m.nameEn, nameEs: m.nameEs, type: m.type })),
       weaknesses,
       strongMoves,
