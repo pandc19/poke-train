@@ -282,8 +282,10 @@ export function ComboInput({
     const contains: typeof all = [];
     for (const o of all) {
       const v = plain(o.value);
-      if (v.startsWith(q)) starts.push(o);
-      else if (v.includes(q) || plain(o.label).includes(q)) contains.push(o);
+      const l = plain(o.label);
+      // The label is the name in the other language, so searching in either one ranks the same.
+      if (v.startsWith(q) || l.startsWith(q)) starts.push(o);
+      else if (v.includes(q) || l.includes(q)) contains.push(o);
     }
     return [...starts, ...contains].slice(0, MAX_SUGGESTIONS);
   }, [open, list, typing]);

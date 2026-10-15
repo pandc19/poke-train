@@ -13,9 +13,8 @@ export default async function BattlePage({ params }: PageProps<'/[game]/battle'>
     loadOpponents(game, profileId),
     // Any Pokémon can be an opponent, not only the ones obtainable in this game.
     prisma.species.findMany({ select: { id: true, nameEn: true, nameEs: true }, orderBy: { id: 'asc' } }),
-    // Only moves that deal damage: they are what the counters have to withstand.
+    // Every move, status ones included: the player may have seen the rival use Hypnosis.
     prisma.move.findMany({
-      where: { damageClass: { not: 'status' } },
       select: { id: true, nameEn: true, nameEs: true, type: true },
       orderBy: { nameEn: 'asc' },
     }),
