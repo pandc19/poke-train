@@ -49,3 +49,6 @@ next-env.d.ts
 # Database dumps (see docs/database-transfer.md)
 *.dump
 poketrain*.sql
+
+# Claude Code personal settings (the shared .claude/settings.json is committed)
+.claude/settings.local.json
