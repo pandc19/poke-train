@@ -229,13 +229,15 @@ export function BattleBoard({
   }, []);
 
   const multLabel = (m: number) => (m === 0 ? t('immune') : `×${m}`);
+  // A multiplier says which way the hit goes: the rival's attacks on your Pokémon, or your move on the rival.
+  const takenLabel = (m: number) => t('{mult} damage to you', { mult: multLabel(m) });
 
-  const moveLine = (m: MoveView & { multiplier: number; stab: boolean; known: boolean }) => (
+  const moveLine = (m: MoveView & { multiplier: number; stab: boolean; known: boolean }, rival: string) => (
     <span>
       <span className="font-medium">{name(m)}</span>{' '}
       <TypeBadge type={m.type} lang={lang} small />{' '}
       <span className="text-muted">
-        {m.power} · {multLabel(m.multiplier)}
+        {m.power} · {t('{mult} to {rival}', { mult: multLabel(m.multiplier), rival })}
         {m.stab ? ` · ${t('same type')}` : ''}
       </span>
     </span>
@@ -305,12 +307,12 @@ export function BattleBoard({
             {c.source === 'roster' ? t('in your box') : c.have ? t('you have it') : t('not caught yet')}
           </span>
           <span className="rounded bg-surface-2 px-1 text-[10px] font-medium text-muted">
-            {c.faster ? t('Faster than it') : t('Slower than it')}
+            {c.faster ? t('Faster than {rival}', { rival: name(o.species) }) : t('Slower than {rival}', { rival: name(o.species) })}
           </span>
           {c.best && <span className="rounded bg-star/20 px-1 text-[10px] font-semibold text-star">{t('Best so far')}</span>}
         </p>
         <p>
-          {t('Use')} {moveLine(c.move)}
+          {t('Use')} {moveLine(c.move, name(o.species))}
           <span className={c.move.known ? 'ml-1 text-done' : 'ml-1 text-star'}>
             {c.move.known ? t('knows it') : c.source === 'roster' ? t('can learn it') : t('learns it')}
             {!c.move.known && c.move.learn ? ` ${learnLabel(c.move.learn)}` : ''}
@@ -341,20 +343,30 @@ export function BattleBoard({
             {c.best ? t('Not the best anymore') : t('Mark as best')}
           </button>
         )}
+        {/* How your Pokémon takes the rival's hits; "Terastallize" is you Terastallizing yours. */}
         {c.incoming >= 2 &&
           (c.teraType && c.incomingBase != null && c.incomingBase < 2 ? (
-            <p className="text-pending">{t('Its Tera type makes it weak to its attacks ({mult})', { mult: multLabel(c.incoming) })}</p>
+            <p className="text-pending">
+              {t("Weak to {rival}'s attacks if you Terastallize it ({mult})", { rival: name(o.species), mult: takenLabel(c.incoming) })}
+            </p>
           ) : (
-            <p className="text-pending">{t('Weak to its attacks ({mult})', { mult: multLabel(c.incoming) })}</p>
+            <p className="text-pending">{t("Weak to {rival}'s attacks ({mult})", { rival: name(o.species), mult: takenLabel(c.incoming) })}</p>
           ))}
         {c.incoming < 1 && (
           <p className="text-done">
-            {c.incoming === 0 ? t('Immune to its attacks') : t('Resists its attacks')}
-            {c.teraType && c.incomingBase !== c.incoming ? ` (${t('once Terastallized')})` : ''}
+            {c.teraType && c.incomingBase !== c.incoming
+              ? c.incoming === 0
+                ? t("Immune to {rival}'s attacks once you Terastallize it", { rival: name(o.species) })
+                : t("Resists {rival}'s attacks once you Terastallize it", { rival: name(o.species) })
+              : c.incoming === 0
+                ? t("Immune to {rival}'s attacks", { rival: name(o.species) })
+                : t("Resists {rival}'s attacks", { rival: name(o.species) })}
           </p>
         )}
         {c.teraType && c.incomingBase != null && c.incomingBase >= 2 && c.incoming < 2 && (
-          <p className="text-pending">{t('Weak to its attacks until it Terastallizes ({mult})', { mult: multLabel(c.incomingBase) })}</p>
+          <p className="text-pending">
+            {t("Weak to {rival}'s attacks until you Terastallize it ({mult})", { rival: name(o.species), mult: takenLabel(c.incomingBase) })}
+          </p>
         )}
       </div>
     </li>
