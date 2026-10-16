@@ -503,6 +503,16 @@ export function DexGrid({
                     >
                       {t('Have')}
                     </button>
+                    {have && (c.genderRate === 0 || c.genderRate === 8) && (
+                      <span
+                        title={c.genderRate === 0 ? t('Always male') : t('Always female')}
+                        className={`flex h-6 w-7 items-center justify-center rounded text-sm font-bold text-white ${
+                          c.genderRate === 0 ? 'bg-sky-500' : 'bg-pink-500'
+                        }`}
+                      >
+                        {c.genderRate === 0 ? '♂' : '♀'}
+                      </span>
+                    )}
                     {mixed && have && (
                       <>
                         <button
