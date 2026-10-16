@@ -124,7 +124,7 @@ export function EvGraph({
                 over.includes(key)
                   ? 'var(--color-pending)'
                   : evs[key] >= 252
-                    ? '#facc15'
+                    ? 'var(--color-star)'
                     : 'var(--color-ink)'
               }
             >

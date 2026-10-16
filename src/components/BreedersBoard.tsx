@@ -525,7 +525,7 @@ function BreederDetail({
               onClick={onRemove}
               title={t('Remove')}
               aria-label={t('Remove')}
-              className="flex h-8 w-8 items-center justify-center rounded-md border border-line text-muted hover:text-red-400"
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-line text-muted hover:text-danger"
             >
               <TrashIcon />
             </button>
@@ -696,7 +696,7 @@ function BreederDetail({
                         onClick={() => void commitMove(slot, '')}
                         aria-label={t('Remove this move')}
                         title={t('Remove this move')}
-                        className="shrink-0 rounded border border-line px-2 py-1.5 text-xs text-muted hover:text-red-400"
+                        className="shrink-0 rounded border border-line px-2 py-1.5 text-xs text-muted hover:text-danger"
                       >
                         ✕
                       </button>

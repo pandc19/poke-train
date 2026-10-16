@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { prisma } from "@/lib/db";
 import { GAMES } from "@/lib/games";
 import { getLang, getT } from "@/lib/i18n";
+import { getTheme } from "@/lib/theme-server";
 import { LangProvider } from "@/lib/translate-client";
 
 // Body text: a clear, friendly sans for long Spanish and English labels.
@@ -29,7 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const lang = await getLang();
+  const [lang, theme] = await Promise.all([getLang(), getTheme()]);
   // Item names come from the game data when it has them, so what the catalog says to search
   // for is what the game really calls the item (the names written in the catalog are a fallback).
   const slugs = [...new Set(GAMES.flatMap((g) => g.catalog.flatMap((s) => s.entries.map((e) => e.item ?? e.sprite ?? ""))))].filter(Boolean);
@@ -40,6 +41,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang={lang}
+      // The mode the player picked; without it, the system setting decides (globals.css).
+      data-theme={theme ?? undefined}
       className={`${figtree.variable} ${chakraPetch.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">

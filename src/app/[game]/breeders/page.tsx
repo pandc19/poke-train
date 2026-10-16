@@ -48,7 +48,7 @@ export default async function BreedersPage({ params, searchParams }: PageProps<'
         options={options}
         lang={lang}
         judge={game.features.judge}
-        accent={game.theme.accent}
+        accent={'var(--game-accent)'}
       />
     </div>
   );

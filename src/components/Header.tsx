@@ -7,6 +7,7 @@ import { motion } from 'motion/react';
 import { setLang } from '@/app/actions';
 import { CatalogButton } from './CatalogDialog';
 import { ShellMotif } from './ShellMotif';
+import { ThemeToggle } from './ThemeToggle';
 import type { CatalogSection } from '@/lib/games/catalog';
 import type { GameMotif } from '@/lib/games';
 import { useT } from '@/lib/translate-client';
@@ -14,7 +15,7 @@ import { useT } from '@/lib/translate-client';
 type GameLink = {
   id: string;
   shortName: string;
-  theme: { from: string; to: string; accent: string; screenHue: number; motif?: GameMotif };
+  theme: { from: string; to: string; accent: string; lightAccent: string; screenHue: number; motif?: GameMotif };
   breeding: boolean;
   exclusives: boolean;
   catalog: CatalogSection[];
@@ -60,7 +61,7 @@ export function Header({ games }: { games: GameLink[] }) {
   return (
     <>
     {/* The device and its screen take the game's colours (see globals.css). */}
-    <style>{`:root{--shell:${current.theme.from};--shell-dark:${current.theme.to};--screen-hue:${current.theme.screenHue}}`}</style>
+    <style>{`:root{--shell:${current.theme.from};--shell-dark:${current.theme.to};--screen-hue:${current.theme.screenHue};--accent-dark:${current.theme.accent};--accent-light:${current.theme.lightAccent}}`}</style>
     <header className="dex-shell relative overflow-hidden text-white">
       {current.theme.motif && <ShellMotif motif={current.theme.motif} />}
       <div className="relative mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3.5">
@@ -69,11 +70,12 @@ export function Header({ games }: { games: GameLink[] }) {
           <span aria-hidden className="dex-lens block h-9 w-9 shrink-0 rounded-full" />
           <span aria-hidden className="hidden items-center gap-1.5 self-start pt-0.5 sm:flex">
             <span className="h-2.5 w-2.5 rounded-full border border-black/30 bg-[#ff7a6b]" />
-            <span className="h-2.5 w-2.5 rounded-full border border-black/30 bg-star" />
-            <span className="h-2.5 w-2.5 rounded-full border border-black/30 bg-done" />
+            <span className="h-2.5 w-2.5 rounded-full border border-black/30 bg-[#ffcb05]" />
+            <span className="h-2.5 w-2.5 rounded-full border border-black/30 bg-[#3ddc97]" />
           </span>
           <span className="font-display text-xl font-bold leading-none tracking-tight drop-shadow-[0_1px_0_rgb(0_0_0/0.25)]">
-            Poké<span className="text-star">Train</span>
+            {/* The shell is the same in light and dark, so its colours are fixed. */}
+            Poké<span className="text-[#ffcb05]">Train</span>
           </span>
         </Link>
 
@@ -112,6 +114,7 @@ export function Header({ games }: { games: GameLink[] }) {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          <ThemeToggle />
           <div className="flex items-center rounded-md bg-black/20 p-0.5 text-xs shadow-inner" aria-label={t('Language')}>
             {(['es', 'en'] as const).map((l) => (
               <button
@@ -185,7 +188,7 @@ export function Header({ games }: { games: GameLink[] }) {
                   <motion.span
                     layoutId="tab-underline"
                     className="absolute inset-x-2 bottom-0 h-[3px] rounded-t"
-                    style={{ background: current.theme.accent }}
+                    style={{ background: 'var(--game-accent)' }}
                   />
                 )}
               </Link>

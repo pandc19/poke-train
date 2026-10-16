@@ -64,7 +64,7 @@ function VariantImage({ info, name }: { info: PokemonInfo; name: string }) {
         {/* The Pokédex's scanner: the Pokémon on a lit disc, with a Poké Ball outline behind it. */}
         <span className="relative grid place-items-center">
           <span aria-hidden className="absolute inset-3 rounded-full bg-[radial-gradient(circle,var(--screen-surface-2)_0%,var(--screen-surface-2)_55%,transparent_71%)]" />
-          <PokeBallMark className="absolute inset-1 text-white/[0.07]" />
+          <PokeBallMark className="absolute inset-1 text-ink/[0.07]" />
           <span className="relative">
             <Sprite src={src} alt={`${name} ${current.label}`.trim()} size={144} />
           </span>
@@ -220,7 +220,7 @@ export function PokemonInfoDialog({
 
               {/* The entry's text, on the device's recessed screen. */}
               {flavor && (
-                <p className="mt-3 rounded-lg border border-line bg-bg/70 px-4 py-3 text-[15px] leading-relaxed shadow-[inset_0_2px_6px_rgb(0_0_0/0.35)]">
+                <p className="mt-3 rounded-lg border border-line bg-bg/70 px-4 py-3 text-[15px] leading-relaxed shadow-[var(--screen-inset)]">
                   {flavor}
                 </p>
               )}

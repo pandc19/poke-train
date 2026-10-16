@@ -327,7 +327,7 @@ export function DexGrid({
                   </button>
                   <button
                     onClick={() => askBulk(false)}
-                    className="block w-full rounded px-3 py-2 text-left text-red-400 hover:bg-surface-2"
+                    className="block w-full rounded px-3 py-2 text-left text-danger hover:bg-surface-2"
                   >
                     {t('Remove all shown from caught…')}
                   </button>
@@ -390,7 +390,7 @@ export function DexGrid({
                 } ${c.inGame ? '' : 'opacity-50'}`}
               >
                 {isCaught && (
-                  <PokeBallMark className="pointer-events-none absolute left-1/2 top-7 -z-10 h-24 w-24 -translate-x-1/2 text-white/[0.045]" />
+                  <PokeBallMark className="pointer-events-none absolute left-1/2 top-7 -z-10 h-24 w-24 -translate-x-1/2 text-ink/[0.05]" />
                 )}
                 <div className="flex items-center justify-between gap-1">
                   {readOnly ? (
@@ -589,7 +589,7 @@ export function DexGrid({
                   )}
             </p>
             {bulk?.mode === false && (
-              <p className="mt-2 text-red-400">
+              <p className="mt-2 text-danger">
                 {t('This also forgets the Have mark and the ♂/♀ you recorded for them. There is no undo.')}
               </p>
             )}

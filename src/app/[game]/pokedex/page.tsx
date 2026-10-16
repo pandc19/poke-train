@@ -20,7 +20,7 @@ export default async function PokedexPage({ params, searchParams }: PageProps<'/
     <DexBrowser
       gameId={game.id}
       gameName={game.shortName}
-      accent={game.theme.accent}
+      accent={'var(--game-accent)'}
       tabColor={game.theme.from}
       dexes={[
         ...game.pokedexes.map((d) => ({ slug: d.slug, name: d.name, note: d.note })),

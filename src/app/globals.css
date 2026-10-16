@@ -17,33 +17,107 @@
   --color-shell-dark: var(--shell-dark);
   --color-lens: #3b9bff;
 
-  /* Status engine: pending vs complete */
-  --color-pending: #ff9f43;
-  --color-done: #3ddc97;
-  --color-star: #ffcb05;
+  /* The game's accent: what is selected, the Pokédex percentage (see :root). */
+  --color-game: var(--game-accent);
+
+  /* Status engine: pending vs complete, plus stars and the colour of destructive actions. */
+  --color-pending: var(--status-pending);
+  --color-done: var(--status-done);
+  --color-star: var(--status-star);
+  --color-danger: var(--status-danger);
 }
 
 /*
- * Each game sets --shell, --shell-dark and --screen-hue (from its theme, in the Header), so the whole
- * app takes its colours: in Scarlet and Violet the Pokédex is the Rotom Phone, whose case matches the
- * version. The values here are the classic red Pokédex with a blue night screen, for pages without a game.
- * Every screen colour comes from the one hue, so they stay in step and keep the same contrast.
+ * Each game sets --shell, --shell-dark, --screen-hue, --accent-dark and --accent-light (from its theme,
+ * in the Header), so the whole app takes its colours: in Scarlet and Violet the Pokédex is the Rotom
+ * Phone, whose case matches the version. The values here are the classic red Pokédex with a blue
+ * screen, for pages without a game. Every screen colour comes from the one hue, so they stay in step
+ * and keep the same contrast; light mode only changes how light each one is.
+ *
+ * Dark is the default. Light applies when the player picks it (data-theme on <html>, from a cookie),
+ * or when they have not picked and their system is set to light.
  */
 :root {
   --shell: #e3350d;
   --shell-dark: #a8240a;
   --screen-hue: 265;
+  --accent-dark: #ffcb05;
+  --accent-light: #a87800;
+
   --screen-bg: oklch(0.19 0.035 var(--screen-hue));
   --screen-surface: oklch(0.225 0.042 var(--screen-hue));
   --screen-surface-2: oklch(0.265 0.048 var(--screen-hue));
   --screen-line: oklch(0.34 0.05 var(--screen-hue));
   --screen-ink: oklch(0.96 0.012 var(--screen-hue));
   --screen-muted: oklch(0.73 0.045 var(--screen-hue));
+  --screen-inset: inset 0 2px 6px rgb(0 0 0 / 0.35);
+  --game-accent: var(--accent-dark);
+
+  --status-pending: #ff9f43;
+  --status-done: #3ddc97;
+  --status-star: #ffcb05;
+  --status-danger: #f87171;
 
   /* Height of the sticky bar with the sections; page bars that stick sit just under it. */
   --nav-h: 2.75rem;
   color-scheme: dark;
   accent-color: --theme(--color-done);
+}
+
+:root[data-theme=light] {
+  --screen-bg: oklch(0.965 0.012 var(--screen-hue));
+  --screen-surface: oklch(0.995 0.004 var(--screen-hue));
+  --screen-surface-2: oklch(0.935 0.02 var(--screen-hue));
+  --screen-line: oklch(0.86 0.028 var(--screen-hue));
+  --screen-ink: oklch(0.24 0.035 var(--screen-hue));
+  --screen-muted: oklch(0.47 0.04 var(--screen-hue));
+  --screen-inset: inset 0 1px 3px rgb(0 0 0 / 0.1);
+  --game-accent: var(--accent-light);
+
+  /* Darker status colours, so they still read as text on a light screen. */
+  --status-pending: oklch(0.58 0.16 52);
+  --status-done: oklch(0.53 0.13 162);
+  --status-star: oklch(0.57 0.12 85);
+  --status-danger: oklch(0.55 0.2 27);
+  color-scheme: light;
+}
+
+/* The same light values, when the player has not picked a mode and their system is light. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --screen-bg: oklch(0.965 0.012 var(--screen-hue));
+    --screen-surface: oklch(0.995 0.004 var(--screen-hue));
+    --screen-surface-2: oklch(0.935 0.02 var(--screen-hue));
+    --screen-line: oklch(0.86 0.028 var(--screen-hue));
+    --screen-ink: oklch(0.24 0.035 var(--screen-hue));
+    --screen-muted: oklch(0.47 0.04 var(--screen-hue));
+    --screen-inset: inset 0 1px 3px rgb(0 0 0 / 0.1);
+    --game-accent: var(--accent-light);
+    --status-pending: oklch(0.58 0.16 52);
+    --status-done: oklch(0.53 0.13 162);
+    --status-star: oklch(0.57 0.12 85);
+    --status-danger: oklch(0.55 0.2 27);
+    color-scheme: light;
+  }
+}
+
+/* The mode switch shows the mode it switches to: the sun on a dark screen, the moon on a light one. */
+.theme-to-dark {
+  display: none;
+}
+:root[data-theme=light] .theme-to-dark {
+  display: block;
+}
+:root[data-theme=light] .theme-to-light {
+  display: none;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .theme-to-dark {
+    display: block;
+  }
+  :root:not([data-theme]) .theme-to-light {
+    display: none;
+  }
 }
 
 body {

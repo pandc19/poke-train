@@ -124,7 +124,7 @@ export function SearchBoard({
             className="w-full rounded-md border border-line bg-bg px-3 py-1.5 text-sm placeholder:text-muted"
           />
           {error && (
-            <p role="alert" className="mt-2 text-xs text-red-400">
+            <p role="alert" className="mt-2 text-xs text-danger">
               {error}
             </p>
           )}

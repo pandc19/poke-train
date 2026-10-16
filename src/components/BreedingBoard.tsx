@@ -656,7 +656,7 @@ export function BreedingBoard({
     <div key={plan.moveId} className="rounded-lg border border-line p-3">
       <h4 className="text-sm font-semibold">{moveName(goal, plan.moveId)}</h4>
       {plan.kind === 'illegal' && (
-        <p className="mt-1 text-xs text-red-400">{t('This Pokémon cannot have this move in this game.')}</p>
+        <p className="mt-1 text-xs text-danger">{t('This Pokémon cannot have this move in this game.')}</p>
       )}
       {plan.kind === 'egg' && plan.options.length === 0 && (
         <p className="mt-1 text-xs text-pending">
@@ -679,7 +679,7 @@ export function BreedingBoard({
   const readiness = (goal: BreedingGoalView) => {
     const plan = goal.plan;
     if (!plan) return { label: '', tone: 'text-muted', need: [] as ShoppingItem[] };
-    if (!plan.parents.canBreed) return { label: t('Cannot breed'), tone: 'text-red-400', need: [] as ShoppingItem[] };
+    if (!plan.parents.canBreed) return { label: t('Cannot breed'), tone: 'text-danger', need: [] as ShoppingItem[] };
     const need = plan.shopping.filter((s) => s.have !== 'ready');
     return need.length === 0
       ? { label: t('Ready to breed'), tone: 'text-done', need }
@@ -744,7 +744,7 @@ export function BreedingBoard({
               onClick={() => setDeleting(goal)}
               title={t('Delete')}
               aria-label={t('Delete')}
-              className="flex h-8 w-8 items-center justify-center rounded border border-line text-muted hover:text-red-400"
+              className="flex h-8 w-8 items-center justify-center rounded border border-line text-muted hover:text-danger"
             >
               <TrashIcon />
             </button>
@@ -770,7 +770,7 @@ export function BreedingBoard({
         )}
 
         {plan && !plan.parents.canBreed && (
-          <p className="mt-3 text-sm text-red-400">
+          <p className="mt-3 text-sm text-danger">
             {t('{name} cannot breed (it is in the "no eggs" group), so it has to be caught.', { name: name(goal.species) })}
           </p>
         )}
