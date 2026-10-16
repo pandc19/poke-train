@@ -57,8 +57,10 @@ export type GameConfig = {
    * The game's colours. `from` and `to` paint its cartridge in the game selector and the shell of the
    * device in the header (`to` is the shell's darker edge); `accent` marks what is selected.
    * `screenHue` is the OKLCH hue that tints the dark screen behind every page (265 is a plain night blue).
+   * `motif` is a faint pattern on the shell: 'future' circuit traces (Violet, Miraidon) or 'ancient'
+   * carved steps (Scarlet, Koraidon); none when left out.
    */
-  theme: { from: string; to: string; accent: string; screenHue: number };
+  theme: { from: string; to: string; accent: string; screenHue: number; motif?: GameMotif };
   /** For games sold as a pair: what only this version and only the other version have. */
   versionExclusives?: VersionExclusives;
   /**
@@ -73,6 +75,9 @@ export type GameConfig = {
    */
   locationNote?: string;
 };
+
+/** A pattern for the shell in the header (see `.dex-motif` in globals.css). */
+export type GameMotif = 'future' | 'ancient';
 
 export const GAMES: GameConfig[] = [
   {
@@ -107,7 +112,7 @@ export const GAMES: GameConfig[] = [
       mirrorHerb: true,
       judge: true,
     },
-    theme: { from: '#7c3aed', to: '#4c1d95', accent: '#c4b5fd', screenHue: 290 },
+    theme: { from: '#7c3aed', to: '#4c1d95', accent: '#c4b5fd', screenHue: 290, motif: 'future' },
     catalog: [...SCARLET_VIOLET_CATALOG, ...SCARLET_VIOLET_BREEDING_CATALOG],
     locationNote:
       'Paldea is one open map and you can fast travel almost anywhere, so for each place give the area and the nearest fast-travel point, town or landmark to travel to. ' +

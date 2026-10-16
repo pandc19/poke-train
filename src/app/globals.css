@@ -94,6 +94,18 @@ body {
     box-shadow: inset 0 -3px 0 var(--shell-dark);
   }
 
+  /* A game's motif (see ShellMotif), pressed faintly into the shell and fading out towards the logo. */
+  .dex-motif {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: min(70%, 56rem);
+    height: 100%;
+    pointer-events: none;
+    color: #fff;
+    opacity: 0.2;
+    mask-image: linear-gradient(to left, black 0%, black 25%, transparent 100%);
+  }
+
   /* The big lens on the shell: a glassy blue with a highlight, ringed in white. */
   .dex-lens {
     background:

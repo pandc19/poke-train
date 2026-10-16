@@ -6,13 +6,15 @@ import { useState, useTransition } from 'react';
 import { motion } from 'motion/react';
 import { setLang } from '@/app/actions';
 import { CatalogButton } from './CatalogDialog';
+import { ShellMotif } from './ShellMotif';
 import type { CatalogSection } from '@/lib/games/catalog';
+import type { GameMotif } from '@/lib/games';
 import { useT } from '@/lib/translate-client';
 
 type GameLink = {
   id: string;
   shortName: string;
-  theme: { from: string; to: string; accent: string; screenHue: number };
+  theme: { from: string; to: string; accent: string; screenHue: number; motif?: GameMotif };
   breeding: boolean;
   exclusives: boolean;
   catalog: CatalogSection[];
@@ -59,8 +61,9 @@ export function Header({ games }: { games: GameLink[] }) {
     <>
     {/* The device and its screen take the game's colours (see globals.css). */}
     <style>{`:root{--shell:${current.theme.from};--shell-dark:${current.theme.to};--screen-hue:${current.theme.screenHue}}`}</style>
-    <header className="dex-shell text-white">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3.5">
+    <header className="dex-shell relative overflow-hidden text-white">
+      {current.theme.motif && <ShellMotif motif={current.theme.motif} />}
+      <div className="relative mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3.5">
         {/* The Pokédex's big lens and its three lights are the logo. */}
         <Link href="/" className="flex items-center gap-3">
           <span aria-hidden className="dex-lens block h-9 w-9 shrink-0 rounded-full" />
