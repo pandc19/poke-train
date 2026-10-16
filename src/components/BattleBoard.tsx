@@ -6,7 +6,7 @@ import { ConfirmDialog } from './Dialog';
 import { Sprite } from './Sprite';
 import { TeraBadge, TypeBadge } from './TypeBadge';
 import { ComboInput } from './roster/parts';
-import type { BattleOpponentView, CounterView, MoveView } from '@/lib/battle/load';
+import type { BattleOpponentView, CounterView, LearnWay, MoveView } from '@/lib/battle/load';
 import type { Lang } from '@/lib/i18n';
 import { TYPE_NAMES_ES as TYPE_LABEL_ES } from '@/lib/pokemon-types';
 import { useT } from '@/lib/translate-client';
@@ -241,6 +241,17 @@ export function BattleBoard({
     </span>
   );
 
+  const learnLabel = (w: LearnWay) =>
+    w.method === 'level'
+      ? t('at level {level}', { level: w.level ?? 1 })
+      : w.method === 'evolve'
+        ? t('when it evolves')
+        : w.method === 'tm'
+          ? t('by TM')
+          : w.method === 'tutor'
+            ? t('from a tutor')
+            : t('as an egg move');
+
   async function setDefeated(o: BattleOpponentView, value: boolean) {
     setError(null);
     try {
@@ -274,6 +285,16 @@ export function BattleBoard({
           {c.types.map((ty) => (
             <TypeBadge key={ty} type={ty} lang={lang} small />
           ))}
+          {c.teraType && (
+            <span className="inline-flex items-center gap-1">
+              <TeraBadge
+                type={c.teraType}
+                lang={lang}
+                title={c.source === 'roster' ? t('Its Tera type') : t('The best Tera type to give it')}
+              />
+              {c.source === 'game' && <span className="text-[10px] font-normal text-muted">{t('best Tera')}</span>}
+            </span>
+          )}
           <span
             className={`rounded px-1 text-[10px] font-medium ${
               c.have ? 'bg-done/15 text-done' : 'bg-pending/15 text-pending'
@@ -290,6 +311,7 @@ export function BattleBoard({
           {t('Use')} {moveLine(c.move)}
           <span className={c.move.known ? 'ml-1 text-done' : 'ml-1 text-star'}>
             {c.move.known ? t('knows it') : c.source === 'roster' ? t('can learn it') : t('learns it')}
+            {!c.move.known && c.move.learn ? ` ${learnLabel(c.move.learn)}` : ''}
           </span>
         </p>
         {c.alternatives.length > 0 && (
@@ -298,8 +320,14 @@ export function BattleBoard({
               <span key={a.id}>
                 {i > 0 && ', '}
                 {name(a)} <TypeBadge type={a.type} lang={lang} small />
+                {!a.known && a.learn ? ` (${learnLabel(a.learn)})` : ''}
               </span>
             ))}
+          </p>
+        )}
+        {c.ability && (
+          <p className="text-muted">
+            {t('Ability')}: <span className="font-medium text-ink">{name(c.ability)}</span>
           </p>
         )}
         {c.rosterId && (
@@ -311,8 +339,21 @@ export function BattleBoard({
             {c.best ? t('Not the best anymore') : t('Mark as best')}
           </button>
         )}
-        {c.incoming >= 2 && <p className="text-pending">{t('Weak to its attacks ({mult})', { mult: multLabel(c.incoming) })}</p>}
-        {c.incoming < 1 && <p className="text-done">{c.incoming === 0 ? t('Immune to its attacks') : t('Resists its attacks')}</p>}
+        {c.incoming >= 2 &&
+          (c.teraType && c.incomingBase != null && c.incomingBase < 2 ? (
+            <p className="text-pending">{t('Its Tera type makes it weak to its attacks ({mult})', { mult: multLabel(c.incoming) })}</p>
+          ) : (
+            <p className="text-pending">{t('Weak to its attacks ({mult})', { mult: multLabel(c.incoming) })}</p>
+          ))}
+        {c.incoming < 1 && (
+          <p className="text-done">
+            {c.incoming === 0 ? t('Immune to its attacks') : t('Resists its attacks')}
+            {c.teraType && c.incomingBase !== c.incoming ? ` (${t('once Terastallized')})` : ''}
+          </p>
+        )}
+        {c.teraType && c.incomingBase != null && c.incomingBase >= 2 && c.incoming < 2 && (
+          <p className="text-pending">{t('Weak to its attacks until it Terastallizes ({mult})', { mult: multLabel(c.incomingBase) })}</p>
+        )}
       </div>
     </li>
   );
@@ -532,7 +573,9 @@ export function BattleBoard({
             <h3 className="mb-1 text-sm font-semibold">{t('From your roster')}</h3>
             {o.roster.length === 0 ? (
               <p className="text-xs text-muted">
-                {t('Nothing in your roster can hit it well. Add Pokémon to your roster, or look at the suggestions below.')}
+                {o.teraType
+                  ? t('Nothing in your roster knows a move that is super effective against its Tera type. Look at the suggestions below.')
+                  : t('Nothing in your roster can hit it well. Add Pokémon to your roster, or look at the suggestions below.')}
               </p>
             ) : (
               <ul className="grid gap-2 md:grid-cols-2">{o.roster.map((c, i) => renderCounter(c, o, i + 1))}</ul>

@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
+  abilityMatters,
   chartFrom,
   defendingTypes,
+  minimumMultiplier,
   multiplier,
   rankCounters,
   safetyTier,
+  scoreCandidate,
   weaknessTable,
   type BaseStats,
   type Candidate,
   type OpponentInput,
 } from '@/lib/battle/counters';
+import { BATTLE_TYPES, TYPE_CHART } from './type-chart';
 
 const chart = chartFrom([
   { attacker: 'water', defender: 'fire', multiplier: 2 },
@@ -115,7 +119,8 @@ describe('ranking counters', () => {
     const fireTable = weaknessTable(chart, fire, types);
     // Water is x2 on fire and resists it; the rock one hits as hard but is only neutral on defence.
     const brute = { ...candidate(1, ['rock'], 'rock', 150), stats: { ...stats, attack: 200, specialAttack: 200 } };
-    const safe = candidate(2, ['water'], 'water', 60);
+    // Strong enough to count as a real hitter (over half of what the brute does).
+    const safe = candidate(2, ['water'], 'water', 120);
     const weak = { ...candidate(3, ['grass'], 'rock', 150), types: ['grass'] };
     const ranked = rankCounters(chart, fire, fireTable, [brute, safe, weak], 5);
     expect(ranked.map((c) => safetyTier(c))).toEqual([...ranked.map((c) => safetyTier(c))].sort((a, b) => a - b));
@@ -132,16 +137,113 @@ describe('ranking counters', () => {
 
   it('known moves replace its own types when judging the hits a counter takes', () => {
     const dragon = { ...charizard, types: ['dragon'] };
-    const water = candidate(1, ['water'], 'water');
+    // Rock hits Dragon neutrally, so both stay in the list.
+    const water = candidate(1, ['water'], 'rock');
     const table = weaknessTable(chart, dragon, types);
     // Guessed from its own type: dragon attacks, which nothing here resists or fears.
     const guessed = rankCounters(chart, dragon, table, [water], 5)[0];
     // It was seen using Rock moves; the Water Pokémon takes them neutrally, a Flying one is weak.
     const withMoves = { ...dragon, moveTypes: ['rock'] };
-    const flying = { ...candidate(2, ['water'], 'water'), types: ['flying'] };
+    const flying = { ...candidate(2, ['water'], 'rock'), types: ['flying'] };
     const [a, b] = rankCounters(chart, withMoves, table, [water, flying], 5).sort((x, y) => x.speciesId - y.speciesId);
     expect(guessed.incoming).toBe(1);
     expect(a.incoming).toBe(1);
     expect(b.incoming).toBe(2);
+  });
+});
+
+describe('Tera raids (real type chart)', () => {
+  const steelBoss: OpponentInput = {
+    types: ['steel', 'psychic'],
+    teraType: 'steel',
+    stats: { hp: 80, attack: 135, defense: 130, specialAttack: 95, specialDefense: 90, speed: 70 },
+    ability: null,
+    // Meteor Mash and Earthquake.
+    moveTypes: ['steel', 'ground'],
+  };
+  const table = weaknessTable(TYPE_CHART, steelBoss, BATTLE_TYPES);
+  const mon = (
+    id: number,
+    monTypes: string[],
+    teraType: string | null,
+    moves: [string, number][],
+    s: Partial<BaseStats> = {}
+  ): Candidate => ({
+    formId: id,
+    speciesId: id,
+    types: monTypes,
+    teraType,
+    stats: { ...stats, ...s },
+    moves: moves.map(([type, power], i) => ({ id: id * 10 + i, type, damageClass: 'physical', power, accuracy: 100, known: true })),
+  });
+  // Archaludon (Tera Fairy): Draco Meteor, Flash Cannon, Thunderbolt; nothing super effective.
+  const archaludon = mon(1, ['steel', 'dragon'], 'fairy', [['dragon', 130], ['steel', 80], ['electric', 90]], { specialAttack: 125 });
+  // Blaziken (Tera Flying): Flare Blitz, Close Combat, Brave Bird.
+  const blaziken = mon(2, ['fire', 'fighting'], 'flying', [['fire', 120], ['fighting', 120], ['flying', 120]]);
+  // Rhyperior (Tera Ice): Earthquake, Hammer Arm; Tera Ice is weak to Meteor Mash.
+  const rhyperior = mon(3, ['ground', 'rock'], 'ice', [['ground', 100], ['fighting', 100]], { attack: 140 });
+
+  it('reads the built-in chart', () => {
+    expect(multiplier(TYPE_CHART, 'dragon', ['steel'])).toBe(0.5);
+    expect(multiplier(TYPE_CHART, 'ground', ['fire', 'flying'])).toBe(0);
+  });
+
+  it('a Tera opponent has to be hit super effectively', () => {
+    expect(minimumMultiplier(steelBoss)).toBe(2);
+    expect(minimumMultiplier({ teraType: null })).toBe(1);
+    expect(scoreCandidate(TYPE_CHART, steelBoss, table, archaludon)).toBeNull();
+  });
+
+  it('only lists moves that work', () => {
+    const c = scoreCandidate(TYPE_CHART, steelBoss, table, blaziken)!;
+    expect([c.move, ...c.alternatives].every((m) => m.multiplier >= 2)).toBe(true);
+    expect(c.alternatives).toHaveLength(1);
+  });
+
+  it('judges defence on its Tera type, and before it', () => {
+    const b = scoreCandidate(TYPE_CHART, steelBoss, table, blaziken)!;
+    expect(b.incomingBase).toBe(2); // Earthquake on Fire/Fighting
+    expect(b.incoming).toBe(1); // Tera Flying: immune to Earthquake, Meteor Mash neutral
+    const r = scoreCandidate(TYPE_CHART, steelBoss, table, rhyperior)!;
+    expect(r.incoming).toBe(2); // Meteor Mash on Tera Ice
+  });
+
+  it('puts the one that takes its hits first, and drops the one that cannot hurt it', () => {
+    const ranked = rankCounters(TYPE_CHART, steelBoss, table, [archaludon, rhyperior, blaziken], 5);
+    expect(ranked.map((c) => c.speciesId)).toEqual([2, 3]);
+  });
+
+  it('Tera of one of its own types doubles the same-type bonus', () => {
+    const fire = (teraType: string | null) => mon(4, ['fire'], teraType, [['fire', 90]]);
+    const plain = scoreCandidate(TYPE_CHART, steelBoss, table, fire(null))!;
+    const same = scoreCandidate(TYPE_CHART, steelBoss, table, fire('fire'))!;
+    expect(same.score).toBeGreaterThan(plain.score);
+  });
+
+  it('gives a game suggestion the Tera type that does best', () => {
+    const noTera = { ...blaziken, teraType: undefined };
+    const [best] = rankCounters(TYPE_CHART, steelBoss, table, [noTera], 1, BATTLE_TYPES);
+    // No single type resists both Meteor Mash and Earthquake. Of those that take both neutrally,
+    // Fighting also doubles Close Combat's same-type bonus.
+    expect(best.incoming).toBe(1);
+    expect(best.teraType).toBe('fighting');
+  });
+
+  it('a safe Pokémon that barely hurts it goes behind the ones that hit hard', () => {
+    // Resists both attacks (Tera Water + Levitate) but only has a weak Fire move.
+    const safeButWeak: Candidate = { ...mon(6, ['water'], 'water', [['fire', 40]]), ability: 'levitate' };
+    const strong = mon(7, ['fighting'], 'fighting', [['fighting', 120]], { attack: 150 });
+    const ranked = rankCounters(TYPE_CHART, steelBoss, table, [safeButWeak, strong], 5);
+    expect(ranked[0].speciesId).toBe(7);
+  });
+
+  it('gives a game suggestion the ability that does best', () => {
+    // A Dragon/Dark Pokémon is weak to nothing here but Earthquake hits it neutrally; Levitate dodges it.
+    const dragon: Candidate = { ...mon(5, ['dark', 'dragon'], 'steel', [['fire', 90]]), abilityOptions: ['levitate'] };
+    const [withLevitate] = rankCounters(TYPE_CHART, steelBoss, table, [dragon], 1);
+    expect(withLevitate.ability).toBe('levitate');
+    expect(withLevitate.incoming).toBe(0.5); // Tera Steel: Meteor Mash resisted, Earthquake dodged
+    expect(abilityMatters('levitate')).toBe(true);
+    expect(abilityMatters('pressure')).toBe(false);
   });
 });

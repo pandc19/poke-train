@@ -3,6 +3,7 @@ import { prisma } from '../db';
 import type { GameConfig } from '../games';
 import { TYPE_SLUGS } from '../pokemon-types';
 import {
+  abilityMatters,
   chartFrom,
   rankCounters,
   weaknessTable,
@@ -14,12 +15,18 @@ import {
   type TypeChart,
 } from './counters';
 
+/** The 18 types a Pokémon can have (Stellar is a Tera type only). */
+const BATTLE_TYPES = TYPE_SLUGS.filter((t) => t !== 'stellar');
+
 export type Named = { id: number; nameEn: string; nameEs: string };
 
 /** An ability with a sentence on what it does, in each language (null when the data has none). */
 export type AbilityInfo = Named & { descriptionEn: string | null; descriptionEs: string | null };
 
 export type MoveView = Named & { type: string; power: number | null; damageClass: string };
+
+/** The easiest way a Pokémon of the game gets a move. */
+export type LearnWay = { method: 'level' | 'evolve' | 'tm' | 'tutor' | 'egg'; level?: number };
 
 export type CounterView = {
   species: Named;
@@ -31,10 +38,16 @@ export type CounterView = {
   /** You have one (roster entry in your box, or an owned Pokédex entry). */
   have: boolean;
   nickname: string | null;
-  move: MoveView & { multiplier: number; stab: boolean; known: boolean };
-  alternatives: (MoveView & { multiplier: number; stab: boolean; known: boolean })[];
-  /** Worst hit it takes from the opponent's same-type attacks. */
+  move: MoveView & { multiplier: number; stab: boolean; known: boolean; learn?: LearnWay | null };
+  alternatives: (MoveView & { multiplier: number; stab: boolean; known: boolean; learn?: LearnWay | null })[];
+  /** The ability to give it, when it changes the matchup (game suggestions). */
+  ability?: Named | null;
+  /** Its Tera type (roster), or the best one to give it (game suggestion); null = none. */
+  teraType?: string | null;
+  /** Worst hit it takes from the opponent's attacks, once Terastallized when it has a Tera type. */
   incoming: number;
+  /** The same before it Terastallizes. */
+  incomingBase?: number;
   /** It moves before the opponent (higher base Speed). */
   faster: boolean;
   /** The roster entry it comes from; null for game suggestions. */
@@ -77,12 +90,16 @@ type IndexedForm = Candidate & {
   nameEn: string;
   nameEs: string;
   spriteUrl: string | null;
+  /** How it gets each move it can learn. */
+  learn: Map<number, LearnWay>;
 };
 
 type GameIndex = {
   /** Fully evolved, non-legendary forms of the game, with every damaging move they can learn. */
   forms: IndexedForm[];
-  moves: Map<number, MoveView & { accuracy: number | null }>;
+  moves: Map<number, MoveView & { slug: string; accuracy: number | null }>;
+  /** Names of the abilities worth trying, by slug. */
+  abilities: Map<string, Named>;
 };
 
 /** Moves that cost the user too much (faint, half its HP...) to be recommended as a plain attack. */
@@ -140,27 +157,48 @@ async function loadMoves(): Promise<GameIndex['moves']> {
   return new Map(rows.filter((m) => !COSTLY_MOVES.has(m.slug)).map((m) => [m.id, m]));
 }
 
+/** Easiest first: levelling up (lowest level), evolving, a TM, a tutor, then breeding for it. */
+const LEARN_ORDER: LearnWay['method'][] = ['level', 'evolve', 'tm', 'tutor', 'egg'];
+function learnWay(method: string, level: number): LearnWay | null {
+  if (method === 'level-up') return level === 0 ? { method: 'evolve' } : { method: 'level', level };
+  if (method === 'machine') return { method: 'tm' };
+  if (method === 'tutor') return { method: 'tutor' };
+  if (method === 'egg') return { method: 'egg' };
+  return null;
+}
+const easier = (a: LearnWay, b: LearnWay) =>
+  LEARN_ORDER.indexOf(a.method) - LEARN_ORDER.indexOf(b.method) || (a.level ?? 0) - (b.level ?? 0);
+
 async function learnable(game: GameConfig, formIds: number[]) {
-  const rows = await prisma.$queryRaw<{ form_id: number; move_id: number }[]>`
-    SELECT DISTINCT form_id, move_id FROM learnsets
+  const rows = await prisma.$queryRaw<{ form_id: number; move_id: number; method: string; level: number }[]>`
+    SELECT DISTINCT form_id, move_id, method, level FROM learnsets
     WHERE version_group = ANY(${game.learnsetVersionGroups}) AND form_id = ANY(${formIds})`;
-  const byForm = new Map<number, number[]>();
+  const byForm = new Map<number, Map<number, LearnWay>>();
   for (const r of rows) {
-    const list = byForm.get(r.form_id) ?? [];
-    list.push(r.move_id);
-    byForm.set(r.form_id, list);
+    const way = learnWay(r.method, r.level);
+    if (!way) continue;
+    const forForm = byForm.get(r.form_id) ?? new Map<number, LearnWay>();
+    const prev = forForm.get(r.move_id);
+    if (!prev || easier(way, prev) < 0) forForm.set(r.move_id, way);
+    byForm.set(r.form_id, forForm);
   }
   return byForm;
 }
 
-function toMoves(ids: number[], moves: GameIndex['moves'], known: Set<number>): CandidateMove[] {
+function toMoves(
+  ids: number[],
+  moves: GameIndex['moves'],
+  known: Set<number>,
+  teraType?: string | null
+): CandidateMove[] {
   const out: CandidateMove[] = [];
   for (const id of new Set([...ids, ...known])) {
     const m = moves.get(id);
     if (!m || m.power == null) continue;
     out.push({
       id,
-      type: m.type,
+      // Tera Blast takes the Tera type of a Terastallized user.
+      type: m.slug === 'tera-blast' && teraType && teraType !== 'stellar' ? teraType : m.type,
       damageClass: m.damageClass === 'physical' ? 'physical' : 'special',
       power: m.power,
       accuracy: m.accuracy,
@@ -188,12 +226,17 @@ async function buildIndex(game: GameConfig): Promise<GameIndex> {
       types: true,
       baseStats: true,
       spriteUrl: true,
+      abilities: { select: { ability: { select: { id: true, slug: true, nameEn: true, nameEs: true } } } },
       species: { select: { nameEn: true, nameEs: true } },
     },
   });
   const byForm = await learnable(game, forms.map((f) => f.id));
+  const abilities = new Map(
+    forms.flatMap((f) => f.abilities.map((a) => a.ability)).filter((a) => abilityMatters(a.slug)).map((a) => [a.slug, a])
+  );
   return {
     moves,
+    abilities,
     forms: forms.map((f) => ({
       formId: f.id,
       speciesId: f.speciesId,
@@ -202,16 +245,23 @@ async function buildIndex(game: GameConfig): Promise<GameIndex> {
       spriteUrl: f.spriteUrl,
       nameEn: f.species.nameEn,
       nameEs: f.species.nameEs,
-      moves: toMoves(byForm.get(f.id) ?? [], moves, new Set()),
+      // Only the abilities that change a matchup are worth trying.
+      abilityOptions: f.abilities.map((a) => a.ability.slug).filter(abilityMatters),
+      learn: byForm.get(f.id) ?? new Map(),
+      moves: toMoves([...(byForm.get(f.id)?.keys() ?? [])], moves, new Set()),
     })),
   };
 }
 
-let chartCache: Promise<{ chart: TypeChart; types: string[] }> | null = null;
+let chartCache: Promise<TypeChart> | null = null;
 function loadChart() {
   chartCache ??= prisma.typeEffect
     .findMany()
-    .then((rows) => ({ chart: chartFrom(rows), types: TYPE_SLUGS.filter((t) => t !== 'stellar') }))
+    .then((rows) => {
+      // Without it every matchup would read as neutral and every suggestion would be wrong.
+      if (!rows.length) throw new Error('The type chart is empty: run `npm run sync:pokeapi -- --only-types`.');
+      return chartFrom(rows);
+    })
     .catch((e) => {
       chartCache = null;
       throw e;
@@ -230,7 +280,9 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
   });
   if (!rows.length) return [];
 
-  const [{ chart, types: allTypes }, index, roster, dex] = await Promise.all([
+  // Your Pokémon's Tera type only counts in games that have Terastallizing.
+  const tera = game.features.teraType;
+  const [chart, index, roster, dex] = await Promise.all([
     loadChart(),
     gameIndex(game),
     prisma.rosterPokemon.findMany({
@@ -244,6 +296,8 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
         nickname: true,
         owned: true,
         abilityId: true,
+        teraType: true,
+        teraStatus: true,
         species: { select: { nameEn: true, nameEs: true } },
         // Only the moves it has actually learned (DONE), not the ones it is planned to learn.
         moves: { where: { status: 'DONE', moveId: { not: null } }, select: { moveId: true } },
@@ -299,23 +353,29 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
     const f = formOf(r.speciesId, r.formId);
     return f ? [{ r, f }] : [];
   });
-  const rosterCandidates = rosterForms.map(({ r, f }, ref) => ({
-    r,
-    f,
-    candidate: {
-      ref,
-      formId: f.id,
-      speciesId: f.speciesId,
-      types: f.types,
-      stats: f.baseStats as BaseStats,
-      ability: r.abilityId ? (abilityById.get(r.abilityId)?.slug ?? null) : null,
-      moves: toMoves(
-        [],
-        index.moves,
-        new Set(r.moves.flatMap((m) => (m.moveId != null ? [m.moveId] : [])))
-      ),
-    } satisfies Candidate,
-  }));
+  const rosterCandidates = rosterForms.map(({ r, f }, ref) => {
+    // The Tera type it has now (marked done), not one it is meant to get.
+    const teraType = tera && r.teraStatus === 'DONE' ? r.teraType : null;
+    return {
+      r,
+      f,
+      candidate: {
+        ref,
+        formId: f.id,
+        speciesId: f.speciesId,
+        types: f.types,
+        stats: f.baseStats as BaseStats,
+        ability: r.abilityId ? (abilityById.get(r.abilityId)?.slug ?? null) : null,
+        teraType,
+        moves: toMoves(
+          [],
+          index.moves,
+          new Set(r.moves.flatMap((m) => (m.moveId != null ? [m.moveId] : []))),
+          teraType
+        ),
+      } satisfies Candidate,
+    };
+  });
 
   const moveView = (id: number): MoveView => {
     const m = index.moves.get(id);
@@ -347,7 +407,7 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
       stats: form.baseStats as BaseStats,
       ability: ability?.slug ?? null,
     };
-    const table = weaknessTable(chart, input, allTypes);
+    const table = weaknessTable(chart, input, BATTLE_TYPES);
     const weaknesses = Object.entries(table)
       .filter(([, m]) => m !== 1)
       .map(([type, multiplier]) => ({ type, multiplier }))
@@ -384,7 +444,9 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
         nickname: entry.r.nickname,
         move: withMove(c),
         alternatives: c.alternatives.map((a) => ({ ...moveView(a.id), ...a, id: a.id })),
+        teraType: c.teraType,
         incoming: c.incoming,
+        incomingBase: c.incomingBase,
         faster: c.faster,
         rosterId: entry.r.id,
         best: entry.r.id === o.bestRosterId,
@@ -402,7 +464,8 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
     const formByIndexId = new Map(index.forms.map((f) => [f.formId, f]));
     // Suggestions are spread over move types (at most three of each) so they are not all one kind.
     const perType = new Map<string, number>();
-    const rankedGame = rankCounters(chart, input, table, index.forms, 80)
+    // Each one is tried with every Tera type and shown with the one that does best.
+    const rankedGame = rankCounters(chart, input, table, index.forms, 80, tera ? BATTLE_TYPES : undefined)
       .filter((c) => !inRoster.has(c.speciesId))
       .filter((c) => {
         const type = index.moves.get(c.move.id)?.type ?? '';
@@ -421,9 +484,12 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
         source: 'game',
         have: ownedSpecies.has(f.speciesId),
         nickname: null,
-        move: withMove(c),
-        alternatives: c.alternatives.map((a) => ({ ...moveView(a.id), ...a, id: a.id })),
+        move: { ...withMove(c), learn: f.learn.get(c.move.id) ?? null },
+        alternatives: c.alternatives.map((a) => ({ ...moveView(a.id), ...a, id: a.id, learn: f.learn.get(a.id) ?? null })),
+        ability: c.ability ? (index.abilities.get(c.ability) ?? null) : null,
+        teraType: c.teraType,
         incoming: c.incoming,
+        incomingBase: c.incomingBase,
         faster: c.faster,
         rosterId: null,
         best: false,
