@@ -245,7 +245,8 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
         owned: true,
         abilityId: true,
         species: { select: { nameEn: true, nameEs: true } },
-        moves: { where: { moveId: { not: null } }, select: { moveId: true } },
+        // Only the moves it has actually learned (DONE), not the ones it is planned to learn.
+        moves: { where: { status: 'DONE', moveId: { not: null } }, select: { moveId: true } },
       },
     }),
     prisma.pokedexEntry.findMany({ where: { profileId, owned: true }, select: { speciesId: true } }),
@@ -293,7 +294,7 @@ export async function loadOpponents(game: GameConfig, profileId: string, ids?: s
   });
   const rivalMoveById = new Map(rivalMoves.map((m) => [m.id, m]));
 
-  // Roster candidates: only the moves each knows now (the player will not retrain them), with its ability.
+  // Roster candidates: only the moves each has learned now (the player will not retrain them), with its ability.
   const rosterForms = roster.flatMap((r) => {
     const f = formOf(r.speciesId, r.formId);
     return f ? [{ r, f }] : [];
