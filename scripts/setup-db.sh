@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Creates the poke-train role and database inside an existing Postgres
+# Creates the poketrain role and database inside an existing Postgres
 # container. Safe to re-run: existing role/database are left untouched.
 #
 # Usage: ./scripts/setup-db.sh [container] [role] [password] [database]

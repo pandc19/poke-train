@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 
-const EVENT = 'poke-train:dismissed';
+const EVENT = 'poketrain:dismissed';
 
 /** A hint the player can wave away; remembered on this device. Nothing is hidden on the server render. */
 export function useDismissed(key: string): [boolean, () => void] {

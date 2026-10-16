@@ -1,4 +1,4 @@
-// Prisma schema for poke-train.
+// Prisma schema for poketrain.
 // Two halves:
 //  - Reference data: synced from PokéAPI by scripts/sync-pokeapi.ts, never
 //    edited by the app. Integer ids are PokéAPI's own ids.

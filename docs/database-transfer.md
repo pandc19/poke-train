@@ -37,13 +37,13 @@ dumps, restores and `prisma migrate`.
 # 1. Dump local (custom format, no owners/grants: the local role does not exist on Neon)
 docker exec "$LOCAL_CONTAINER" pg_dump -U "$LOCAL_USER" -d "$LOCAL_DB" \
   --format=custom --no-owner --no-privileges \
-  > poke_train_local.dump
+  > poketrain_local.dump
 
 # 2. Restore into Neon (docker -i feeds the file on stdin)
 docker run --rm -i postgres:18 pg_restore \
   --no-owner --no-privileges --clean --if-exists \
   -d "$NEON_URL" \
-  < poke_train_local.dump
+  < poketrain_local.dump
 ```
 
 Step 2 uses a throwaway `postgres:18` container so nothing needs installing on
@@ -51,7 +51,7 @@ the host. Any `pg_restore` of version 18 or newer works, including a host
 install:
 
 ```bash
-pg_restore --no-owner --no-privileges --clean --if-exists -d "$NEON_URL" poke_train_local.dump
+pg_restore --no-owner --no-privileges --clean --if-exists -d "$NEON_URL" poketrain_local.dump
 ```
 
 ## Neon → Local
@@ -60,12 +60,12 @@ pg_restore --no-owner --no-privileges --clean --if-exists -d "$NEON_URL" poke_tr
 # 1. Dump Neon
 docker run --rm postgres:18 pg_dump "$NEON_URL" \
   --format=custom --no-owner --no-privileges \
-  > poke_train_neon.dump
+  > poketrain_neon.dump
 
 # 2. Restore into the local container
 docker exec -i "$LOCAL_CONTAINER" pg_restore -U "$LOCAL_USER" -d "$LOCAL_DB" \
   --no-owner --no-privileges --clean --if-exists \
-  < poke_train_neon.dump
+  < poketrain_neon.dump
 ```
 
 Objects restored this way are owned by `poketrain` because `--no-owner` makes
@@ -76,13 +76,13 @@ them belong to the user running the restore.
 ```bash
 # dump
 docker exec "$LOCAL_CONTAINER" pg_dump -U "$LOCAL_USER" -d "$LOCAL_DB" \
-  --no-owner --no-privileges --clean --if-exists > poke_train.sql
+  --no-owner --no-privileges --clean --if-exists > poketrain.sql
 
 # restore to Neon
-docker run --rm -i postgres:18 psql "$NEON_URL" -v ON_ERROR_STOP=1 < poke_train.sql
+docker run --rm -i postgres:18 psql "$NEON_URL" -v ON_ERROR_STOP=1 < poketrain.sql
 
 # restore to local
-docker exec -i "$LOCAL_CONTAINER" psql -U "$LOCAL_USER" -d "$LOCAL_DB" -v ON_ERROR_STOP=1 < poke_train.sql
+docker exec -i "$LOCAL_CONTAINER" psql -U "$LOCAL_USER" -d "$LOCAL_DB" -v ON_ERROR_STOP=1 < poketrain.sql
 ```
 
 ## Check it worked
