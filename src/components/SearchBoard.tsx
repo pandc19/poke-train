@@ -124,13 +124,13 @@ export function SearchBoard({
             className="w-full rounded-md border border-line bg-bg px-3 py-1.5 text-sm placeholder:text-muted"
           />
           {error && (
-            <p role="alert" className="mt-2 text-xs text-red-400">
+            <p role="alert" className="mt-2 text-xs text-danger">
               {error}
             </p>
           )}
           {common.length > 0 && (
             <div className="mt-3">
-              <p className="mb-1 text-[11px] uppercase tracking-wide text-muted">{t('Most common in your roster')}</p>
+              <p className="mb-1 text-xs font-medium text-muted">{t('Most common in your roster')}</p>
               <ul className="flex flex-wrap gap-1.5">
                 {common.map(({ move, count }) => (
                   <li key={move.id}>
@@ -160,7 +160,7 @@ export function SearchBoard({
           />
           {commonAbilities.length > 0 && (
             <div className="mt-3">
-              <p className="mb-1 text-[11px] uppercase tracking-wide text-muted">{t('Most common in your roster')}</p>
+              <p className="mb-1 text-xs font-medium text-muted">{t('Most common in your roster')}</p>
               <ul className="flex flex-wrap gap-1.5">
                 {commonAbilities.map(({ ability, count }) => (
                   <li key={ability.id}>
@@ -202,7 +202,7 @@ export function SearchBoard({
                       </>
                     ) : (
                       <>
-                        <span className="text-[10px] uppercase text-muted">{t('Ability')}</span>
+                        <span className="text-[11px] text-muted">{t('Ability')}</span>
                         {name(c.ability)}
                       </>
                     )}

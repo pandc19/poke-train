@@ -1,20 +1,24 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Chakra_Petch, Figtree } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import { prisma } from "@/lib/db";
 import { GAMES } from "@/lib/games";
 import { getLang, getT } from "@/lib/i18n";
+import { getTheme } from "@/lib/theme-server";
 import { LangProvider } from "@/lib/translate-client";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Body text: a clear, friendly sans for long Spanish and English labels.
+const figtree = Figtree({
+  variable: "--font-body",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// Headings, Pokédex numbers and big figures: a chamfered face, like a device's readout.
+const chakraPetch = Chakra_Petch({
+  variable: "--font-readout",
   subsets: ["latin"],
+  weight: ["500", "600", "700"],
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -26,7 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const lang = await getLang();
+  const [lang, theme] = await Promise.all([getLang(), getTheme()]);
   // Item names come from the game data when it has them, so what the catalog says to search
   // for is what the game really calls the item (the names written in the catalog are a fallback).
   const slugs = [...new Set(GAMES.flatMap((g) => g.catalog.flatMap((s) => s.entries.map((e) => e.item ?? e.sprite ?? ""))))].filter(Boolean);
@@ -37,7 +41,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang={lang}
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      // The mode the player picked; without it, the system setting decides (globals.css).
+      data-theme={theme ?? undefined}
+      className={`${figtree.variable} ${chakraPetch.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <LangProvider lang={lang}>

@@ -89,7 +89,7 @@ export function TaskToggle({
       </span>
       {label != null && <span className="truncate">{label}</span>}
       {warning && (
-        <span aria-label={warning} className="text-red-400">
+        <span aria-label={warning} className="text-danger">
           ⚠
         </span>
       )}

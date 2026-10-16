@@ -318,7 +318,7 @@ export function TeamView({
                   onClick={() => onSetSlot(slot, null)}
                   aria-label={t('Empty slot {n}', { n: slot })}
                   title={t('Drop from the team')}
-                  className="grid h-8 w-8 place-items-center rounded-full border border-line bg-surface text-muted hover:border-red-400/60 hover:text-red-400"
+                  className="grid h-8 w-8 place-items-center rounded-full border border-line bg-surface text-muted hover:border-danger/60 hover:text-danger"
                 >
                   ✕
                 </button>
@@ -611,7 +611,7 @@ function TeamDetail({
   const lowered = natureNow?.decreased ? KEY_OF_NATURE[natureNow.decreased] : null;
   const natureMark = (key: keyof EvSpread) =>
     key === raised ? (
-      <span className="font-bold text-red-500" title={t('Raised by the nature')} aria-label={t('Raised by the nature')}>
+      <span className="font-bold text-danger" title={t('Raised by the nature')} aria-label={t('Raised by the nature')}>
         ↑
       </span>
     ) : key === lowered ? (
@@ -619,7 +619,7 @@ function TeamDetail({
         ↓
       </span>
     ) : null;
-  const natureTint = (key: keyof EvSpread) => (key === raised ? 'text-red-500' : key === lowered ? 'text-sky-500' : 'text-muted');
+  const natureTint = (key: keyof EvSpread) => (key === raised ? 'text-danger' : key === lowered ? 'text-sky-500' : 'text-muted');
   const arrow =
     'grid h-9 w-11 place-items-center rounded-md border border-line bg-surface text-sm text-muted active:bg-surface-2 hover:text-ink';
 
@@ -684,7 +684,7 @@ function TeamDetail({
               onClick={onRemove}
               title={t('Remove from team')}
               aria-label={t('Remove from team')}
-              className="flex h-8 w-8 items-center justify-center rounded-md border border-line text-muted hover:text-red-400"
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-line text-muted hover:text-danger"
             >
               <MinusCircleIcon />
             </button>
@@ -795,7 +795,7 @@ function TeamDetail({
                     <span className={`block text-[10px] font-semibold uppercase ${natureTint(key)}`}>
                       {STAT_LABELS[key][lang]} {natureMark(key)}
                     </span>
-                    <span className={`block text-base font-bold tabular-nums ${have >= 252 ? 'text-yellow-400' : ''}`}>
+                    <span className={`block text-base font-bold tabular-nums ${have >= 252 ? 'text-star' : ''}`}>
                       {have >= 252 && <span aria-hidden>✦ </span>}
                       {have}
                     </span>
@@ -824,7 +824,7 @@ function TeamDetail({
                         state === 'done'
                           ? 'border-done/50 bg-done/10'
                           : state === 'over'
-                            ? 'border-red-400/60 bg-red-400/10'
+                            ? 'border-danger/60 bg-danger/10'
                             : state === 'todo'
                               ? 'border-pending/50 bg-pending/10'
                               : 'border-line'
@@ -836,7 +836,7 @@ function TeamDetail({
                       </span>
                       <span
                         className={`block text-[11px] font-medium ${
-                          state === 'done' ? 'text-done' : state === 'over' ? 'text-red-400' : state === 'todo' ? 'text-pending' : 'text-muted'
+                          state === 'done' ? 'text-done' : state === 'over' ? 'text-danger' : state === 'todo' ? 'text-pending' : 'text-muted'
                         }`}
                       >
                         {state === 'done'

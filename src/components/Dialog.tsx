@@ -17,7 +17,7 @@ export function Dialog({
 }: {
   open: boolean;
   onClose: () => void;
-  title: string;
+  title: React.ReactNode;
   wide?: boolean;
   children: React.ReactNode;
 }) {
@@ -38,15 +38,20 @@ export function Dialog({
       onClick={(e) => {
         if (e.target === ref.current) onClose();
       }}
-      className={`m-auto max-h-[90vh] overflow-y-auto rounded-xl border border-line bg-surface p-0 text-ink backdrop:bg-black/60 ${
+      className={`m-auto max-h-[90vh] overflow-y-auto rounded-xl border border-line border-t-4 border-t-shell bg-surface p-0 text-ink shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-[2px] ${
         wide ? 'w-[min(94vw,46rem)]' : 'w-[min(94vw,26rem)]'
       }`}
     >
       {open && (
         <div className="p-5">
           <div className="mb-4 flex items-start justify-between gap-4">
-            <h2 className="text-lg font-semibold">{title}</h2>
-            <button type="button" onClick={onClose} aria-label={t('Close')} className="text-muted hover:text-ink">
+            <h2 className="text-xl font-semibold">{title}</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t('Close')}
+              className="-mr-1 -mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted hover:bg-surface-2 hover:text-ink"
+            >
               ✕
             </button>
           </div>

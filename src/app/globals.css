@@ -1,31 +1,195 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-readout);
 
-  --color-bg: #0d1017;
-  --color-surface: #161b26;
-  --color-surface-2: #1e2533;
-  --color-line: #2a3345;
-  --color-ink: #e8ecf4;
-  --color-muted: #8b96ab;
+  /* The Pokédex screen, tinted by the game being played (see :root). */
+  --color-bg: var(--screen-bg);
+  --color-surface: var(--screen-surface);
+  --color-surface-2: var(--screen-surface-2);
+  --color-line: var(--screen-line);
+  --color-ink: var(--screen-ink);
+  --color-muted: var(--screen-muted);
 
-  /* Status engine: pending vs complete */
-  --color-pending: #fb923c;
-  --color-done: #34d399;
-  --color-star: #facc15;
+  /* The device's shell, in the game's colour, and its blue lens. */
+  --color-shell: var(--shell);
+  --color-shell-dark: var(--shell-dark);
+  --color-lens: #3b9bff;
+
+  /* The game's accent: what is selected, the Pokédex percentage (see :root). */
+  --color-game: var(--game-accent);
+
+  /* Status engine: pending vs complete, plus stars and the colour of destructive actions. */
+  --color-pending: var(--status-pending);
+  --color-done: var(--status-done);
+  --color-star: var(--status-star);
+  --color-danger: var(--status-danger);
 }
 
-/* Height of the sticky bar with the sections; page bars that stick sit just under it. */
+/*
+ * Each game sets --shell, --shell-dark, --screen-hue, --accent-dark and --accent-light (from its theme,
+ * in the Header), so the whole app takes its colours: in Scarlet and Violet the Pokédex is the Rotom
+ * Phone, whose case matches the version. The values here are the classic red Pokédex with a blue
+ * screen, for pages without a game. Every screen colour comes from the one hue, so they stay in step
+ * and keep the same contrast; light mode only changes how light each one is.
+ *
+ * Dark is the default. Light applies when the player picks it (data-theme on <html>, from a cookie),
+ * or when they have not picked and their system is set to light.
+ */
 :root {
+  --shell: #e3350d;
+  --shell-dark: #a8240a;
+  --screen-hue: 265;
+  --accent-dark: #ffcb05;
+  --accent-light: #a87800;
+
+  --screen-bg: oklch(0.19 0.035 var(--screen-hue));
+  --screen-surface: oklch(0.225 0.042 var(--screen-hue));
+  --screen-surface-2: oklch(0.265 0.048 var(--screen-hue));
+  --screen-line: oklch(0.34 0.05 var(--screen-hue));
+  --screen-ink: oklch(0.96 0.012 var(--screen-hue));
+  --screen-muted: oklch(0.73 0.045 var(--screen-hue));
+  --screen-inset: inset 0 2px 6px rgb(0 0 0 / 0.35);
+  --game-accent: var(--accent-dark);
+
+  --status-pending: #ff9f43;
+  --status-done: #3ddc97;
+  --status-star: #ffcb05;
+  --status-danger: #f87171;
+
+  /* Height of the sticky bar with the sections; page bars that stick sit just under it. */
   --nav-h: 2.75rem;
+  color-scheme: dark;
+  accent-color: --theme(--color-done);
+}
+
+:root[data-theme=light] {
+  --screen-bg: oklch(0.965 0.012 var(--screen-hue));
+  --screen-surface: oklch(0.995 0.004 var(--screen-hue));
+  --screen-surface-2: oklch(0.935 0.02 var(--screen-hue));
+  --screen-line: oklch(0.86 0.028 var(--screen-hue));
+  --screen-ink: oklch(0.24 0.035 var(--screen-hue));
+  --screen-muted: oklch(0.47 0.04 var(--screen-hue));
+  --screen-inset: inset 0 1px 3px rgb(0 0 0 / 0.1);
+  --game-accent: var(--accent-light);
+
+  /* Darker status colours, so they still read as text on a light screen. */
+  --status-pending: oklch(0.58 0.16 52);
+  --status-done: oklch(0.53 0.13 162);
+  --status-star: oklch(0.57 0.12 85);
+  --status-danger: oklch(0.55 0.2 27);
+  color-scheme: light;
+}
+
+/* The same light values, when the player has not picked a mode and their system is light. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --screen-bg: oklch(0.965 0.012 var(--screen-hue));
+    --screen-surface: oklch(0.995 0.004 var(--screen-hue));
+    --screen-surface-2: oklch(0.935 0.02 var(--screen-hue));
+    --screen-line: oklch(0.86 0.028 var(--screen-hue));
+    --screen-ink: oklch(0.24 0.035 var(--screen-hue));
+    --screen-muted: oklch(0.47 0.04 var(--screen-hue));
+    --screen-inset: inset 0 1px 3px rgb(0 0 0 / 0.1);
+    --game-accent: var(--accent-light);
+    --status-pending: oklch(0.58 0.16 52);
+    --status-done: oklch(0.53 0.13 162);
+    --status-star: oklch(0.57 0.12 85);
+    --status-danger: oklch(0.55 0.2 27);
+    color-scheme: light;
+  }
+}
+
+/* The mode switch shows the mode it switches to: the sun on a dark screen, the moon on a light one. */
+.theme-to-dark {
+  display: none;
+}
+:root[data-theme=light] .theme-to-dark {
+  display: block;
+}
+:root[data-theme=light] .theme-to-light {
+  display: none;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .theme-to-dark {
+    display: block;
+  }
+  :root:not([data-theme]) .theme-to-light {
+    display: none;
+  }
 }
 
 body {
   background: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+@layer base {
+  ::selection {
+    background: rgb(255 203 5 / 0.35);
+  }
+
+  /* Page and dialog titles read off the device's display face. */
+  h1,
+  h2 {
+    font-family: --theme(--font-display), --theme(--font-sans), sans-serif;
+    letter-spacing: 0.005em;
+  }
+
+  :focus-visible {
+    outline: 2px solid --theme(--color-star);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* A heading for a block inside a panel (Moves, Stats and IVs…): sentence case, in the display face. */
+  .section-title {
+    font-family: --theme(--font-display), --theme(--font-sans), sans-serif;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    color: --theme(--color-ink);
+  }
+
+  /* Pokédex numbers and stat figures line up as a readout. */
+  .readout {
+    font-family: --theme(--font-display), --theme(--font-sans), sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The device's shell: plastic in the game's colour, a soft highlight along the top edge and a darker hinge below. */
+  .dex-shell {
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / 0.16), transparent 45%),
+      var(--shell);
+    box-shadow: inset 0 -3px 0 var(--shell-dark);
+  }
+
+  /* A game's motif (see ShellMotif), pressed faintly into the shell and fading out towards the logo. */
+  .dex-motif {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: min(70%, 56rem);
+    height: 100%;
+    pointer-events: none;
+    color: #fff;
+    opacity: 0.2;
+    mask-image: linear-gradient(to left, black 0%, black 25%, transparent 100%);
+  }
+
+  /* The big lens on the shell: a glassy blue with a highlight, ringed in white. */
+  .dex-lens {
+    background:
+      radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.85) 0 14%, transparent 16%),
+      radial-gradient(circle at 50% 60%, #7cc4ff, --theme(--color-lens) 55%, #1c5fb0);
+    box-shadow:
+      0 0 0 3px #fff,
+      0 0 0 5px var(--shell-dark),
+      0 0 14px 2px rgb(59 155 255 / 0.55);
+  }
 }
 
 /* Sprites are pixel art; keep them crisp when scaled. */

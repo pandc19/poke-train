@@ -229,13 +229,15 @@ export function BattleBoard({
   }, []);
 
   const multLabel = (m: number) => (m === 0 ? t('immune') : `×${m}`);
+  // A multiplier says which way the hit goes: the rival's attacks on your Pokémon, or your move on the rival.
+  const takenLabel = (m: number) => t('{mult} damage to you', { mult: multLabel(m) });
 
-  const moveLine = (m: MoveView & { multiplier: number; stab: boolean; known: boolean }) => (
+  const moveLine = (m: MoveView & { multiplier: number; stab: boolean; known: boolean }, rival: string) => (
     <span>
       <span className="font-medium">{name(m)}</span>{' '}
       <TypeBadge type={m.type} lang={lang} small />{' '}
       <span className="text-muted">
-        {m.power} · {multLabel(m.multiplier)}
+        {m.power} · {t('{mult} to {rival}', { mult: multLabel(m.multiplier), rival })}
         {m.stab ? ` · ${t('same type')}` : ''}
       </span>
     </span>
@@ -278,7 +280,9 @@ export function BattleBoard({
       className={`flex gap-2 rounded-lg border p-2 text-xs ${c.best ? 'border-star bg-star/10' : 'border-line'}`}
     >
       <span className="w-4 shrink-0 pt-1 text-center text-[11px] font-semibold text-muted">{rank}</span>
-      <Sprite src={c.spriteUrl} alt={name(c.species)} size={64} smooth />
+      <span className="self-center">
+        <Sprite src={c.spriteUrl} alt={name(c.species)} size={64} smooth />
+      </span>
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-semibold">
           {c.nickname ? `${c.nickname} (${name(c.species)})` : name(c.species)}
@@ -303,12 +307,12 @@ export function BattleBoard({
             {c.source === 'roster' ? t('in your box') : c.have ? t('you have it') : t('not caught yet')}
           </span>
           <span className="rounded bg-surface-2 px-1 text-[10px] font-medium text-muted">
-            {c.faster ? t('Faster than it') : t('Slower than it')}
+            {c.faster ? t('Faster than {rival}', { rival: name(o.species) }) : t('Slower than {rival}', { rival: name(o.species) })}
           </span>
           {c.best && <span className="rounded bg-star/20 px-1 text-[10px] font-semibold text-star">{t('Best so far')}</span>}
         </p>
         <p>
-          {t('Use')} {moveLine(c.move)}
+          {t('Use')} {moveLine(c.move, name(o.species))}
           <span className={c.move.known ? 'ml-1 text-done' : 'ml-1 text-star'}>
             {c.move.known ? t('knows it') : c.source === 'roster' ? t('can learn it') : t('learns it')}
             {!c.move.known && c.move.learn ? ` ${learnLabel(c.move.learn)}` : ''}
@@ -339,20 +343,30 @@ export function BattleBoard({
             {c.best ? t('Not the best anymore') : t('Mark as best')}
           </button>
         )}
+        {/* How your Pokémon takes the rival's hits; "Terastallize" is you Terastallizing yours. */}
         {c.incoming >= 2 &&
           (c.teraType && c.incomingBase != null && c.incomingBase < 2 ? (
-            <p className="text-pending">{t('Its Tera type makes it weak to its attacks ({mult})', { mult: multLabel(c.incoming) })}</p>
+            <p className="text-pending">
+              {t("Weak to {rival}'s attacks if you Terastallize it ({mult})", { rival: name(o.species), mult: takenLabel(c.incoming) })}
+            </p>
           ) : (
-            <p className="text-pending">{t('Weak to its attacks ({mult})', { mult: multLabel(c.incoming) })}</p>
+            <p className="text-pending">{t("Weak to {rival}'s attacks ({mult})", { rival: name(o.species), mult: takenLabel(c.incoming) })}</p>
           ))}
         {c.incoming < 1 && (
           <p className="text-done">
-            {c.incoming === 0 ? t('Immune to its attacks') : t('Resists its attacks')}
-            {c.teraType && c.incomingBase !== c.incoming ? ` (${t('once Terastallized')})` : ''}
+            {c.teraType && c.incomingBase !== c.incoming
+              ? c.incoming === 0
+                ? t("Immune to {rival}'s attacks once you Terastallize it", { rival: name(o.species) })
+                : t("Resists {rival}'s attacks once you Terastallize it", { rival: name(o.species) })
+              : c.incoming === 0
+                ? t("Immune to {rival}'s attacks", { rival: name(o.species) })
+                : t("Resists {rival}'s attacks", { rival: name(o.species) })}
           </p>
         )}
         {c.teraType && c.incomingBase != null && c.incomingBase >= 2 && c.incoming < 2 && (
-          <p className="text-pending">{t('Weak to its attacks until it Terastallizes ({mult})', { mult: multLabel(c.incomingBase) })}</p>
+          <p className="text-pending">
+            {t("Weak to {rival}'s attacks until you Terastallize it ({mult})", { rival: name(o.species), mult: takenLabel(c.incomingBase) })}
+          </p>
         )}
       </div>
     </li>
@@ -762,7 +776,7 @@ function OpponentForm({
   const defaultFormId = forms.find((f) => f.isDefault)?.id ?? null;
 
   const typeLabel = (ty: string) => (lang === 'es' ? (TYPE_LABEL_ES[ty] ?? ty) : ty);
-  const heading = 'mb-2 border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-muted';
+  const heading = 'section-title mb-2 border-b border-line pb-1.5';
   const labelClass = 'mb-1 block text-xs font-medium text-muted';
   /** A pill of a segmented choice. */
   const pill = (on: boolean) =>

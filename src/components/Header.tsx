@@ -6,13 +6,16 @@ import { useState, useTransition } from 'react';
 import { motion } from 'motion/react';
 import { setLang } from '@/app/actions';
 import { CatalogButton } from './CatalogDialog';
+import { ShellMotif } from './ShellMotif';
+import { ThemeToggle } from './ThemeToggle';
 import type { CatalogSection } from '@/lib/games/catalog';
+import type { GameMotif } from '@/lib/games';
 import { useT } from '@/lib/translate-client';
 
 type GameLink = {
   id: string;
   shortName: string;
-  theme: { from: string; to: string; accent: string };
+  theme: { from: string; to: string; accent: string; lightAccent: string; screenHue: number; motif?: GameMotif };
   breeding: boolean;
   exclusives: boolean;
   catalog: CatalogSection[];
@@ -57,17 +60,22 @@ export function Header({ games }: { games: GameLink[] }) {
 
   return (
     <>
-    <header className="bg-surface">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
-        <Link href="/" className="flex items-center gap-1.5 text-lg font-bold tracking-tight">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" className="shrink-0">
-            <circle cx="12" cy="12" r="10.5" fill="#fff" stroke="#1f2937" strokeWidth="1.5" />
-            <path d="M1.5 12a10.5 10.5 0 0 1 21 0z" fill="#ef4444" stroke="#1f2937" strokeWidth="1.5" />
-            <path d="M1.5 12h21" stroke="#1f2937" strokeWidth="1.5" />
-            <circle cx="12" cy="12" r="3.5" fill="#fff" stroke="#1f2937" strokeWidth="1.5" />
-          </svg>
-          <span>
-            Poké<span className="text-star">Train</span>
+    {/* The device and its screen take the game's colours (see globals.css). */}
+    <style>{`:root{--shell:${current.theme.from};--shell-dark:${current.theme.to};--screen-hue:${current.theme.screenHue};--accent-dark:${current.theme.accent};--accent-light:${current.theme.lightAccent}}`}</style>
+    <header className="dex-shell relative overflow-hidden text-white">
+      {current.theme.motif && <ShellMotif motif={current.theme.motif} />}
+      <div className="relative mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3.5">
+        {/* The Pokédex's big lens and its three lights are the logo. */}
+        <Link href="/" className="flex items-center gap-3">
+          <span aria-hidden className="dex-lens block h-9 w-9 shrink-0 rounded-full" />
+          <span aria-hidden className="hidden items-center gap-1.5 self-start pt-0.5 sm:flex">
+            <span className="h-2.5 w-2.5 rounded-full border border-black/30 bg-[#ff7a6b]" />
+            <span className="h-2.5 w-2.5 rounded-full border border-black/30 bg-[#ffcb05]" />
+            <span className="h-2.5 w-2.5 rounded-full border border-black/30 bg-[#3ddc97]" />
+          </span>
+          <span className="font-display text-xl font-bold leading-none tracking-tight drop-shadow-[0_1px_0_rgb(0_0_0/0.25)]">
+            {/* The shell is the same in light and dark, so its colours are fixed. */}
+            Poké<span className="text-[#ffcb05]">Train</span>
           </span>
         </Link>
 
@@ -79,11 +87,11 @@ export function Header({ games }: { games: GameLink[] }) {
                 <motion.span
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.96 }}
-                  className="relative block rounded-t-md rounded-b-sm px-3 pb-1.5 pt-2.5 text-xs font-semibold text-white shadow"
+                  className="relative block rounded-t-md rounded-b-sm px-3 pb-1.5 pt-2.5 font-display text-xs font-semibold text-white shadow-[0_2px_0_rgb(0_0_0/0.3)]"
                   style={{
                     background: `linear-gradient(160deg, ${g.theme.from}, ${g.theme.to})`,
-                    opacity: active ? 1 : 0.55,
-                    outline: active ? `2px solid ${g.theme.accent}` : 'none',
+                    opacity: active ? 1 : 0.6,
+                    outline: active ? '2px solid #fff' : 'none',
                     outlineOffset: 2,
                   }}
                 >
@@ -98,7 +106,7 @@ export function Header({ games }: { games: GameLink[] }) {
             <span
               key={name}
               title={t('Coming soon')}
-              className="rounded-t-md rounded-b-sm border border-dashed border-line px-3 pb-1.5 pt-2.5 text-xs text-muted"
+              className="rounded-t-md rounded-b-sm border border-dashed border-white/40 px-3 pb-1.5 pt-2.5 text-xs text-white/70"
             >
               {name}
             </span>
@@ -106,13 +114,15 @@ export function Header({ games }: { games: GameLink[] }) {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <div className="flex items-center rounded-md border border-line text-xs" aria-label={t('Language')}>
+          <ThemeToggle />
+          <div className="flex items-center rounded-md bg-black/20 p-0.5 text-xs shadow-inner" aria-label={t('Language')}>
             {(['es', 'en'] as const).map((l) => (
               <button
                 key={l}
                 disabled={pending}
                 onClick={() => startTransition(() => setLang(l))}
-                className={`px-2 py-1 uppercase ${lang === l ? 'bg-surface-2 font-semibold text-ink' : 'text-muted'}`}
+                aria-pressed={lang === l}
+                className={`rounded px-2 py-1 font-display uppercase ${lang === l ? 'bg-white font-semibold text-shell-dark' : 'text-white/80 hover:text-white'}`}
               >
                 {l}
               </button>
@@ -123,7 +133,7 @@ export function Header({ games }: { games: GameLink[] }) {
 
     </header>
     {/* The sections stay at the top while the page scrolls; the logo, the games and the language scroll away. */}
-    <div className="sticky top-0 z-40 border-y border-line bg-surface/95 backdrop-blur" style={{ height: 'var(--nav-h)' }}>
+    <div className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur" style={{ height: 'var(--nav-h)' }}>
       <div className="mx-auto flex h-full max-w-7xl items-stretch gap-2 px-4">
         <div className="relative flex items-center">
           <button
@@ -168,7 +178,8 @@ export function Header({ games }: { games: GameLink[] }) {
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`relative flex items-center whitespace-nowrap px-3 text-sm ${i === firstRight ? 'ml-auto' : ''} ${
+                aria-current={active ? 'page' : undefined}
+                className={`relative flex items-center whitespace-nowrap px-3 font-display text-[15px] font-semibold ${i === firstRight ? 'ml-auto' : ''} ${
                   active ? 'text-ink' : 'text-muted hover:text-ink'
                 }`}
               >
@@ -176,8 +187,8 @@ export function Header({ games }: { games: GameLink[] }) {
                 {active && (
                   <motion.span
                     layoutId="tab-underline"
-                    className="absolute inset-x-2 bottom-0 h-0.5 rounded"
-                    style={{ background: current.theme.accent }}
+                    className="absolute inset-x-2 bottom-0 h-[3px] rounded-t"
+                    style={{ background: 'var(--game-accent)' }}
                   />
                 )}
               </Link>

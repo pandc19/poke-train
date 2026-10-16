@@ -1,6 +1,8 @@
 import { prisma } from '../db';
 import type { GameConfig } from '../games';
 import { getPokeApi } from './client';
+import { loadEvolutionMethods } from './evolution';
+import type { Localized } from '../translate';
 import { REGIONS, type Variant, variantOfSlug } from '../dex-variant';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -28,8 +30,19 @@ export type PokemonInfo = {
   isLegendary: boolean;
   isMythical: boolean;
   generation: string | null;
-  /** The whole evolution family, each with the stage it sits at and what it comes from. */
-  evolutions: { id: number; nameEn: string; nameEs: string; spriteUrl: string | null; stage: number; from: number | null }[];
+  /**
+   * The whole evolution family, each with the stage it sits at, what it comes from and how it
+   * evolves from that one in this game ("Lv. 16", "Water Stone"…; null for the first stage or when unknown).
+   */
+  evolutions: {
+    id: number;
+    nameEn: string;
+    nameEs: string;
+    spriteUrl: string | null;
+    stage: number;
+    from: number | null;
+    how: Localized | null;
+  }[];
   /** Where it sits in the game's own Pokédexes, when a game was given. */
   dexEntries: { dex: { en: string; es: string }; number: number }[];
 };
@@ -249,7 +262,16 @@ export async function loadPokemonInfo(
   const artwork =
     pokemonJson?.sprites?.other?.['official-artwork']?.front_default ?? form?.spriteUrl ?? null;
 
-  const variants = await loadVariants(speciesJson, artwork, pokemonJson, pokemonJson?.name, Boolean((variant || formSlug) && regional));
+  const familyIds = evolutionStages(family, speciesId);
+  const [variants, evolveHow] = await Promise.all([
+    loadVariants(speciesJson, artwork, pokemonJson, pokemonJson?.name, Boolean((variant || formSlug) && regional)),
+    // How each one evolves is a nice-to-have: without the chain, the line still shows.
+    familyIds.length > 1
+      ? loadEvolutionMethods(speciesJson, game, variant || (regional?.slug.includes('-paldea') ? 'paldea' : '')).catch(
+          () => new Map<number, Localized | null>()
+        )
+      : Promise.resolve(new Map<number, Localized | null>()),
+  ]);
 
   return {
     id: species.id,
@@ -275,8 +297,9 @@ export async function loadPokemonInfo(
     isLegendary: Boolean(speciesJson.is_legendary),
     isMythical: Boolean(speciesJson.is_mythical),
     generation: speciesJson.generation?.name ?? null,
-    evolutions: evolutionStages(family, speciesId).map((e) => ({
+    evolutions: familyIds.map((e) => ({
       ...e,
+      how: e.from == null ? null : (evolveHow.get(e.id) ?? null),
       nameEn: byId.get(e.id)?.nameEn ?? String(e.id),
       nameEs: byId.get(e.id)?.nameEs ?? String(e.id),
       spriteUrl: (() => {

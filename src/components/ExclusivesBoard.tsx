@@ -120,7 +120,7 @@ export function ExclusivesBoard({
     <div>
       <div className="mb-5 grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border border-line bg-surface p-3">
-          <p className="text-xs uppercase tracking-wide text-muted">
+          <p className="text-xs font-medium text-muted">
             {t('Only in {name} (your version)', { name: ownName })}
           </p>
           <p className="mt-1 text-lg font-semibold">
@@ -128,7 +128,7 @@ export function ExclusivesBoard({
           </p>
         </div>
         <div className="rounded-xl border border-line bg-surface p-3">
-          <p className="text-xs uppercase tracking-wide text-muted">
+          <p className="text-xs font-medium text-muted">
             {t('Only in {name} (not in your game)', { name: otherName })}
           </p>
           <p className="mt-1 text-lg font-semibold">
@@ -155,13 +155,13 @@ export function ExclusivesBoard({
             {g.note && <p className="text-xs text-muted">{pick(g.note, lang)}</p>}
             <div className="mt-3 grid gap-5 lg:grid-cols-2">
               <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-done">
+                <h3 className="section-title mb-2 text-done">
                   {t('Only in {name} · you can catch these', { name: ownName })}
                 </h3>
                 {g.own.length > 0 ? tiles(g.own, true) : <p className="text-xs text-muted">—</p>}
               </div>
               <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-pending">
+                <h3 className="section-title mb-2 text-pending">
                   {t('Only in {name} · not in your game', { name: otherName })}
                 </h3>
                 {g.other.length > 0 ? tiles(g.other, false) : <p className="text-xs text-muted">—</p>}

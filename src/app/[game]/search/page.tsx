@@ -14,7 +14,7 @@ export default async function SearchPage({ params }: PageProps<'/[game]/search'>
       <p className="mb-5 mt-1 max-w-3xl text-sm text-muted">
         {t('Find the Pokémon in your roster by what they have. Add a move or an ability and you get every Pokémon that has it.')}
       </p>
-      <SearchBoard gameId={game.id} roster={roster} lang={lang} accent={game.theme.accent} />
+      <SearchBoard gameId={game.id} roster={roster} lang={lang} accent={'var(--game-accent)'} />
     </div>
   );
 }
