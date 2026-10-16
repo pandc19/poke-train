@@ -112,8 +112,11 @@ async function main() {
     add(rel.half_damage_to, 0.5);
     add(rel.double_damage_to, 2);
   }
-  await prisma.typeEffect.deleteMany();
-  await prisma.typeEffect.createMany({ data: effects, skipDuplicates: true });
+  // One transaction, so the app never reads an empty chart in between.
+  await prisma.$transaction([
+    prisma.typeEffect.deleteMany(),
+    prisma.typeEffect.createMany({ data: effects, skipDuplicates: true }),
+  ]);
   console.log(`  type effects: ${effects.length} rows`);
   if (process.argv.includes('--only-types')) return;
 
