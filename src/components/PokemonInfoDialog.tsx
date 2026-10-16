@@ -195,18 +195,37 @@ export function PokemonInfoDialog({
 
       {info && (
         <div className="space-y-5">
+          {/* Laid out like an entry in the games' Pokédex: the scan on the left, the entry on the right. */}
           <div className="flex flex-col gap-4 sm:flex-row">
             <div className={`flex shrink-0 flex-col items-center gap-2 ${info.variants.length > 1 ? 'sm:w-56' : 'sm:w-40'}`}>
               <VariantImage key={info.id} info={info} name={name} />
-              <div className="flex flex-wrap justify-center gap-1">
-                {info.types.map((t) => (
-                  <TypeBadge key={t} type={t} lang={lang} />
-                ))}
-              </div>
             </div>
             <div className="min-w-0 flex-1">
-              {genus && <p className="text-sm text-muted">{genus}</p>}
-              <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
+              {genus && <p className="font-display text-base font-semibold">{genus}</p>}
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-2">
+                <span className="flex flex-wrap gap-1">
+                  {info.types.map((t) => (
+                    <TypeBadge key={t} type={t} lang={lang} />
+                  ))}
+                </span>
+                <span className="flex gap-3 text-xs text-muted">
+                  <span>
+                    {t('Height')} <span className="readout text-sm font-semibold text-ink">{info.heightM != null ? `${info.heightM} m` : '—'}</span>
+                  </span>
+                  <span>
+                    {t('Weight')} <span className="readout text-sm font-semibold text-ink">{info.weightKg != null ? `${info.weightKg} kg` : '—'}</span>
+                  </span>
+                </span>
+              </div>
+
+              {/* The entry's text, on the device's recessed screen. */}
+              {flavor && (
+                <p className="mt-3 rounded-lg border border-line bg-bg/70 px-4 py-3 text-[15px] leading-relaxed shadow-[inset_0_2px_6px_rgb(0_0_0/0.35)]">
+                  {flavor}
+                </p>
+              )}
+
+              <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px]">
                 {status && (
                   <span
                     className={`rounded border px-1.5 py-0.5 ${
@@ -236,24 +255,23 @@ export function PokemonInfoDialog({
                 {info.isLegendary && <span className="rounded border border-star/50 px-1.5 py-0.5 text-star">{t('Legendary')}</span>}
                 {info.isMythical && <span className="rounded border border-star/50 px-1.5 py-0.5 text-star">{t('Mythical')}</span>}
                 {info.isBaby && <span className="rounded border border-line px-1.5 py-0.5 text-muted">{t('Baby')}</span>}
-              </div>
-              {flavor && <p className="mt-3 text-sm leading-relaxed">{flavor}</p>}
-              {info.dexEntries.length > 0 && (
-                <p className="mt-3 text-xs text-muted">
-                  {t('In this game:')}{' '}
-                  {info.dexEntries.map((d, i) => (
-                    <span key={d.dex.en}>
-                      {i > 0 && ' · '}
-                      <span className="text-ink">
-                        {lang === 'en' ? d.dex.en : d.dex.es} #{d.number}
+                {info.dexEntries.length > 0 && (
+                  <span className="text-xs text-muted">
+                    {t('In this game:')}{' '}
+                    {info.dexEntries.map((d, i) => (
+                      <span key={d.dex.en}>
+                        {i > 0 && ' · '}
+                        <span className="text-ink">
+                          {lang === 'en' ? d.dex.en : d.dex.es} <span className="readout">#{d.number}</span>
+                        </span>
                       </span>
-                    </span>
-                  ))}
-                </p>
-              )}
-              {gameId && info.dexEntries.length === 0 && (
-                <p className="mt-3 text-xs text-muted">{t('Not in any Pokédex of this game.')}</p>
-              )}
+                    ))}
+                  </span>
+                )}
+                {gameId && info.dexEntries.length === 0 && (
+                  <span className="text-xs text-muted">{t('Not in any Pokédex of this game.')}</span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -297,8 +315,6 @@ export function PokemonInfoDialog({
                 ? t('Genderless')
                 : `${((8 - info.genderRate) / 8) * 100}% ♂ · ${(info.genderRate / 8) * 100}% ♀`}
             </Fact>
-            <Fact label={t('Height')}>{info.heightM != null ? `${info.heightM} m` : '—'}</Fact>
-            <Fact label={t('Weight')}>{info.weightKg != null ? `${info.weightKg} kg` : '—'}</Fact>
             <Fact label={t('Catch rate')}>{info.captureRate ?? '—'}</Fact>
             <Fact label={t('Base friendship')}>{info.baseHappiness ?? '—'}</Fact>
             <Fact label={t('Generation')}>{info.generation ? info.generation.replace('generation-', '').toUpperCase() : '—'}</Fact>
@@ -307,7 +323,7 @@ export function PokemonInfoDialog({
           {info.evolutions.length > 1 && (
             <section>
               <h3 className="section-title mb-2">{t('Evolution line')}</h3>
-              <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
                 {Array.from({ length: stages }, (_, stage) => (
                   <div key={stage} className="flex items-center gap-4">
                     {stage > 0 && <span className="text-muted">→</span>}
@@ -322,7 +338,11 @@ export function PokemonInfoDialog({
                             }`}
                           >
                             <Sprite src={e.spriteUrl} alt="" size={40} />
-                            <span className="text-xs">{lang === 'en' ? e.nameEn : e.nameEs}</span>
+                            <span className="max-w-48 py-1">
+                              <span className="block text-xs">{lang === 'en' ? e.nameEn : e.nameEs}</span>
+                              {/* How it evolves from the one before it, in this game. */}
+                              {e.how && <span className="block text-[11px] leading-snug text-muted">{pick(e.how)}</span>}
+                            </span>
                           </li>
                         ))}
                     </ul>
