@@ -278,7 +278,9 @@ export function BattleBoard({
       className={`flex gap-2 rounded-lg border p-2 text-xs ${c.best ? 'border-star bg-star/10' : 'border-line'}`}
     >
       <span className="w-4 shrink-0 pt-1 text-center text-[11px] font-semibold text-muted">{rank}</span>
-      <Sprite src={c.spriteUrl} alt={name(c.species)} size={64} smooth />
+      <span className="self-center">
+        <Sprite src={c.spriteUrl} alt={name(c.species)} size={64} smooth />
+      </span>
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-semibold">
           {c.nickname ? `${c.nickname} (${name(c.species)})` : name(c.species)}

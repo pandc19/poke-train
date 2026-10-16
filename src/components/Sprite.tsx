@@ -33,6 +33,9 @@ export function Sprite({
       alt={alt}
       width={size}
       height={size}
+      // Tailwind's base styles give images `height: auto`, which lets a flex row stretch a sprite
+      // out of shape; a fixed size keeps it square wherever it sits.
+      style={{ width: size, height: size }}
       loading="lazy"
       draggable={false}
       className={`sprite shrink-0 select-none ${smooth ? 'sprite-smooth' : ''} ${silhouette ? 'sprite-silhouette' : ''}`}
