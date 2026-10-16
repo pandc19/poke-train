@@ -12,6 +12,7 @@ import type { DexCell } from '@/lib/pokedex';
 import type { Lang } from '@/lib/i18n';
 import { useT } from '@/lib/translate-client';
 import { KeeperIcon, ReadyIcon, TrainingIcon } from './KeeperIcon';
+import { PokeBallIcon, PokeBallMark } from './PokeBallIcon';
 
 type Filter = 'all' | 'missing' | 'caught' | 'have' | 'registered';
 
@@ -240,24 +241,24 @@ export function DexGrid({
   return (
     <div>
       {/* ---------- progress ---------- */}
-      <section className="mb-4 rounded-xl border border-line bg-surface p-3" aria-label={t('Progress')}>
+      <section className="mb-5 rounded-xl border border-line bg-surface p-4" aria-label={t('Progress')}>
         <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
           <div>
             <p className="text-xs text-muted">{t('Caught')}</p>
-            <p className="text-2xl font-bold leading-none tabular-nums">
+            <p className="readout text-3xl font-bold leading-none">
               {count}
               <span className="ml-1 text-sm font-medium text-muted">{t('of {total}', { total })}</span>
             </p>
           </div>
           <div>
             <p className="text-xs text-muted">{t('In team')}</p>
-            <p className="text-2xl font-bold leading-none tabular-nums text-done">{haveCount}</p>
+            <p className="readout text-3xl font-bold leading-none text-done">{haveCount}</p>
           </div>
           <div>
             <p className="text-xs text-muted">{t('Missing')}</p>
-            <p className="text-2xl font-bold leading-none tabular-nums text-muted">{total - count}</p>
+            <p className="readout text-3xl font-bold leading-none text-muted">{total - count}</p>
           </div>
-          <p className="ml-auto text-3xl font-bold leading-none tabular-nums" style={{ color: accent }}>
+          <p className="readout ml-auto text-5xl font-bold leading-none" style={{ color: accent }}>
             {pct}%
           </p>
         </div>
@@ -380,7 +381,7 @@ export function DexGrid({
             return (
               <li
                 key={c.key}
-                className={`relative flex flex-col rounded-lg border px-1.5 pb-9 pt-1.5 transition-colors ${
+                className={`relative isolate flex flex-col overflow-hidden rounded-lg border px-1.5 pb-9 pt-1.5 transition-colors ${
                   registeredOnly
                     ? 'border-dashed border-line bg-surface opacity-80'
                     : isCaught
@@ -388,6 +389,9 @@ export function DexGrid({
                       : 'border-transparent bg-surface hover:border-line'
                 } ${c.inGame ? '' : 'opacity-50'}`}
               >
+                {isCaught && (
+                  <PokeBallMark className="pointer-events-none absolute left-1/2 top-7 -z-10 h-24 w-24 -translate-x-1/2 text-white/[0.045]" />
+                )}
                 <div className="flex items-center justify-between gap-1">
                   {readOnly ? (
                     <span />
@@ -396,19 +400,20 @@ export function DexGrid({
                       type="button"
                       aria-pressed={isCaught}
                       onClick={(e) => toggleCaught(i, e.shiftKey)}
+                      aria-label={isCaught ? t('Caught') : t('Catch')}
                       title={
                         isCaught
                           ? t('Caught. Click to remove from your Pokédex')
                           : t('Click to mark as caught (shift-click for a range)')
                       }
-                      className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
-                        isCaught ? 'bg-done text-bg' : 'border border-line text-muted hover:border-muted hover:text-ink'
+                      className={`grid h-7 w-7 place-items-center rounded-full transition-transform active:scale-90 ${
+                        isCaught ? 'hover:rotate-[-20deg]' : 'text-muted/70 hover:text-ink'
                       }`}
                     >
-                      {isCaught ? `✓ ${t('Caught')}` : t('Catch')}
+                      <PokeBallIcon caught={isCaught} />
                     </button>
                   )}
-                  <span className="font-mono text-[11px] text-muted">#{String(c.entryNumber).padStart(3, '0')}</span>
+                  <span className="readout text-xs font-semibold text-muted">#{String(c.entryNumber).padStart(3, '0')}</span>
                   {c.keeper || c.training || c.ready ? (
                     <span className="flex items-center gap-1">
                       {c.ready && (
@@ -444,7 +449,7 @@ export function DexGrid({
                   >
                     <Sprite src={c.spriteUrl} alt="" size={88} silhouette={!isCaught} />
                   </motion.span>
-                  <span className={`w-full truncate text-center text-xs font-medium ${isCaught ? 'text-ink' : 'text-muted'}`}>
+                  <span className={`w-full truncate text-center text-[13px] font-semibold ${isCaught ? 'text-ink' : 'text-muted'}`}>
                     {name}
                   </span>
                   {/* Notes sit on their own line under the name, never on top of it. */}
@@ -534,7 +539,7 @@ export function DexGrid({
 
       {!readOnly && (
         <p className="mt-4 text-xs text-muted">
-          {t('Click a card to see that Pokémon\'s information. Use Catch to mark it in your Pokédex (shift-click fills a range). Have means you have one right now: un-tick it when it evolves or you release it, and it stays in the Pokédex as "not in my box". ♂ and ♀ record which genders you have; the breeding planner uses that to find parents.')}
+          {t('Click a card to see that Pokémon\'s information. Click the Poké Ball to mark it in your Pokédex (shift-click fills a range). Have means you have one right now: un-tick it when it evolves or you release it, and it stays in the Pokédex as "not in my box". ♂ and ♀ record which genders you have; the breeding planner uses that to find parents.')}
         </p>
       )}
 

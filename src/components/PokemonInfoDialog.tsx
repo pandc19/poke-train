@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Dialog } from './Dialog';
+import { PokeBallMark } from './PokeBallIcon';
 import { Sprite } from './Sprite';
 import { TypeBadge } from './TypeBadge';
 import type { Lang } from '@/lib/i18n';
@@ -60,7 +61,14 @@ function VariantImage({ info, name }: { info: PokemonInfo; name: string }) {
             ‹
           </button>
         )}
-        <Sprite src={src} alt={`${name} ${current.label}`.trim()} size={144} />
+        {/* The Pokédex's scanner: the Pokémon on a lit disc, with a Poké Ball outline behind it. */}
+        <span className="relative grid place-items-center">
+          <span aria-hidden className="absolute inset-3 rounded-full bg-[radial-gradient(circle,var(--screen-surface-2)_0%,var(--screen-surface-2)_55%,transparent_71%)]" />
+          <PokeBallMark className="absolute inset-1 text-white/[0.07]" />
+          <span className="relative">
+            <Sprite src={src} alt={`${name} ${current.label}`.trim()} size={144} />
+          </span>
+        </span>
         {multi && (
           <button type="button" className={arrow} onClick={() => step(1)} aria-label={t('Next form')}>
             ›
@@ -92,7 +100,7 @@ function VariantImage({ info, name }: { info: PokemonInfo; name: string }) {
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted">{label}</dt>
+      <dt className="text-xs font-medium text-muted">{label}</dt>
       <dd className="mt-0.5 text-sm">{children}</dd>
     </div>
   );
@@ -168,7 +176,16 @@ export function PokemonInfoDialog({
   const stages = info ? Math.max(...info.evolutions.map((e) => e.stage)) + 1 : 0;
 
   return (
-    <Dialog open={speciesId != null} onClose={onClose} wide title={info ? `#${String(entryNumber ?? info.id).padStart(3, '0')} ${name}${variant ? ` (${variant[0].toUpperCase()}${variant.slice(1)})` : form && info.variants[0]?.label ? ` (${info.variants[0].label})` : ''}` : 'Pokémon'}>
+    <Dialog open={speciesId != null} onClose={onClose} wide title={
+        info ? (
+          <>
+            <span className="readout mr-2 text-muted">#{String(entryNumber ?? info.id).padStart(3, '0')}</span>
+            {`${name}${variant ? ` (${variant[0].toUpperCase()}${variant.slice(1)})` : form && info.variants[0]?.label ? ` (${info.variants[0].label})` : ''}`}
+          </>
+        ) : (
+          'Pokémon'
+        )
+      }>
       {!current && <p className="py-10 text-center text-sm text-muted">{t('Loading…')}</p>}
       {current?.error && (
         <p role="alert" className="rounded-md border border-pending/40 bg-pending/10 px-3 py-2 text-sm text-pending">
@@ -241,14 +258,14 @@ export function PokemonInfoDialog({
           </div>
 
           <section>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+            <h3 className="section-title mb-2">
               {t('Base stats')} <span className="font-normal normal-case">({t('total {total}', { total })})</span>
             </h3>
             <ul className="space-y-1">
               {info.stats.map((s) => (
                 <li key={s.key} className="grid grid-cols-[5.5rem_2.25rem_1fr] items-center gap-2 text-xs">
                   <span className="text-muted">{pick(STAT_LABELS[s.key])}</span>
-                  <span className="text-right font-mono">{s.value}</span>
+                  <span className="text-right readout">{s.value}</span>
                   <span className="h-2 overflow-hidden rounded-full bg-surface-2">
                     <span
                       className={`block h-full rounded-full ${s.value >= 100 ? 'bg-done' : s.value >= 60 ? 'bg-star' : 'bg-pending'}`}
@@ -289,7 +306,7 @@ export function PokemonInfoDialog({
 
           {info.evolutions.length > 1 && (
             <section>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t('Evolution line')}</h3>
+              <h3 className="section-title mb-2">{t('Evolution line')}</h3>
               <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
                 {Array.from({ length: stages }, (_, stage) => (
                   <div key={stage} className="flex items-center gap-4">

@@ -21,7 +21,7 @@ type Named = { id: number; nameEn: string; nameEs: string };
 type RosterBuild = { speciesId: number; species: Named; moves: Named[] };
 type LocationState = { busy: boolean; result?: LocationResult; error?: string };
 
-const heading = 'mb-2 border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-muted';
+const heading = 'section-title mb-2 border-b border-line pb-1.5';
 const labelClass = 'mb-1 block text-xs font-medium text-muted';
 const inputClass = 'w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm placeholder:text-muted';
 /** One green per stage, from a quiet one for planned to a bright one for done. */
@@ -504,7 +504,7 @@ export function BreedingBoard({
     const sex = pick ? (pick.gender === 'any' ? undefined : pick.gender) : item?.gender;
     return (
       <li key={role} className="rounded-lg border border-line p-3 text-xs">
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">{role}</p>
+        <p className="mb-1 text-xs font-medium text-muted">{role}</p>
         <div className="flex items-center gap-2">
           {pic(species, 56)}
           <div className="min-w-0">
@@ -537,7 +537,7 @@ export function BreedingBoard({
 
   const renderIvs = (goal: BreedingGoalView, ivs: IvPlan) => {
     const heading = (
-      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t('What to expect from the egg')}</h4>
+      <h4 className="section-title mb-2">{t('What to expect from the egg')}</h4>
     );
     if (ivs.reason === 'no-breeding') return null;
     if (ivs.reason === 'no-base' || ivs.reason === 'no-partner' || !ivs.base || !ivs.partner) {
@@ -792,7 +792,7 @@ export function BreedingBoard({
         <div className="p-4 pt-0">
         {plan && plan.parents.canBreed && (
           <>
-            <h4 className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-muted">
+            <h4 className="section-title mb-2 mt-4">
               {t('1. Parents to put in the nursery')}
             </h4>
             <ul className="grid gap-2 sm:grid-cols-2">
@@ -801,7 +801,7 @@ export function BreedingBoard({
             </ul>
             {others.length > 0 && (
               <>
-                <h4 className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-muted">
+                <h4 className="section-title mb-2 mt-4">
                   {t('2. Also needed for the moves')}
                 </h4>
                 <ul className="grid gap-2 xl:grid-cols-2">{others.map((s, i) => renderItem(goal, s, i))}</ul>
@@ -820,7 +820,7 @@ export function BreedingBoard({
 
         {plan && (natural.length > 0 || plan.moves.some((m) => m.kind !== 'natural')) && (
           <div className="mt-4">
-            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{t('Moves')}</h4>
+            <h4 className="section-title mb-2">{t('Moves')}</h4>
             {natural.length > 0 && (
               <p className="mb-2 text-xs text-muted">
                 {t('No breeding needed for')}{' '}

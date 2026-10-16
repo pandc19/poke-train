@@ -103,7 +103,7 @@ export function RosterList({
                   style={selected ? { outline: `2px solid ${accent}`, outlineOffset: 1 } : undefined}
                 >
                   <span className="flex w-full items-center justify-between text-[10px] text-muted">
-                    <span className="font-mono">{numberOf(p)}</span>
+                    <span className="readout">{numberOf(p)}</span>
                     <span className="flex items-center gap-1">
                       {p.keeper && (
                         <span className="text-violet-500" title={t('Keeper')} aria-label={t('Keeper')}>

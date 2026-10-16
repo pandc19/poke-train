@@ -52,7 +52,7 @@ export function DexBrowser({
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-bold">{t('{game} Pokédex', { game: gameName })}</h1>
+        <h1 className="text-2xl font-bold">{t('{game} Pokédex', { game: gameName })}</h1>
         <div className="flex gap-1" role="tablist">
           {dexes.map((d) => (
             <button
@@ -60,7 +60,7 @@ export function DexBrowser({
               role="tab"
               aria-selected={d.slug === slug}
               onClick={() => select(d.slug)}
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+              className={`rounded-full px-3.5 py-1 font-display text-[13px] font-semibold ${
                 d.slug === slug ? 'text-white' : 'bg-surface-2 text-muted hover:text-ink'
               }`}
               style={d.slug === slug ? { background: tabColor } : undefined}

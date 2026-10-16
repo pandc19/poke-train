@@ -107,7 +107,7 @@ function Box({
   return (
     <section className={`rounded-lg border bg-surface p-3 ${fixed ? 'border-done/50' : 'border-line'}`}>
       <div className="mb-1 flex items-center justify-between gap-2">
-        <h4 className="font-semibold uppercase text-muted">
+        <h4 className="section-title">
           {fixed && <span className="mr-1 text-done">✓</span>}
           {title}
           {ai && !fixed && <AiBadge className="ml-2" />}
@@ -265,7 +265,7 @@ export function AuditPanel({
 
       {compare && compare.length > 0 && (
         <section className="rounded-lg border border-line bg-surface p-3">
-          <h4 className="mb-2 font-semibold uppercase text-muted">
+          <h4 className="section-title mb-2">
             {t('Now vs AI')} <AiBadge className="ml-1" />
           </h4>
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">

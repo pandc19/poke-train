@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Chakra_Petch, Figtree } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import { prisma } from "@/lib/db";
@@ -7,14 +7,17 @@ import { GAMES } from "@/lib/games";
 import { getLang, getT } from "@/lib/i18n";
 import { LangProvider } from "@/lib/translate-client";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Body text: a clear, friendly sans for long Spanish and English labels.
+const figtree = Figtree({
+  variable: "--font-body",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// Headings, Pokédex numbers and big figures: a chamfered face, like a device's readout.
+const chakraPetch = Chakra_Petch({
+  variable: "--font-readout",
   subsets: ["latin"],
+  weight: ["500", "600", "700"],
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -37,7 +40,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang={lang}
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${figtree.variable} ${chakraPetch.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <LangProvider lang={lang}>

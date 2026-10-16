@@ -155,7 +155,7 @@ function Section({ title, columns, children }: { title: string; columns?: 2 | 3;
     columns === 3 ? 'grid gap-3 @xl:grid-cols-3' : columns === 2 ? 'grid gap-3 @md:grid-cols-2' : 'space-y-3';
   return (
     <section className="@container space-y-3">
-      <h3 className="border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-muted">{title}</h3>
+      <h3 className="section-title border-b border-line pb-1.5">{title}</h3>
       <div className={grid}>{children}</div>
     </section>
   );
@@ -484,7 +484,7 @@ export function RosterDetail({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-bold">{label(p.species)}</h2>
-            <span className="font-mono text-xs text-muted">{numberLabel}</span>
+            <span className="readout text-xs text-muted">{numberLabel}</span>
             {p.finalSpecies && (
               <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">→ {label(p.finalSpecies)}</span>
             )}

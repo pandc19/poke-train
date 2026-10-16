@@ -762,7 +762,7 @@ function OpponentForm({
   const defaultFormId = forms.find((f) => f.isDefault)?.id ?? null;
 
   const typeLabel = (ty: string) => (lang === 'es' ? (TYPE_LABEL_ES[ty] ?? ty) : ty);
-  const heading = 'mb-2 border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-muted';
+  const heading = 'section-title mb-2 border-b border-line pb-1.5';
   const labelClass = 'mb-1 block text-xs font-medium text-muted';
   /** A pill of a segmented choice. */
   const pill = (on: boolean) =>

@@ -5,10 +5,14 @@ export function TypeBadge({ type, lang = 'en', small = false }: { type: string; 
   const label = lang === 'es' ? (TYPE_NAMES_ES[type] ?? type) : type;
   return (
     <span
-      className={`inline-block rounded font-semibold uppercase tracking-wide text-white ${
-        small ? 'px-1 text-[9px] leading-4' : 'px-1.5 text-[10px] leading-5'
+      className={`inline-block rounded-[5px] font-display font-semibold uppercase tracking-wide text-white ${
+        small ? 'px-1.5 text-[9px] leading-4' : 'px-2 text-[10px] leading-5'
       }`}
-      style={{ background: TYPE_COLORS[type] ?? '#666', textShadow: '0 1px 1px rgb(0 0 0 / 0.4)' }}
+      style={{
+        background: TYPE_COLORS[type] ?? '#666',
+        textShadow: '0 1px 1px rgb(0 0 0 / 0.4)',
+        boxShadow: 'inset 0 1px 0 rgb(255 255 255 / 0.25), inset 0 -2px 0 rgb(0 0 0 / 0.22)',
+      }}
     >
       {label}
     </span>
@@ -25,7 +29,7 @@ export function TeraBadge({ type, lang = 'en', title }: { type: string; lang?: L
   return (
     <span
       title={title}
-      className="tera-gem inline-block px-3.5 align-middle text-[10px] font-semibold uppercase leading-5 tracking-wide text-white"
+      className="tera-gem inline-block px-3.5 align-middle font-display text-[10px] font-semibold uppercase leading-5 tracking-wide text-white"
       style={{
         backgroundColor: TYPE_COLORS[type] ?? '#666',
         textShadow: '0 1px 1px rgb(0 0 0 / 0.45)',
