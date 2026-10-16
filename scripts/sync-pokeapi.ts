@@ -144,6 +144,9 @@ async function main() {
     await prisma.nature.upsert({ where: { id: n.id }, update: data, create: { id: n.id, ...data } });
   }
 
+  // PokéAPI lists Oinkologne as always male, though it is 50/50 like Lechonk (it has a female form of its own).
+  const GENDER_RATE_FIXES: Record<number, number> = { 916: 4 };
+
   console.log('species');
   const national = await get(`pokedex/${NATIONAL_DEX_SLUG}`);
   const speciesRefs: Json[] = national.pokemon_entries.map((e: Json) => e.pokemon_species);
@@ -154,7 +157,7 @@ async function main() {
       slug: s.name,
       ...names(s),
       eggGroups: s.egg_groups.map((g: Json) => g.name),
-      genderRate: s.gender_rate,
+      genderRate: GENDER_RATE_FIXES[s.id] ?? s.gender_rate,
       isBaby: s.is_baby,
       isSpecial: Boolean(s.is_legendary || s.is_mythical),
     };
