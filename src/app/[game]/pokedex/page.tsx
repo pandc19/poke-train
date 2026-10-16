@@ -1,5 +1,5 @@
 import { DexBrowser } from '@/components/DexBrowser';
-import { NATIONAL_DEX_SLUG } from '@/lib/games';
+import { EXTRA_DEX_SLUG, NATIONAL_DEX_SLUG } from '@/lib/games';
 import { getLang } from '@/lib/i18n';
 import { loadDex } from '@/lib/pokedex';
 import { requireGameProfile } from '@/lib/profile';
@@ -8,7 +8,7 @@ export default async function PokedexPage({ params, searchParams }: PageProps<'/
   const { game: gameId } = await params;
   const { dex } = await searchParams;
   const { game, profileId } = await requireGameProfile(gameId);
-  const slugs = [...game.pokedexes.map((d) => d.slug), ...(game.nationalDex ? [NATIONAL_DEX_SLUG] : [])];
+  const slugs = [...game.pokedexes.map((d) => d.slug), ...(game.nationalDex ? [NATIONAL_DEX_SLUG] : []), ...(game.extraForms ? [EXTRA_DEX_SLUG] : [])];
   const [lists, lang] = await Promise.all([
     // Every Pokédex is loaded, so switching tabs needs no round trip.
     Promise.all(slugs.map((slug) => loadDex(slug, profileId, { gameId: game.id }))),
@@ -27,6 +27,7 @@ export default async function PokedexPage({ params, searchParams }: PageProps<'/
         ...(game.nationalDex
           ? [{ slug: NATIONAL_DEX_SLUG, name: { en: 'National', es: 'Nacional' }, note: { en: '', es: '' }, national: true }]
           : []),
+        ...(game.extraForms ? [{ slug: EXTRA_DEX_SLUG, name: game.extraForms.name, note: game.extraForms.note }] : []),
       ]}
       cellsBySlug={cellsBySlug}
       initialSlug={typeof dex === 'string' && slugs.includes(dex) ? dex : game.pokedexes[0].slug}

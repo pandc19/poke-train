@@ -30,6 +30,11 @@ export type GameConfig = {
     /** The game's own Pokédex ends here; PokéAPI lists a few extra species after it. */
     lastEntry?: number;
   }[];
+  /**
+   * Regional forms the game accepts (from Pokémon HOME) although no Pokédex of it lists them.
+   * They get a tab of their own, unnumbered, so they can still be registered.
+   */
+  extraForms?: { speciesIds: number[]; name: Localized; note: Localized };
   /** The game has a National Dex. Scarlet/Violet do not: only their regional Pokédexes. */
   nationalDex: boolean;
   features: {
@@ -102,6 +107,13 @@ export const GAMES: GameConfig[] = [
       },
     ],
     nationalDex: false,
+    extraForms: {
+      // Hisuian Growlithe, Arcanine, Voltorb, Electrode, Typhlosion, Qwilfish, Sneasel, Samurott,
+      // Lilligant, Zorua, Zoroark, Braviary, Sliggoo, Goodra, Avalugg, Decidueye.
+      speciesIds: [58, 59, 100, 101, 157, 211, 215, 503, 549, 570, 571, 628, 705, 706, 713, 724],
+      name: { en: 'Hisui forms', es: 'Formas de Hisui' },
+      note: { en: 'Not in any Pokédex of the game, but accepted from Pokémon HOME', es: 'No están en ningún Pokédex del juego, pero se aceptan desde Pokémon HOME' },
+    },
     features: {
       breeding: true,
       evs: true,
@@ -123,6 +135,7 @@ export const GAMES: GameConfig[] = [
 ];
 
 export const NATIONAL_DEX_SLUG = 'national';
+export const EXTRA_DEX_SLUG = 'extra';
 
 export function getGame(id: string): GameConfig | undefined {
   return GAMES.find((g) => g.id === id);

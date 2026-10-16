@@ -1,6 +1,7 @@
 import { prisma } from './db';
 import { LOCAL_USER_ID } from './constants';
-import { NATIONAL_DEX_SLUG, getGame } from './games';
+import type { Prisma } from '@prisma/client';
+import { EXTRA_DEX_SLUG, NATIONAL_DEX_SLUG, getGame } from './games';
 import { rosterProgress } from './roster-status';
 import { exclusiveBySpecies } from './games/exclusives';
 import { type Variant, REGIONS, encodeKey, variantOfSlug } from './dex-variant';
@@ -9,7 +10,8 @@ export type DexCell = {
   speciesId: number;
   /** Identifies this card's own caught state: the species plus the regional form it shows. */
   key: number;
-  entryNumber: number;
+  /** Null for a form no Pokédex of the game numbers. */
+  entryNumber: number | null;
   nameEn: string;
   nameEs: string;
   spriteUrl: string | null;
@@ -53,6 +55,20 @@ export type DexCell = {
  *
  * @param profileId the save profile being viewed.
  */
+const speciesSelect = {
+  id: true,
+  nameEn: true,
+  nameEs: true,
+  genderRate: true,
+  forms: {
+    where: {
+      OR: [{ isDefault: true }, { slug: { contains: '-paldea' } }, ...REGIONS.map((r) => ({ slug: { contains: `-${r}` } }))],
+    },
+    select: { slug: true, isDefault: true, spriteUrl: true, types: true },
+    orderBy: { id: 'asc' },
+  },
+} satisfies Prisma.SpeciesSelect;
+
 export async function loadDex(
   pokedexSlug: string,
   profileId: string | null,
@@ -61,33 +77,18 @@ export async function loadDex(
   const lastEntry = opts.gameId
     ? getGame(opts.gameId)?.pokedexes.find((d) => d.slug === pokedexSlug)?.lastEntry
     : undefined;
+  // The extra tab lists forms no Pokédex of the game numbers; each one is shown as its regional form.
+  const extraIds = pokedexSlug === EXTRA_DEX_SLUG ? (opts.gameId && getGame(opts.gameId)?.extraForms?.speciesIds) || [] : null;
   const [slots, entries, roster, gameSlots, lines] = await Promise.all([
-    prisma.pokedexSlot.findMany({
-      where: { pokedex: { slug: pokedexSlug }, ...(lastEntry ? { entryNumber: { lte: lastEntry } } : {}) },
-      orderBy: { entryNumber: 'asc' },
-      select: {
-        entryNumber: true,
-        species: {
-          select: {
-            id: true,
-            nameEn: true,
-            nameEs: true,
-            genderRate: true,
-            forms: {
-              where: {
-                OR: [
-                  { isDefault: true },
-                  { slug: { contains: '-paldea' } },
-                  ...REGIONS.map((r) => ({ slug: { contains: `-${r}` } })),
-                ],
-              },
-              select: { slug: true, isDefault: true, spriteUrl: true, types: true },
-              orderBy: { id: 'asc' },
-            },
-          },
-        },
-      },
-    }),
+    extraIds
+      ? prisma.species
+          .findMany({ where: { id: { in: extraIds } }, orderBy: { id: 'asc' }, select: speciesSelect })
+          .then((list) => list.map((species) => ({ entryNumber: null as number | null, species })))
+      : prisma.pokedexSlot.findMany({
+          where: { pokedex: { slug: pokedexSlug }, ...(lastEntry ? { entryNumber: { lte: lastEntry } } : {}) },
+          orderBy: { entryNumber: 'asc' },
+          select: { entryNumber: true, species: { select: speciesSelect } },
+        }),
     prisma.pokedexEntry.findMany({
       where: { profile: { userId: LOCAL_USER_ID } },
       select: {
@@ -112,7 +113,9 @@ export async function loadDex(
   ]);
   const inGame = gameSlots ? new Set(gameSlots.map((s) => s.speciesId)) : null;
   const regionalSpecies = new Set(
-    (opts.gameId && getGame(opts.gameId)?.pokedexes.find((d) => d.slug === pokedexSlug)?.regionalSpecies) || []
+    extraIds ??
+      (opts.gameId ? getGame(opts.gameId)?.pokedexes.find((d) => d.slug === pokedexSlug)?.regionalSpecies : undefined) ??
+      []
   );
 
   // Which form a card shows, and so which caught state it owns: a Pokédex that lists regional

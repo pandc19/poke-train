@@ -413,7 +413,7 @@ export function DexGrid({
                       <PokeBallIcon caught={isCaught} />
                     </button>
                   )}
-                  <span className="readout text-xs font-semibold text-muted">#{String(c.entryNumber).padStart(3, '0')}</span>
+                  <span className="readout text-xs font-semibold text-muted">{c.entryNumber != null ? `#${String(c.entryNumber).padStart(3, '0')}` : '—'}</span>
                   {c.keeper || c.training || c.ready ? (
                     <span className="flex items-center gap-1">
                       {c.ready && (
@@ -561,7 +561,7 @@ export function DexGrid({
         lang={lang}
         status={openCell ? { caught: caught.has(openCell.key), have: haveNow(openCell) } : undefined}
         exclusive={openCell?.exclusive}
-        entryNumber={openCell?.entryNumber}
+        entryNumber={openCell?.entryNumber ?? undefined}
         variant={openCell ? decodeKey(openCell.key).variant : ''}
         onClose={() => setOpenId(null)}
       />
