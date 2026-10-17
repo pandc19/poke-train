@@ -199,13 +199,10 @@ export async function loadPokemonInfo(
     },
   });
   if (!species) return null;
-  // Violet only has the Paldean form of Wooper and Tauros, so that one leads.
   const regional = formSlug
     ? species.forms.find((f) => !f.isDefault && f.slug === formSlug)
     : variant
-    ? species.forms.find((f) => !f.isDefault && variantOfSlug(f.slug) === variant)
-    : game?.id === 'violet'
-      ? species.forms.find((f) => f.slug.includes('-paldea'))
+      ? species.forms.find((f) => !f.isDefault && variantOfSlug(f.slug) === variant)
       : undefined;
   const form = regional ?? species.forms.find((f) => f.isDefault);
 
@@ -304,11 +301,7 @@ export async function loadPokemonInfo(
       nameEs: byId.get(e.id)?.nameEs ?? String(e.id),
       spriteUrl: (() => {
         const forms = byId.get(e.id)?.forms ?? [];
-        const regionalLook = variant
-          ? forms.find((f) => !f.isDefault && variantOfSlug(f.slug) === variant)
-          : game?.id === 'violet'
-            ? forms.find((f) => f.slug.includes('-paldea'))
-            : undefined;
+        const regionalLook = variant ? forms.find((f) => !f.isDefault && variantOfSlug(f.slug) === variant) : undefined;
         const look = regionalLook ?? forms.find((f) => f.isDefault);
         return look?.spriteUrl ?? null;
       })(),

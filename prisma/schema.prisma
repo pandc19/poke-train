@@ -265,7 +265,7 @@ model PokedexEntry {
   profileId String   @map("profile_id") @db.Uuid
   speciesId Int      @map("species_id")
   /// Which form of the species this entry is for: '' = its own form, or a region
-  /// ('alola', 'galar', 'hisui') when a Pokédex lists that regional form separately.
+  /// ('alola', 'galar', 'hisui', 'paldea') when a Pokédex lists that regional form separately.
   variant   String   @default("")
   caughtAt  DateTime @default(now()) @map("caught_at")
   /// The player has one of these right now. Caught-but-not-owned means it evolved or was

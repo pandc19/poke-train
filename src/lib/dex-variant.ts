@@ -5,16 +5,19 @@
  * The Pokédex UI keeps one number per card, so species id and variant are packed into a key.
  */
 export const REGIONS = ['alola', 'galar', 'hisui'] as const;
-export type Variant = '' | (typeof REGIONS)[number];
+/** Paldean Tauros and Wooper are a form of their own too, apart from the Kanto and Johto ones. */
+export const VARIANTS = [...REGIONS, 'paldea'] as const;
+export type Variant = '' | (typeof VARIANTS)[number];
 
-const CODES: Variant[] = ['', ...REGIONS];
+// 'paldea' comes last so the keys of the other forms stay as they were.
+const CODES: Variant[] = ['', ...VARIANTS];
 const STEP = 100000;
 
 /** The regional variant a form slug stands for ('' for any other form). */
 export function variantOfSlug(slug: string): Variant {
   // Totem and cap forms are not looks of their own.
   if (/-(cap|totem|zen)(-|$)/.test(slug)) return '';
-  return REGIONS.find((r) => slug.includes(`-${r}`)) ?? '';
+  return VARIANTS.find((r) => slug.includes(`-${r}`)) ?? '';
 }
 
 export const encodeKey = (speciesId: number, variant: Variant): number =>

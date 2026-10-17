@@ -4,7 +4,7 @@ import type { Prisma } from '@prisma/client';
 import { EXTRA_DEX_SLUG, NATIONAL_DEX_SLUG, getGame } from './games';
 import { rosterProgress } from './roster-status';
 import { exclusiveBySpecies } from './games/exclusives';
-import { type Variant, REGIONS, encodeKey, variantOfSlug } from './dex-variant';
+import { type Variant, REGIONS, VARIANTS, encodeKey, variantOfSlug } from './dex-variant';
 
 export type DexCell = {
   speciesId: number;
@@ -85,7 +85,7 @@ export async function loadDex(
           .findMany({
             // A regional form is accepted when the game has its species in any of its Pokédexes.
             where: {
-              OR: REGIONS.map((r) => ({ slug: { contains: `-${r}` } })),
+              OR: VARIANTS.map((r) => ({ slug: { contains: `-${r}` } })),
               species: { pokedexSlots: { some: { pokedex: { gameId: opts.gameId } } } },
             },
             select: { slug: true, species: { select: speciesSelect } },
@@ -94,9 +94,11 @@ export async function loadDex(
             list
               // Cap, totem and the like are not looks of their own (variantOfSlug says '').
               .filter((f) => variantOfSlug(f.slug) !== '')
+              // Paldean Tauros has three breeds, one card.
+              .filter((f, i, all) => all.findIndex((g) => g.species.id === f.species.id && variantOfSlug(g.slug) === variantOfSlug(f.slug)) === i)
               .map((f) => ({ entryNumber: null as number | null, species: f.species, variant: variantOfSlug(f.slug) }))
               // By region, then by National Dex number.
-              .sort((a, b) => REGIONS.indexOf(a.variant as never) - REGIONS.indexOf(b.variant as never) || a.species.id - b.species.id)
+              .sort((a, b) => VARIANTS.indexOf(a.variant as never) - VARIANTS.indexOf(b.variant as never) || a.species.id - b.species.id)
           )
       : prisma.pokedexSlot.findMany({
           where: { pokedex: { slug: pokedexSlug }, ...(lastEntry ? { entryNumber: { lte: lastEntry } } : {}) },
@@ -145,7 +147,7 @@ export async function loadDex(
       }
     }
     const paldean = pokedexSlug === 'paldea' ? forms.find((f) => f.slug.includes('-paldea')) : undefined;
-    return { look: paldean ?? own, variant: '' };
+    return paldean ? { look: paldean, variant: 'paldea' } : { look: own, variant: '' };
   };
 
   // Roster Pokémon count for the form they are.

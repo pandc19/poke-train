@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { apiError } from '@/lib/api-error';
-import { REGIONS } from '@/lib/dex-variant';
+import { VARIANTS } from '@/lib/dex-variant';
 import { getGame } from '@/lib/games';
 import { loadPokemonInfo } from '@/lib/pokeapi/info';
 
@@ -13,7 +13,7 @@ export async function GET(request: Request, ctx: RouteContext<'/api/pokemon/[id]
   const gameId = new URL(request.url).searchParams.get('gameId');
   const game = gameId ? getGame(gameId) : undefined;
   const asked = new URL(request.url).searchParams.get('variant');
-  const variant = REGIONS.find((r) => r === asked) ?? '';
+  const variant = VARIANTS.find((r) => r === asked) ?? '';
   // One particular form of the species, by its slug (letters, digits and dashes only).
   const askedForm = new URL(request.url).searchParams.get('form') ?? '';
   const formSlug = /^[a-z0-9-]{1,60}$/.test(askedForm) ? askedForm : '';
