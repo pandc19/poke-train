@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { ArchiveIcon, CheckIcon, CloneIcon, EditIcon, RestoreIcon, TrashIcon } from './ActionIcons';
 import { ConfirmDialog } from './Dialog';
@@ -66,7 +67,7 @@ export function BattleBoard({
   species: Named[];
   moves: MoveOption[];
   types: string[];
-  features: { raids: boolean; tera: boolean };
+  features: { raids: boolean; tera: boolean; breeding: boolean };
   lang: Lang;
 }) {
   const { t } = useT();
@@ -362,6 +363,19 @@ export function BattleBoard({
                 ? t("Immune to {rival}'s attacks", { rival: name(o.species) })
                 : t("Resists {rival}'s attacks", { rival: name(o.species) })}
           </p>
+        )}
+        {c.source === 'game' && features.breeding && (
+          <Link
+            href={`/${gameId}/breeding?${new URLSearchParams({
+              species: String(c.species.id),
+              move: String(c.move.id),
+              ...(c.ability ? { ability: String(c.ability.id) } : {}),
+            })}`}
+            className="mt-1 inline-block rounded border border-line px-1.5 py-0.5 text-[11px] hover:bg-surface-2"
+            title={t('Start a breeding plan for this Pokémon, with 31 in every IV')}
+          >
+            {t('Plan a breed')}
+          </Link>
         )}
         {c.teraType && c.incomingBase != null && c.incomingBase >= 2 && c.incoming < 2 && (
           <p className="text-pending">

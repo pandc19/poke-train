@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { apiError } from '@/lib/api-error';
 import { learnableMoves } from '@/lib/breeding/moves';
+import { prisma } from '@/lib/db';
 import { getGame } from '@/lib/games';
 
 const Query = z.object({ gameId: z.string(), speciesId: z.coerce.number().int().positive() });
@@ -15,5 +16,13 @@ export async function GET(request: Request) {
   if (!parsed.success) return apiError('Invalid query', 400);
   const game = getGame(parsed.data.gameId);
   if (!game) return apiError('Unknown game', 404);
-  return Response.json(await learnableMoves(game, parsed.data.speciesId));
+  const [moves, hidden] = await Promise.all([
+    learnableMoves(game, parsed.data.speciesId),
+    // The hidden ability the offspring would have: the one of the Pokémon's own (default) form.
+    prisma.formAbility.findFirst({
+      where: { isHidden: true, form: { speciesId: parsed.data.speciesId, isDefault: true } },
+      select: { ability: { select: { id: true, nameEn: true, nameEs: true } } },
+    }),
+  ]);
+  return Response.json({ ...moves, hiddenAbility: hidden?.ability ?? null });
 }

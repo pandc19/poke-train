@@ -36,7 +36,7 @@ export default async function BattlePage({ params }: PageProps<'/[game]/battle'>
         species={species}
         moves={moves}
         types={TYPE_SLUGS.filter((s) => s !== 'stellar' || game.features.teraType)}
-        features={{ raids: game.features.raids, tera: game.features.teraType }}
+        features={{ raids: game.features.raids, tera: game.features.teraType, breeding: game.features.breeding }}
         lang={lang}
       />
     </div>

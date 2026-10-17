@@ -138,9 +138,10 @@ export function BreedingBoard({
   const [target, setTarget] = useState('');
   /** One move id (or none) per slot, chosen from the moves the Pokémon can have. */
   const [wanted, setWanted] = useState<(number | null)[]>([null, null, null, null]);
-  const [options, setOptions] = useState<{ egg: Named[]; other: Named[] } | null>(null);
+  const [options, setOptions] = useState<{ egg: Named[]; other: Named[]; hiddenAbility: Named | null } | null>(null);
   /** What the offspring should be like, besides its moves. */
-  const [ivTargets, setIvTargets] = useState<IvStat[]>([]);
+  // A perfect Pokémon is the point of breeding, so every IV starts as a target.
+  const [ivTargets, setIvTargets] = useState<IvStat[]>([...IV_STATS]);
   const [natureText, setNatureText] = useState('');
   const [hiddenAbility, setHiddenAbility] = useState(false);
   const [filledFromRoster, setFilledFromRoster] = useState(false);
@@ -176,6 +177,23 @@ export function BreedingBoard({
 
   const targetId = find(species, target)?.id ?? null;
 
+  /** A plan started from a Battle suggestion: the Pokémon, the move it uses and the ability it was given. */
+  const prefill = useRef<{ move: number | null; ability: number | null } | null>(null);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const s = species.find((x) => x.id === Number(q.get('species')));
+    if (!s) return;
+    prefill.current = {
+      move: Number(q.get('move')) || null,
+      ability: Number(q.get('ability')) || null,
+    };
+    setTarget(name(s));
+    setFormOpen(true);
+    window.history.replaceState(null, '', window.location.pathname);
+    // Once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /** Choosing a different Pokémon starts the move slots over. */
   function onTargetChange(text: string) {
     setTarget(text);
@@ -193,8 +211,15 @@ export function BreedingBoard({
     const controller = new AbortController();
     fetch(`/api/breeding/moves?gameId=${encodeURIComponent(gameId)}&speciesId=${targetId}`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
-      .then((data: { egg: Named[]; other: Named[] }) => {
+      .then((data: { egg: Named[]; other: Named[]; hiddenAbility: Named | null }) => {
         setOptions(data);
+        const wish = prefill.current;
+        prefill.current = null;
+        if (wish) {
+          if (wish.move && data.egg.some((m) => m.id === wish.move)) setWanted([wish.move, null, null, null]);
+          if (wish.ability && data.hiddenAbility?.id === wish.ability) setHiddenAbility(true);
+          return;
+        }
         const build = rosterBuilds.find((b) => b.speciesId === targetId);
         if (!build || editSpecies.current === targetId) return;
         // Only egg moves need breeding; the rest the Pokémon learns normally, so they are not slots to fill.
@@ -215,7 +240,7 @@ export function BreedingBoard({
     setEditingId(null);
     editSpecies.current = null;
     setTarget('');
-    setIvTargets([]);
+    setIvTargets([...IV_STATS]);
     setNatureText('');
     setHiddenAbility(false);
     setWanted([null, null, null, null]);
@@ -999,6 +1024,12 @@ export function BreedingBoard({
                   >
                     <input type="checkbox" checked={hiddenAbility} onChange={(e) => setHiddenAbility(e.target.checked)} />
                     {t('Hidden ability')}
+                    {options &&
+                      (options.hiddenAbility ? (
+                        <span className="font-medium">: {name(options.hiddenAbility)}</span>
+                      ) : (
+                        <span className="text-muted"> ({t('it has none')})</span>
+                      ))}
                   </label>
                 </div>
               </div>
