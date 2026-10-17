@@ -665,7 +665,7 @@ export const ES: Record<string, string> = {
   'Missing {n}': 'Faltan {n}',
   'Still missing: {names}': 'Aún falta: {names}',
   'Faster than {rival}': 'Más rápido que {rival}',
-  '{mult} damage to you': '{mult} de daño hacia ti',
+  '{mult} damage taken': '{mult} de daño recibido',
   '{mult} to {rival}': '{mult} hacia {rival}',
   'Slower than {rival}': 'Más lento que {rival}',
   'Select an opponent to see its counters.': 'Elige un rival para ver sus contrarios.',

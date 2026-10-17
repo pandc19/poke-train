@@ -231,7 +231,7 @@ export function BattleBoard({
 
   const multLabel = (m: number) => (m === 0 ? t('immune') : `×${m}`);
   // A multiplier says which way the hit goes: the rival's attacks on your Pokémon, or your move on the rival.
-  const takenLabel = (m: number) => t('{mult} damage to you', { mult: multLabel(m) });
+  const takenLabel = (m: number) => t('{mult} damage taken', { mult: multLabel(m) });
 
   const moveLine = (m: MoveView & { multiplier: number; stab: boolean; known: boolean }, rival: string) => (
     <span>
