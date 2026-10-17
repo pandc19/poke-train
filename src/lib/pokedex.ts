@@ -57,6 +57,24 @@ export type DexCell = {
  *
  * @param profileId the save profile being viewed.
  */
+/** The order of the sections in the regional forms tab: the regions, then the normal forms. */
+const sectionRank = (section: string) => (section === 'normal' ? VARIANTS.length : VARIANTS.indexOf(section as never));
+
+const gameDexSlots = (gameId: string) =>
+  prisma.pokedexSlot.findMany({ where: { pokedex: { gameId } }, select: { speciesId: true, pokedex: { select: { slug: true } } } });
+
+/** Species a Pokédex of the game lists only as a regional form, and no Pokédex lists as its normal one. */
+function normalOnly(gameId: string, slots: { speciesId: number; pokedex: { slug: string } }[]): number[] {
+  const dexes = getGame(gameId)?.pokedexes ?? [];
+  const regional = new Set(dexes.flatMap((d) => d.regionalSpecies ?? []));
+  const asNormal = new Set(
+    slots
+      .filter((s) => !dexes.find((d) => d.slug === s.pokedex.slug)?.regionalSpecies?.includes(s.speciesId))
+      .map((s) => s.speciesId)
+  );
+  return [...regional].filter((id) => !asNormal.has(id));
+}
+
 const speciesSelect = {
   id: true,
   nameEn: true,
@@ -97,7 +115,13 @@ export async function loadDex(
             where: { id: { in: getGame(opts.gameId!)?.extraForms?.hisuiSpecies ?? [] } },
             select: speciesSelect,
           }),
-        ]).then(([forms, hisui]) =>
+          // A Pokédex may list a species only as its regional form (Alolan Exeggutor), leaving the
+          // normal one in none; that one is still in the game, so it gets a card here.
+          prisma.species.findMany({
+            where: { id: { in: normalOnly(opts.gameId!, await gameDexSlots(opts.gameId!)) } },
+            select: speciesSelect,
+          }),
+        ]).then(([forms, hisui, normal]) =>
           [
             ...forms
               // Cap, totem and the like are not looks of their own (variantOfSlug says '').
@@ -106,10 +130,11 @@ export async function loadDex(
               .filter((f, i, all) => all.findIndex((g) => g.species.id === f.species.id && variantOfSlug(g.slug) === variantOfSlug(f.slug)) === i)
               .map((f) => ({ species: f.species, variant: variantOfSlug(f.slug), section: variantOfSlug(f.slug) as string })),
             ...hisui.map((species) => ({ species, variant: '' as Variant, section: 'hisui' })),
+            ...normal.map((species) => ({ species, variant: '' as Variant, section: 'normal' })),
           ]
             .map((x) => ({ entryNumber: null as number | null, ...x }))
             // By region, then by National Dex number.
-            .sort((a, b) => VARIANTS.indexOf(a.section as never) - VARIANTS.indexOf(b.section as never) || a.species.id - b.species.id)
+            .sort((a, b) => sectionRank(a.section) - sectionRank(b.section) || a.species.id - b.species.id)
         )
       : prisma.pokedexSlot.findMany({
           where: { pokedex: { slug: pokedexSlug }, ...(lastEntry ? { entryNumber: { lte: lastEntry } } : {}) },
