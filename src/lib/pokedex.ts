@@ -57,8 +57,9 @@ export type DexCell = {
  *
  * @param profileId the save profile being viewed.
  */
-/** The order of the sections in the regional forms tab: the regions, then the normal forms. */
-const sectionRank = (section: string) => (section === 'normal' ? VARIANTS.length : VARIANTS.indexOf(section as never));
+/** The order of the sections in the regional forms tab: the regions, the normal forms, then the rest. */
+const sectionRank = (section: string) =>
+  section === 'other' ? VARIANTS.length + 1 : section === 'normal' ? VARIANTS.length : VARIANTS.indexOf(section as never);
 
 const gameDexSlots = (gameId: string) =>
   prisma.pokedexSlot.findMany({ where: { pokedex: { gameId } }, select: { speciesId: true, pokedex: { select: { slug: true } } } });
@@ -99,6 +100,7 @@ export async function loadDex(
     : undefined;
   // The extra tab lists forms no Pokédex of the game numbers; each one is shown as its regional form.
   const isExtra = pokedexSlug === EXTRA_DEX_SLUG && Boolean(opts.gameId && getGame(opts.gameId)?.extraForms);
+  const dexSlots = isExtra ? await gameDexSlots(opts.gameId!) : [];
   const [slots, entries, roster, gameSlots, lines] = await Promise.all([
     isExtra
       ? Promise.all([
@@ -118,10 +120,21 @@ export async function loadDex(
           // A Pokédex may list a species only as its regional form (Alolan Exeggutor), leaving the
           // normal one in none; that one is still in the game, so it gets a card here.
           prisma.species.findMany({
-            where: { id: { in: normalOnly(opts.gameId!, await gameDexSlots(opts.gameId!)) } },
+            where: { id: { in: normalOnly(opts.gameId!, dexSlots) } },
             select: speciesSelect,
           }),
-        ]).then(([forms, hisui, normal]) =>
+          // Whatever else the player has registered by hand that no Pokédex of the game lists
+          // (a Regice or a Mew brought in from elsewhere).
+          profileId
+            ? prisma.pokedexEntry
+                .findMany({ where: { profileId, variant: '' }, select: { speciesId: true } })
+                .then((rows) => {
+                  const inDex = new Set(dexSlots.map((d) => d.speciesId));
+                  return rows.map((r) => r.speciesId).filter((id) => !inDex.has(id));
+                })
+                .then((ids) => prisma.species.findMany({ where: { id: { in: ids } }, select: speciesSelect }))
+            : [],
+        ]).then(([forms, hisui, normal, other]) =>
           [
             ...forms
               // Cap, totem and the like are not looks of their own (variantOfSlug says '').
@@ -131,6 +144,7 @@ export async function loadDex(
               .map((f) => ({ species: f.species, variant: variantOfSlug(f.slug), section: variantOfSlug(f.slug) as string })),
             ...hisui.map((species) => ({ species, variant: '' as Variant, section: 'hisui' })),
             ...normal.map((species) => ({ species, variant: '' as Variant, section: 'normal' })),
+            ...other.map((species) => ({ species, variant: '' as Variant, section: 'other' })),
           ]
             .map((x) => ({ entryNumber: null as number | null, ...x }))
             // By region, then by National Dex number.

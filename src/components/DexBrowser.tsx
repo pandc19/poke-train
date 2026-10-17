@@ -19,6 +19,7 @@ export function DexBrowser({
   tabColor,
   dexes,
   cellsBySlug,
+  addable,
   initialSlug,
   lang,
 }: {
@@ -29,6 +30,8 @@ export function DexBrowser({
   /** The National Dex has `national` set: it lists every species and has its own note. */
   dexes: { slug: string; name: Localized; note: Localized; national?: boolean; sectioned?: boolean }[];
   cellsBySlug: Record<string, DexCell[]>;
+  /** Pokémon of no Pokédex of the game, for the sectioned tab's "add" box. */
+  addable: { id: number; nameEn: string; nameEs: string }[];
   initialSlug: string;
   lang: Lang;
 }) {
@@ -141,6 +144,7 @@ export function DexBrowser({
         gameName={gameName}
         accent={accent}
         sectioned={current.sectioned}
+        addable={current.sectioned ? addable : undefined}
         query={query}
         onQuery={setQuery}
         filter={filter}

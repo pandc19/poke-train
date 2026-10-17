@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
+import { useRouter } from 'next/navigation';
 import { PokemonInfoDialog } from './PokemonInfoDialog';
 import { ScrollTopButton } from './ScrollTopButton';
 import { SearchInput } from './SearchInput';
@@ -40,6 +41,7 @@ export function DexGrid({
   gameName,
   accent = '#facc15',
   sectioned = false,
+  addable,
   query,
   onQuery: setQuery,
   filter,
@@ -66,6 +68,8 @@ export function DexGrid({
   accent?: string;
   /** Cards are grouped under their region (Alola, Galar, Hisui) in the order given. */
   sectioned?: boolean;
+  /** Pokémon no Pokédex of the game lists; shown as an "add" box for registering one by hand. */
+  addable?: { id: number; nameEn: string; nameEs: string }[];
 }) {
   const { t } = useT();
   const filterLabels: Record<Filter, string> = {
@@ -89,6 +93,22 @@ export function DexGrid({
     Object.fromEntries(seed.map((c) => [c.key, { male: c.hasMale, female: c.hasFemale }]))
   );
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const [addText, setAddText] = useState('');
+  async function addOther(e: React.FormEvent) {
+    e.preventDefault();
+    const text = addText.trim().toLowerCase();
+    const found = addable?.find((s) => s.nameEn.toLowerCase() === text || s.nameEs.toLowerCase() === text);
+    if (!found) {
+      setError(t('"{name}" is not a Pokémon. Pick one from the suggestions.', { name: addText }));
+      return;
+    }
+    setError(null);
+    await save([found.id], true);
+    setAddText('');
+    // The card is made on the server, so it shows up when the page is read again.
+    router.refresh();
+  }
   const [openId, setOpenId] = useState<number | null>(null);
   const lastIndex = useRef<number | null>(null);
   // A range starts from the last click in the list being shown, not one from another tab.
@@ -311,6 +331,25 @@ export function DexGrid({
           )}
         </div>
 
+        {addable && !readOnly && (
+          <form onSubmit={addOther} className="flex flex-wrap items-center gap-2 text-xs">
+            <input
+              list="dex-addable"
+              value={addText}
+              onChange={(e) => setAddText(e.target.value)}
+              placeholder={t('Add a Pokémon from another game')}
+              className="min-w-52 rounded-md border border-line bg-surface px-2 py-1.5 sm:max-w-xs"
+            />
+            <datalist id="dex-addable">
+              {addable.map((s) => (
+                <option key={s.id} value={lang === 'en' ? s.nameEn : s.nameEs} />
+              ))}
+            </datalist>
+            <button className="rounded-md border border-line px-3 py-1.5 text-muted hover:text-ink">{t('Add')}</button>
+            <span className="text-muted">{t('For a Pokémon you have that no Pokédex of this game lists.')}</span>
+          </form>
+        )}
+
         <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('Filter')}>
           {(['all', 'missing', 'caught', 'have', 'registered'] as const).map((f) => {
             const n = { all: total, missing: total - count, caught: count, have: haveCount, registered: count - haveCount }[f];
@@ -357,7 +396,7 @@ export function DexGrid({
               <Fragment key={c.key}>
               {newSection && (
                 <li className="col-span-full mt-2 border-b border-line pb-1 font-display text-sm font-semibold first:mt-0">
-                  {c.section}
+                  {c.section === 'Other' ? t('From other games') : c.section}
                 </li>
               )}
               <li
