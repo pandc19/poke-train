@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { DexGrid } from './DexGrid';
+import { useEffect, useMemo, useState } from 'react';
+import { DexGrid, type Filter } from './DexGrid';
 import type { Lang, Localized } from '@/lib/i18n';
 import type { DexCell } from '@/lib/pokedex';
 import { pick } from '@/lib/translate';
@@ -35,6 +35,47 @@ export function DexBrowser({
   const { t } = useT();
   const [slug, setSlug] = useState(dexes.some((d) => d.slug === initialSlug) ? initialSlug : dexes[0].slug);
   const current = dexes.find((d) => d.slug === slug) ?? dexes[0];
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
+  const [onlyInGame, setOnlyInGame] = useState(true);
+
+  // The view comes back as it was left. It is read after mount because the server render has no
+  // localStorage; an address with ?dex= wins over the remembered tab.
+  const storeKey = `pokedex-view:${gameId}`;
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storeKey) ?? 'null');
+      if (saved && typeof saved === 'object') {
+        if (typeof saved.query === 'string') setQuery(saved.query);
+        if (['all', 'missing', 'caught', 'have', 'registered'].includes(saved.filter)) setFilter(saved.filter);
+        if (typeof saved.onlyInGame === 'boolean') setOnlyInGame(saved.onlyInGame);
+        if (!new URLSearchParams(window.location.search).has('dex') && dexes.some((d) => d.slug === saved.slug)) setSlug(saved.slug);
+      }
+    } catch {
+      // No storage: the view just starts fresh.
+    }
+    setRestored(true);
+    // Once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      localStorage.setItem(storeKey, JSON.stringify({ slug, query, filter, onlyInGame }));
+    } catch {
+      // Not remembering is fine.
+    }
+  }, [restored, storeKey, slug, query, filter, onlyInGame]);
+
+  const isDefault = slug === dexes[0].slug && query === '' && filter === 'all' && onlyInGame;
+  const resetView = () => {
+    setSlug(dexes[0].slug);
+    setQuery('');
+    setFilter('all');
+    setOnlyInGame(true);
+    window.history.replaceState(null, '', window.location.pathname);
+  };
 
   // One entry per card across all the tabs, so caught state starts right everywhere.
   const everySpecies = useMemo(() => {
@@ -69,6 +110,15 @@ export function DexBrowser({
             </button>
           ))}
         </div>
+        {!isDefault && (
+          <button
+            type="button"
+            onClick={resetView}
+            className="rounded-full border border-line px-3 py-1 text-[13px] text-muted hover:text-ink"
+          >
+            {t('Reset view')}
+          </button>
+        )}
       </div>
       {current.national ? (
         <p className="-mt-3 mb-5 max-w-3xl text-sm text-muted">
@@ -90,6 +140,12 @@ export function DexBrowser({
         gameId={gameId}
         gameName={gameName}
         accent={accent}
+        query={query}
+        onQuery={setQuery}
+        filter={filter}
+        onFilter={setFilter}
+        onlyInGame={onlyInGame}
+        onOnlyInGame={setOnlyInGame}
       />
     </div>
   );

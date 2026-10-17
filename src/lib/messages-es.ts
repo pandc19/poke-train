@@ -114,6 +114,7 @@ export const ES: Record<string, string> = {
   'Always female': 'Siempre hembra',
   'Always male': 'Siempre macho',
   'Gender': 'Género',
+  'Reset view': 'Restablecer vista',
   'Genderless': 'Sin género',
   'Generation': 'Generación',
   'Get a': 'Consigue un',

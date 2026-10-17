@@ -14,7 +14,7 @@ import { useT } from '@/lib/translate-client';
 import { KeeperIcon, ReadyIcon, TrainingIcon } from './KeeperIcon';
 import { PokeBallIcon, PokeBallMark } from './PokeBallIcon';
 
-type Filter = 'all' | 'missing' | 'caught' | 'have' | 'registered';
+export type Filter = 'all' | 'missing' | 'caught' | 'have' | 'registered';
 
 type Genders = { male: boolean; female: boolean };
 
@@ -40,8 +40,21 @@ export function DexGrid({
   gameId,
   gameName,
   accent = '#facc15',
+  query,
+  onQuery: setQuery,
+  filter,
+  onFilter: setFilter,
+  onlyInGame,
+  onOnlyInGame: setOnlyInGame,
 }: {
   cells: DexCell[];
+  /** The view (search, filter, scope) belongs to the parent, which remembers it. */
+  query: string;
+  onQuery: (q: string) => void;
+  filter: Filter;
+  onFilter: (f: Filter) => void;
+  onlyInGame: boolean;
+  onOnlyInGame: (v: boolean) => void;
   /**
    * Every Pokémon this grid may show over its lifetime, to start the caught state from.
    * Given when the same grid is reused for several lists (tabs), so none starts blank.
@@ -63,7 +76,6 @@ export function DexGrid({
   const seed = stateCells ?? cells;
   const readOnly = gameId === null;
   const hasUnavailable = cells.some((c) => !c.inGame);
-  const [onlyInGame, setOnlyInGame] = useState(true);
   const [caught, setCaught] = useState(
     () => new Set(seed.filter((c) => c.caught || (readOnly && c.caughtIn.length > 0)).map((c) => c.key))
   );
@@ -74,8 +86,6 @@ export function DexGrid({
   const [genders, setGenders] = useState<Record<number, Genders>>(() =>
     Object.fromEntries(seed.map((c) => [c.key, { male: c.hasMale, female: c.hasFemale }]))
   );
-  const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<Filter>('all');
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [bulk, setBulk] = useState<{ mode: boolean; ids: number[] } | null>(null);
