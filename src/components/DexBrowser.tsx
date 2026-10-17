@@ -27,7 +27,7 @@ export function DexBrowser({
   accent: string;
   tabColor: string;
   /** The National Dex has `national` set: it lists every species and has its own note. */
-  dexes: { slug: string; name: Localized; note: Localized; national?: boolean }[];
+  dexes: { slug: string; name: Localized; note: Localized; national?: boolean; sectioned?: boolean }[];
   cellsBySlug: Record<string, DexCell[]>;
   initialSlug: string;
   lang: Lang;
@@ -140,6 +140,7 @@ export function DexBrowser({
         gameId={gameId}
         gameName={gameName}
         accent={accent}
+        sectioned={current.sectioned}
         query={query}
         onQuery={setQuery}
         filter={filter}

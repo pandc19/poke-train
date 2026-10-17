@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { ConfirmDialog } from './Dialog';
 import { PokemonInfoDialog } from './PokemonInfoDialog';
@@ -40,6 +40,7 @@ export function DexGrid({
   gameId,
   gameName,
   accent = '#facc15',
+  sectioned = false,
   query,
   onQuery: setQuery,
   filter,
@@ -64,6 +65,8 @@ export function DexGrid({
   gameId: string | null;
   gameName?: string;
   accent?: string;
+  /** Cards are grouped under their region (Alola, Galar, Hisui) in the order given. */
+  sectioned?: boolean;
 }) {
   const { t } = useT();
   const filterLabels: Record<Filter, string> = {
@@ -388,9 +391,15 @@ export function DexGrid({
             const have = haveNow(c);
             const registeredOnly = isCaught && !have;
             const evo = c.evolvedInto ? (lang === 'en' ? c.evolvedInto.nameEn : c.evolvedInto.nameEs) : null;
+            const newSection = sectioned && c.formLabel !== (visible[i - 1]?.formLabel ?? null);
             return (
+              <Fragment key={c.key}>
+              {newSection && (
+                <li className="col-span-full mt-2 border-b border-line pb-1 font-display text-sm font-semibold first:mt-0">
+                  {c.formLabel}
+                </li>
+              )}
               <li
-                key={c.key}
                 className={`relative isolate flex flex-col overflow-hidden rounded-lg border px-1.5 pb-9 pt-1.5 transition-colors ${
                   registeredOnly
                     ? 'border-dashed border-line bg-surface opacity-80'
@@ -552,6 +561,7 @@ export function DexGrid({
                   </div>
                 )}
               </li>
+              </Fragment>
             );
           })}
         </ul>

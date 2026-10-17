@@ -27,7 +27,7 @@ export default async function PokedexPage({ params, searchParams }: PageProps<'/
         ...(game.nationalDex
           ? [{ slug: NATIONAL_DEX_SLUG, name: { en: 'National', es: 'Nacional' }, note: { en: '', es: '' }, national: true }]
           : []),
-        ...(game.extraForms ? [{ slug: EXTRA_DEX_SLUG, name: game.extraForms.name, note: game.extraForms.note }] : []),
+        ...(game.extraForms ? [{ slug: EXTRA_DEX_SLUG, name: game.extraForms.name, note: game.extraForms.note, sectioned: true }] : []),
       ]}
       cellsBySlug={cellsBySlug}
       initialSlug={typeof dex === 'string' && slugs.includes(dex) ? dex : game.pokedexes[0].slug}

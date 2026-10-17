@@ -31,10 +31,11 @@ export type GameConfig = {
     lastEntry?: number;
   }[];
   /**
-   * Regional forms the game accepts (from Pokémon HOME) although no Pokédex of it lists them.
-   * They get a tab of their own, unnumbered, so they can still be registered.
+   * A tab listing the regional forms (Alolan, Galarian, Hisuian) of every species the game has,
+   * numbered or not, so one accepted from Pokémon HOME that no Pokédex lists can still be registered.
+   * Caught state is shared with the Pokédex that does list it.
    */
-  extraForms?: { speciesIds: number[]; name: Localized; note: Localized };
+  extraForms?: { name: Localized; note: Localized };
   /** The game has a National Dex. Scarlet/Violet do not: only their regional Pokédexes. */
   nationalDex: boolean;
   features: {
@@ -108,11 +109,8 @@ export const GAMES: GameConfig[] = [
     ],
     nationalDex: false,
     extraForms: {
-      // Hisuian Growlithe, Arcanine, Voltorb, Electrode, Typhlosion, Sneasel, Samurott,
-      // Lilligant, Zorua, Zoroark, Braviary, Sliggoo, Goodra, Avalugg, Decidueye.
-      speciesIds: [58, 59, 100, 101, 157, 215, 503, 549, 570, 571, 628, 705, 706, 713, 724],
-      name: { en: 'Hisui forms', es: 'Formas de Hisui' },
-      note: { en: 'Not in any Pokédex of the game, but accepted from Pokémon HOME', es: 'No están en ningún Pokédex del juego, pero se aceptan desde Pokémon HOME' },
+      name: { en: 'Regional forms', es: 'Formas regionales' },
+      note: { en: 'Alolan, Galarian and Hisuian forms of the Pokémon in this game, numbered or not. Marking one here marks it in its Pokédex too', es: 'Formas de Alola, Galar y Hisui de los Pokémon de este juego, con número o sin él. Marcar una aquí la marca también en su Pokédex' },
     },
     features: {
       breeding: true,

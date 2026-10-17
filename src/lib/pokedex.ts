@@ -78,12 +78,26 @@ export async function loadDex(
     ? getGame(opts.gameId)?.pokedexes.find((d) => d.slug === pokedexSlug)?.lastEntry
     : undefined;
   // The extra tab lists forms no Pokédex of the game numbers; each one is shown as its regional form.
-  const extraIds = pokedexSlug === EXTRA_DEX_SLUG ? (opts.gameId && getGame(opts.gameId)?.extraForms?.speciesIds) || [] : null;
+  const isExtra = pokedexSlug === EXTRA_DEX_SLUG && Boolean(opts.gameId && getGame(opts.gameId)?.extraForms);
   const [slots, entries, roster, gameSlots, lines] = await Promise.all([
-    extraIds
-      ? prisma.species
-          .findMany({ where: { id: { in: extraIds } }, orderBy: { id: 'asc' }, select: speciesSelect })
-          .then((list) => list.map((species) => ({ entryNumber: null as number | null, species })))
+    isExtra
+      ? prisma.form
+          .findMany({
+            // A regional form is accepted when the game has its species in any of its Pokédexes.
+            where: {
+              OR: REGIONS.map((r) => ({ slug: { contains: `-${r}` } })),
+              species: { pokedexSlots: { some: { pokedex: { gameId: opts.gameId } } } },
+            },
+            select: { slug: true, species: { select: speciesSelect } },
+          })
+          .then((list) =>
+            list
+              // Cap, totem and the like are not looks of their own (variantOfSlug says '').
+              .filter((f) => variantOfSlug(f.slug) !== '')
+              .map((f) => ({ entryNumber: null as number | null, species: f.species, variant: variantOfSlug(f.slug) }))
+              // By region, then by National Dex number.
+              .sort((a, b) => REGIONS.indexOf(a.variant as never) - REGIONS.indexOf(b.variant as never) || a.species.id - b.species.id)
+          )
       : prisma.pokedexSlot.findMany({
           where: { pokedex: { slug: pokedexSlug }, ...(lastEntry ? { entryNumber: { lte: lastEntry } } : {}) },
           orderBy: { entryNumber: 'asc' },
@@ -113,16 +127,17 @@ export async function loadDex(
   ]);
   const inGame = gameSlots ? new Set(gameSlots.map((s) => s.speciesId)) : null;
   const regionalSpecies = new Set(
-    extraIds ??
-      (opts.gameId ? getGame(opts.gameId)?.pokedexes.find((d) => d.slug === pokedexSlug)?.regionalSpecies : undefined) ??
+    (opts.gameId ? getGame(opts.gameId)?.pokedexes.find((d) => d.slug === pokedexSlug)?.regionalSpecies : undefined) ??
       []
   );
 
   // Which form a card shows, and so which caught state it owns: a Pokédex that lists regional
   // forms shows those, the Paldea one shows the Paldean form, any other the species' own form.
   type Form = (typeof slots)[number]['species']['forms'][number];
-  const lookOf = (speciesId: number, forms: Form[]): { look: Form | undefined; variant: Variant } => {
+  const lookOf = (speciesId: number, forms: Form[], fixed?: Variant): { look: Form | undefined; variant: Variant } => {
     const own = forms.find((f) => f.isDefault);
+    // The regional-forms tab has a card per form.
+    if (fixed) return { look: forms.find((f) => variantOfSlug(f.slug) === fixed) ?? own, variant: fixed };
     if (regionalSpecies.has(speciesId)) {
       for (const region of REGIONS) {
         const form = forms.find((f) => !f.isDefault && variantOfSlug(f.slug) === region);
@@ -206,7 +221,7 @@ export async function loadDex(
   const exclusives = versions ? exclusiveBySpecies(versions) : null;
 
   return slots.map((s) => {
-    const { look, variant } = lookOf(s.species.id, s.species.forms);
+    const { look, variant } = lookOf(s.species.id, s.species.forms, 'variant' in s ? s.variant : undefined);
     const key = encodeKey(s.species.id, variant);
     const evo = evolvedInto(s.species.id, variant);
     const side = exclusives?.get(s.species.id);
