@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { motion } from 'motion/react';
 import { setLang } from '@/app/actions';
 import { CatalogButton } from './CatalogDialog';
@@ -39,6 +39,19 @@ export function Header({ games }: { games: GameLink[] }) {
     return ['pokedex', 'roster', 'search', 'battle', 'national'].includes(section) ? section : 'pokedex';
   };
 
+  // Breeding opens on the view (Breeders or Plans) the player was last on. Read after mount: the server
+  // render has no localStorage, and Breeders is where a first visit starts.
+  const [breedingView, setBreedingView] = useState<'breeders' | 'breeding'>('breeders');
+  useEffect(() => {
+    const here = /\/(breeding|breeders)(\/|$)/.exec(pathname)?.[1] as 'breeders' | 'breeding' | undefined;
+    try {
+      if (here) localStorage.setItem('breeding-view', here);
+      const saved = here ?? localStorage.getItem('breeding-view');
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (saved === 'breeders' || saved === 'breeding') setBreedingView(saved);
+    } catch {}
+  }, [pathname]);
+
   // The breeding pages show the breeding items; every other page shows the training ones.
   const onBreeding = /\/(breeding|breeders)(\/|$)/.test(pathname);
   const onPokedex = /\/(pokedex|national|exclusives)(\/|$)/.test(pathname);
@@ -51,7 +64,13 @@ export function Header({ games }: { games: GameLink[] }) {
     { href: `/${current.id}/roster`, label: t('Roster') },
     { href: `/${current.id}/battle`, label: t('Battle') },
     ...(current.breeding
-      ? [{ href: `/${current.id}/breeders`, label: t('Breeding'), also: `/${current.id}/breeding` }]
+      ? [
+          {
+            href: `/${current.id}/${breedingView}`,
+            label: t('Breeding'),
+            also: `/${current.id}/${breedingView === 'breeders' ? 'breeding' : 'breeders'}`,
+          },
+        ]
       : []),
     ...(current.exclusives ? [{ href: `/${current.id}/exclusives`, label: t('Exclusives'), right: true }] : []),
     { href: `/${current.id}/search`, label: t('Search'), right: true },
