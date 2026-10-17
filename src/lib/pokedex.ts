@@ -17,6 +17,8 @@ export type DexCell = {
   spriteUrl: string | null;
   /** Set when the card shows a regional form (Alolan Dugtrio), tracked apart from the normal one. */
   formLabel: string | null;
+  /** The heading it sits under in a sectioned tab (the region). */
+  section: string | null;
   types: string[];
   /** Caught in the profile being viewed. */
   caught: boolean;
@@ -81,25 +83,34 @@ export async function loadDex(
   const isExtra = pokedexSlug === EXTRA_DEX_SLUG && Boolean(opts.gameId && getGame(opts.gameId)?.extraForms);
   const [slots, entries, roster, gameSlots, lines] = await Promise.all([
     isExtra
-      ? prisma.form
-          .findMany({
+      ? Promise.all([
+          prisma.form.findMany({
             // A regional form is accepted when the game has its species in any of its Pokédexes.
             where: {
               OR: VARIANTS.map((r) => ({ slug: { contains: `-${r}` } })),
               species: { pokedexSlots: { some: { pokedex: { gameId: opts.gameId } } } },
             },
             select: { slug: true, species: { select: speciesSelect } },
-          })
-          .then((list) =>
-            list
+          }),
+          // Species that began in Hisui have no regional form, but belong with that region.
+          prisma.species.findMany({
+            where: { id: { in: getGame(opts.gameId!)?.extraForms?.hisuiSpecies ?? [] } },
+            select: speciesSelect,
+          }),
+        ]).then(([forms, hisui]) =>
+          [
+            ...forms
               // Cap, totem and the like are not looks of their own (variantOfSlug says '').
               .filter((f) => variantOfSlug(f.slug) !== '')
               // Paldean Tauros has three breeds, one card.
               .filter((f, i, all) => all.findIndex((g) => g.species.id === f.species.id && variantOfSlug(g.slug) === variantOfSlug(f.slug)) === i)
-              .map((f) => ({ entryNumber: null as number | null, species: f.species, variant: variantOfSlug(f.slug) }))
-              // By region, then by National Dex number.
-              .sort((a, b) => VARIANTS.indexOf(a.variant as never) - VARIANTS.indexOf(b.variant as never) || a.species.id - b.species.id)
-          )
+              .map((f) => ({ species: f.species, variant: variantOfSlug(f.slug), section: variantOfSlug(f.slug) as string })),
+            ...hisui.map((species) => ({ species, variant: '' as Variant, section: 'hisui' })),
+          ]
+            .map((x) => ({ entryNumber: null as number | null, ...x }))
+            // By region, then by National Dex number.
+            .sort((a, b) => VARIANTS.indexOf(a.section as never) - VARIANTS.indexOf(b.section as never) || a.species.id - b.species.id)
+        )
       : prisma.pokedexSlot.findMany({
           where: { pokedex: { slug: pokedexSlug }, ...(lastEntry ? { entryNumber: { lte: lastEntry } } : {}) },
           orderBy: { entryNumber: 'asc' },
@@ -236,6 +247,7 @@ export async function loadDex(
       nameEs: s.species.nameEs,
       spriteUrl: look?.spriteUrl ?? null,
       formLabel: variant ? variant[0].toUpperCase() + variant.slice(1) : null,
+      section: 'section' in s && s.section ? s.section[0].toUpperCase() + s.section.slice(1) : null,
       types: look?.types ?? [],
       caught: caughtHere.has(key),
       inGame: inGame ? inGame.has(s.species.id) : true,

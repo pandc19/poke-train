@@ -35,7 +35,12 @@ export type GameConfig = {
    * numbered or not, so one accepted from Pokémon HOME that no Pokédex lists can still be registered.
    * Caught state is shared with the Pokédex that does list it.
    */
-  extraForms?: { name: Localized; note: Localized };
+  extraForms?: {
+    name: Localized;
+    note: Localized;
+    /** Species from Hisui with no regional form that the game accepts, whether or not a Pokédex lists them. */
+    hisuiSpecies: number[];
+  };
   /** The game has a National Dex. Scarlet/Violet do not: only their regional Pokédexes. */
   nationalDex: boolean;
   features: {
@@ -109,6 +114,8 @@ export const GAMES: GameConfig[] = [
     ],
     nationalDex: false,
     extraForms: {
+      // Wyrdeer and Sneasler evolve from Stantler and Hisuian Sneasel.
+      hisuiSpecies: [899, 903],
       name: { en: 'Regional forms', es: 'Formas regionales' },
       note: { en: 'Alolan, Galarian and Hisuian forms of the Pokémon in this game, numbered or not. Marking one here marks it in its Pokédex too', es: 'Formas de Alola, Galar y Hisui de los Pokémon de este juego, con número o sin él. Marcar una aquí la marca también en su Pokédex' },
     },

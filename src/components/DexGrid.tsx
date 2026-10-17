@@ -348,12 +348,12 @@ export function DexGrid({
             const have = haveNow(c);
             const registeredOnly = isCaught && !have;
             const evo = c.evolvedInto ? (lang === 'en' ? c.evolvedInto.nameEn : c.evolvedInto.nameEs) : null;
-            const newSection = sectioned && c.formLabel !== (visible[i - 1]?.formLabel ?? null);
+            const newSection = sectioned && c.section !== (visible[i - 1]?.section ?? null);
             return (
               <Fragment key={c.key}>
               {newSection && (
                 <li className="col-span-full mt-2 border-b border-line pb-1 font-display text-sm font-semibold first:mt-0">
-                  {c.formLabel}
+                  {c.section}
                 </li>
               )}
               <li
