@@ -2,7 +2,6 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { ConfirmDialog } from './Dialog';
 import { PokemonInfoDialog } from './PokemonInfoDialog';
 import { ScrollTopButton } from './ScrollTopButton';
 import { SearchInput } from './SearchInput';
@@ -90,8 +89,6 @@ export function DexGrid({
     Object.fromEntries(seed.map((c) => [c.key, { male: c.hasMale, female: c.hasFemale }]))
   );
   const [error, setError] = useState<string | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [bulk, setBulk] = useState<{ mode: boolean; ids: number[] } | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
   const lastIndex = useRef<number | null>(null);
   // A range starts from the last click in the list being shown, not one from another tab.
@@ -231,19 +228,6 @@ export function DexGrid({
     lastIndex.current = index;
   };
 
-  /** Bulk changes always go through a confirmation that says how many Pokémon are affected. */
-  const askBulk = (mode: boolean) => {
-    setMenuOpen(false);
-    setBulk({ mode, ids: visible.filter((c) => caught.has(c.key) !== mode).map((c) => c.key) });
-  };
-
-  const confirmBulk = () => {
-    if (!bulk) return;
-    apply(bulk.ids, bulk.mode);
-    void save(bulk.ids, bulk.mode);
-    setBulk(null);
-  };
-
   const scoped = hasUnavailable && onlyInGame ? cells.filter((c) => c.inGame) : cells;
   const total = scoped.length;
   const count = scoped.filter((c) => caught.has(c.key)).length;
@@ -320,33 +304,6 @@ export function DexGrid({
               <input type="checkbox" checked={onlyInGame} onChange={(e) => setOnlyInGame(e.target.checked)} />
               {t('Only Pokémon in {game}', { game: gameName ?? t('this game') })}
             </label>
-          )}
-          {!readOnly && (
-            <div className="relative ml-auto">
-              <button
-                onClick={() => setMenuOpen((o) => !o)}
-                aria-expanded={menuOpen}
-                className="rounded-md border border-line px-3 py-1.5 text-xs text-muted hover:text-ink"
-              >
-                {t('Bulk actions')} ▾
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 z-10 mt-1 w-64 rounded-lg border border-line bg-surface p-1 text-xs shadow-xl">
-                  <p className="px-3 py-2 text-muted">
-                    {t('These act on the Pokémon currently shown, so search or filter first.')}
-                  </p>
-                  <button onClick={() => askBulk(true)} className="block w-full rounded px-3 py-2 text-left hover:bg-surface-2">
-                    {t('Mark all shown as caught…')}
-                  </button>
-                  <button
-                    onClick={() => askBulk(false)}
-                    className="block w-full rounded px-3 py-2 text-left text-danger hover:bg-surface-2"
-                  >
-                    {t('Remove all shown from caught…')}
-                  </button>
-                </div>
-              )}
-            </div>
           )}
         </div>
 
@@ -585,47 +542,6 @@ export function DexGrid({
         variant={openCell ? decodeKey(openCell.key).variant : ''}
         onClose={() => setOpenId(null)}
       />
-
-      <ConfirmDialog
-        open={bulk != null}
-        title={bulk?.mode ? t('Mark shown Pokémon as caught?') : t('Remove shown Pokémon from caught?')}
-        confirmLabel={
-          bulk?.mode
-            ? t('Mark {count} as caught', { count: bulk.ids.length })
-            : t('Remove {count} from caught', { count: bulk?.ids.length ?? 0 })
-        }
-        danger={bulk?.mode === false}
-        disabled={!bulk || bulk.ids.length === 0}
-        onConfirm={confirmBulk}
-        onCancel={() => setBulk(null)}
-      >
-        {bulk && bulk.ids.length === 0 ? (
-          <p>
-            {bulk.mode
-              ? t('Nothing to change: every Pokémon currently shown is already caught.')
-              : t('Nothing to change: every Pokémon currently shown is already not caught.')}
-          </p>
-        ) : (
-          <>
-            <p>
-              {bulk?.mode
-                ? t(
-                    'This will mark {count} Pokémon as caught and as ones you have now. Only the Pokémon currently shown are affected (your search and filter apply).',
-                    { count: bulk?.ids.length ?? 0 }
-                  )
-                : t(
-                    'This will remove {count} Pokémon from your caught list. Only the Pokémon currently shown are affected (your search and filter apply).',
-                    { count: bulk?.ids.length ?? 0 }
-                  )}
-            </p>
-            {bulk?.mode === false && (
-              <p className="mt-2 text-danger">
-                {t('This also forgets the Have mark and the ♂/♀ you recorded for them. There is no undo.')}
-              </p>
-            )}
-          </>
-        )}
-      </ConfirmDialog>
     </div>
   );
 }
