@@ -390,7 +390,6 @@ export function DexGrid({
             const g = genders[c.key] ?? { male: false, female: false };
             const have = haveNow(c);
             const registeredOnly = isCaught && !have;
-            const evo = c.evolvedInto ? (lang === 'en' ? c.evolvedInto.nameEn : c.evolvedInto.nameEs) : null;
             const newSection = sectioned && c.section !== (visible[i - 1]?.section ?? null);
             return (
               <Fragment key={c.key}>
@@ -477,15 +476,7 @@ export function DexGrid({
                   )}
                   {registeredOnly && (
                     <span className="w-full truncate text-center text-[11px] text-pending">
-                      {evo ? t('evolved → {name}', { name: evo }) : t('not in my box')}
-                    </span>
-                  )}
-                  {have && evo && (
-                    <span
-                      className="w-full truncate text-center text-[11px] font-semibold text-pending"
-                      title={t('You also have {name}. If you evolved this one, un-tick Have.', { name: evo })}
-                    >
-                      ↗ {evo}
+                      {t('not in my box')}
                     </span>
                   )}
                   {elsewhere.length > 0 && (

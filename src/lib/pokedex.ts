@@ -30,8 +30,6 @@ export type DexCell = {
   owned: boolean;
   /** In your trained roster as obtained. The roster decides, so the Pokédex Have button is locked on. */
   ownedViaRoster: boolean;
-  /** The nearest later evolution you have right now, if any: this one probably evolved. */
-  evolvedInto: { nameEn: string; nameEs: string } | null;
   /** Genders recorded for this species in the profile being viewed. */
   hasMale: boolean;
   hasFemale: boolean;
@@ -238,14 +236,8 @@ export async function loadDex(
     if (p.roles.some((r) => r.role === 'ROSTER') && rosterProgress(p).complete) rosterReady.add(key);
   }
 
-  // Evolution lines, to say which later stage the player holds instead of this one.
-  const children = new Map<number, number[]>();
+  // Evolution lines, so a search brings the whole line.
   const lineById = new Map(lines.map((l) => [l.id, l]));
-  for (const l of lines) {
-    if (l.evolvesFromId == null) continue;
-    if (!children.has(l.evolvesFromId)) children.set(l.evolvesFromId, []);
-    children.get(l.evolvesFromId)!.push(l.id);
-  }
   const rootOf = (id: number) => {
     let cur = id;
     for (let guard = 0; guard < 6; guard++) {
@@ -259,15 +251,6 @@ export async function loadDex(
     const key = encodeKey(id, variant);
     return ownedHere.has(key) || rosterOwned.has(key);
   };
-  const evolvedInto = (id: number, variant: Variant) => {
-    // Breadth first, so the nearest evolution wins.
-    const queue = [...(children.get(id) ?? [])];
-    for (let i = 0; i < queue.length; i++) {
-      if (holding(queue[i], variant)) return lineById.get(queue[i]) ?? null;
-      queue.push(...(children.get(queue[i]) ?? []));
-    }
-    return null;
-  };
 
   const versions = opts.gameId ? getGame(opts.gameId)?.versionExclusives : undefined;
   const exclusives = versions ? exclusiveBySpecies(versions) : null;
@@ -275,7 +258,6 @@ export async function loadDex(
   return slots.map((s) => {
     const { look, variant } = lookOf(s.species.id, s.species.forms, 'variant' in s ? s.variant : undefined);
     const key = encodeKey(s.species.id, variant);
-    const evo = evolvedInto(s.species.id, variant);
     const side = exclusives?.get(s.species.id);
     return {
       speciesId: s.species.id,
@@ -300,7 +282,6 @@ export async function loadDex(
       exclusive: side && versions ? { versionName: side === 'own' ? versions.ownName : versions.otherName, own: side === 'own' } : null,
       owned: holding(s.species.id, variant),
       ownedViaRoster: rosterOwned.has(key),
-      evolvedInto: evo ? { nameEn: evo.nameEn, nameEs: evo.nameEs } : null,
     };
   });
 }
