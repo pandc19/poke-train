@@ -177,9 +177,11 @@ export function BreedingBoard({
 
   const targetId = find(species, target)?.id ?? null;
 
-  /** A plan started from a Battle suggestion: the Pokémon, the move it uses and the ability it was given. */
+  /** A plan started from a Battle suggestion or a roster nature: the Pokémon, and the move, ability or nature it was started with. */
   const prefill = useRef<{ move: number | null; ability: number | null } | null>(null);
   useEffect(() => {
+    // Read after mount on purpose: the address is not known to the server render.
+    /* eslint-disable react-hooks/set-state-in-effect */
     const q = new URLSearchParams(window.location.search);
     const s = species.find((x) => x.id === Number(q.get('species')));
     if (!s) return;
@@ -188,8 +190,11 @@ export function BreedingBoard({
       ability: Number(q.get('ability')) || null,
     };
     setTarget(name(s));
+    const nature = natures.find((x) => x.id === Number(q.get('nature')));
+    if (nature) setNatureText(name(nature));
     setFormOpen(true);
     window.history.replaceState(null, '', window.location.pathname);
+    /* eslint-enable react-hooks/set-state-in-effect */
     // Once, on arrival.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

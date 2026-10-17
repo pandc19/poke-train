@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { AiBadge } from '../AiBadge';
@@ -7,6 +8,7 @@ import { AuditPanel } from '../AuditPanel';
 import { StatsEvsEditor, type EvEstimateInfo } from '../StatsEvs';
 import { TypeBadge } from '../TypeBadge';
 import { ComboInput, GenderControl, PokemonSprite, PotentialSelect, TaskToggle, progressOf, type Gender } from './parts';
+import { mintInForce } from '@/lib/mint';
 import { auditSuggestions } from '@/lib/audit-compare';
 import { evTotal, formatEvs, type EvSpread } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
@@ -16,7 +18,7 @@ import type { EditorOptions, RosterView } from '@/lib/roster';
 import type { TaskKey, TaskStatus } from '@/lib/roster-status';
 import { useT } from '@/lib/translate-client';
 import { KeeperIcon, TrainingIcon } from '../KeeperIcon';
-import { TrashIcon } from '../ActionIcons';
+import { EggIcon, TrashIcon } from '../ActionIcons';
 
 type Named = { id: number; nameEn: string; nameEs: string };
 
@@ -211,7 +213,7 @@ function StatsSection({
 }) {
   const { t, lang } = useT();
   const pickName = (n: { nameEn: string; nameEs: string } | null) => (n ? (lang === 'en' ? n.nameEn : n.nameEs) : '');
-  const nowNature = p.mintNature ?? p.currentNature ?? p.targetNature;
+  const nowNature = mintInForce(p) ?? p.currentNature ?? p.targetNature;
   // A Mint (or another nature) came after the stats were read: the numbers are not read under what the game applies now.
   const staleStats = Boolean(p.currentStats && p.statsNature && nowNature && p.statsNature.id !== nowNature.id);
   const statsNatureName = pickName(p.statsNature);
@@ -280,6 +282,7 @@ export function RosterDetail({
   judge,
   evs,
   evTarget,
+  breeding,
   estimate,
   numberLabel,
   aiEnabled,
@@ -306,6 +309,8 @@ export function RosterDetail({
   judge: boolean;
   evs: boolean;
   evTarget: boolean;
+  /** The game has breeding: a nature can start a breeding plan. */
+  breeding: boolean;
   estimate?: EvEstimateInfo;
   numberLabel: string;
   aiEnabled: boolean;
@@ -334,7 +339,7 @@ export function RosterDetail({
   // The name in the other language: the suggestion list matches on it too.
   const other = (x: Named) => (lang === 'en' ? x.nameEs : x.nameEn);
   const mintName = (n: Named) => (lang === 'en' ? `${n.nameEn} Mint` : `Menta ${n.nameEs}`);
-  const mintEffect = p.mintNature != null;
+  const mintEffect = mintInForce(p) != null;
   const stat = (slug: string) => (STAT_SHORT[slug] ? STAT_SHORT[slug][lang] : slug);
   const find = (list: Named[], text: string) => {
     const q = text.trim().toLowerCase();
@@ -418,6 +423,8 @@ export function RosterDetail({
   const itemOf = (name: string) => find(options.items, name);
   const moveOf = (name: string) => find(options.moves, name);
   const natureOf = (name: string) => options.natures.find((n) => n.nameEn.toLowerCase() === name.toLowerCase());
+  // The nature a breeding plan would aim for: the one planned, else the one the audit suggests.
+  const breedNature = p.targetNature ?? (sug.nature ? natureOf(sug.nature.nature) : undefined);
   const itemName = (name: string) => label(itemOf(name)) || name;
   const moveName = (name: string) => label(moveOf(name)) || name;
   const typeName = (type: string) => (lang === 'es' ? (TYPE_NAMES_ES[type] ?? type) : type);
@@ -444,6 +451,17 @@ export function RosterDetail({
       : []),
     ...(sug.tera
       ? [{ key: 'tera', label: t('Tera type'), now: p.teraType ? typeName(p.teraType) : dash, ai: typeName(sug.tera.type), same: sug.tera.same }]
+      : []),
+    ...(sug.nature
+      ? [
+          {
+            key: 'nature',
+            label: t('Nature'),
+            now: label(p.currentNature ?? p.targetNature) || dash,
+            ai: label(natureOf(sug.nature.nature)) || sug.nature.nature,
+            same: sug.nature.same,
+          },
+        ]
       : []),
     ...(sug.mint
       ? [
@@ -612,6 +630,18 @@ export function RosterDetail({
           <Section title={t('Build')}>
             <Field
               label={t('Nature')}
+              action={
+                breeding && breedNature && (
+                  <Link
+                    href={`/${gameId}/breeding?${new URLSearchParams({ species: String(p.species.id), nature: String(breedNature.id) })}`}
+                    className="inline-flex rounded border border-line p-1 text-muted hover:bg-surface-2 hover:text-ink"
+                    title={`${t('Plan a breed')}: ${label(p.species)} · ${label(breedNature)}. ${t('31 in every IV')}`}
+                    aria-label={t('Plan a breed')}
+                  >
+                    <EggIcon size={14} />
+                  </Link>
+                )
+              }
               hint={
                 p.currentNature && p.targetNature && p.currentNature.id !== p.targetNature.id
                   ? t('It has {current} now; you are aiming for {target}.', {
@@ -634,15 +664,30 @@ export function RosterDetail({
                   </option>
                 ))}
               </select>
+              {sug.nature &&
+                (sug.nature.same ? (
+                  <Suggestion same>{null}</Suggestion>
+                ) : (
+                  <Suggestion
+                    same={false}
+                    title={sug.nature.reason}
+                    onApply={() => {
+                      const n = natureOf(sug.nature!.nature);
+                      if (n) void save({ targetNatureId: n.id });
+                    }}
+                  >
+                    {label(natureOf(sug.nature.nature)) || sug.nature.nature}
+                  </Suggestion>
+                ))}
             </Field>
             <Field
-              label={t('Mint given')}
+              label={t('Mint')}
               action={
                 p.mintNature && (
                   <TaskToggle
-                    status="DONE"
-                    onToggle={() => save({ mintNatureId: null })}
-                    title={t('Mint given. Click to remove it')}
+                    status={p.mintStatus}
+                    onToggle={() => save({ mintStatus: p.mintStatus === 'DONE' ? 'PENDING' : 'DONE' })}
+                    title={p.mintStatus === 'DONE' ? t('Mint given. Click to undo') : t('Click once you have given the Mint')}
                   />
                 )
               }
@@ -652,7 +697,9 @@ export function RosterDetail({
                       nature: label(p.mintNature),
                       real: label(p.currentNature ?? p.targetNature) || '—',
                     })
-                  : t('A Mint changes which stats the nature raises and lowers, without changing the nature itself.')
+                  : p.mintNature
+                    ? t('Mint chosen but not given yet: the stats stay as they are until you mark it given.')
+                    : t('A Mint changes which stats the nature raises and lowers, without changing the nature itself.')
               }
             >
               <select
@@ -699,7 +746,7 @@ export function RosterDetail({
                 onChange={(e) => save({ abilityId: Number(e.target.value) || null })}
                 className={inputClass}
               >
-                <option value={0}>{t('No ability planned')}</option>
+                <option value={0}>{t('No ability')}</option>
                 {abilityChoices.map((a) => (
                   <option key={a.id} value={a.id}>
                     {label(a)}

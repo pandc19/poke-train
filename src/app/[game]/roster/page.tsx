@@ -48,6 +48,7 @@ export default async function RosterPage({ params, searchParams }: PageProps<'/[
         evs={game.features.evs}
         evTarget={game.features.evTarget}
         tera={game.features.teraType}
+        breeding={game.features.breeding}
         accent={'var(--game-accent)'}
         aiEnabled={provider != null}
       />

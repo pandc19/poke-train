@@ -55,6 +55,8 @@ export type RosterView = {
   currentNature: Named | null;
   /** The nature of the Mint it was given; its stat effect is the one the game shows. */
   mintNature: Named | null;
+  /** DONE once the Mint is given; until then it is only the one chosen. */
+  mintStatus: TaskStatus;
   /** The nature effect the recorded stats were read under. */
   statsNature: Named | null;
   natureStatus: TaskStatus;
@@ -196,6 +198,7 @@ export async function loadRoster(
       targetNature: r.targetNature,
       currentNature: r.currentNature,
       mintNature: r.mintNature,
+      mintStatus: r.mintStatus,
       statsNature: r.statsNature,
       natureStatus: r.natureStatus,
       ability: r.ability,

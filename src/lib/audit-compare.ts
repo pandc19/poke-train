@@ -5,6 +5,7 @@ type AuditLike = {
   recommendedMoves?: { move: string; reason: string }[];
   teraType?: { type: string; reason: string };
   mint?: { nature: string; keep: boolean; reason: string };
+  nature?: { nature: string; reason: string };
   evPlan?: { spread: string };
 };
 
@@ -27,6 +28,7 @@ export type AuditSuggestions = {
   moves?: { move: string; reason: string; has: boolean }[];
   tera?: { type: string; reason: string; same: boolean };
   mint?: { nature: string; keep: boolean; reason: string; same: boolean };
+  nature?: { nature: string; reason: string; same: boolean };
   evs?: { spread: string; same: boolean };
 };
 
@@ -54,6 +56,9 @@ export function auditSuggestions(audit: AuditLike | null | undefined, now: Curre
     if (!stale) {
       out.mint = { ...m, same: m.keep ? true : same(m.nature, now.mintGiven) };
     }
+  }
+  if (audit.nature) {
+    out.nature = { ...audit.nature, same: same(audit.nature.nature, now.realNature) };
   }
   const spread = audit.evPlan?.spread;
   if (spread && spread !== 'nothing' && spread !== 'nada') {

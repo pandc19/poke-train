@@ -14,9 +14,10 @@ import { potentialLevel } from '../potential';
 import type { RosterView } from '../roster';
 import { type AuditAsk, type BuildAuditRaw, LocationSchema, buildAuditSchema } from './schema';
 import { localizeNames } from './names';
+import { mintInForce } from '../mint';
 import type { AiProvider, ModelTier } from './types';
 
-const PROMPT_VERSION = 19;
+const PROMPT_VERSION = 20;
 
 const system = (game: GameConfig, lang: Lang) =>
   [
@@ -131,7 +132,7 @@ function describeBuild(p: RosterView, hasEvs = true) {
     currentNature: p.currentNature?.nameEn ?? null,
     targetNature: p.targetNature?.nameEn ?? null,
     // The Mint it was given, when there is one. Its effect, not the real nature's, is what the game applies to the stats.
-    mintNature: p.mintNature?.nameEn ?? null,
+    mintNature: mintInForce(p)?.nameEn ?? null,
     ability: p.ability?.nameEn ?? null,
     heldItem: p.item?.nameEn ?? p.itemNote,
     ...(hasEvs
@@ -194,13 +195,17 @@ export async function auditBuild(
     ? activeMint(locks, p.mintNature?.nameEn, (p.currentNature ?? p.targetNature)?.nameEn)
     : undefined;
   // What the player has fixed is not asked of the model again: it is kept, and the rest of the audit is worked out in code.
+  const hasNature = Boolean(p.currentNature || p.targetNature || p.mintNature);
   const planFixed = hasEvs && p.evs != null;
   const ask: AuditAsk = {
     evPlan: hasEvs && !planFixed,
     heldItem: !locks?.heldItem,
     moves: (locks?.moves?.length ?? 0) < 4,
     tera: hasTera && !locks?.teraType,
-    mint: hasMint && !mintLock,
+    // With no nature on record, the first thing to settle is which nature to aim for; a Mint only fixes a
+    // nature it already has, so it is asked once there is one.
+    nature: !hasNature,
+    mint: hasMint && !mintLock && hasNature,
   };
   const nothingToAsk = !Object.values(ask).some(Boolean);
 
@@ -228,6 +233,7 @@ export async function auditBuild(
           recommendedMoves: withFixedMoves(locks?.moves, raw.recommendedMoves ?? []),
           ...(hasTera ? { teraType: locks?.teraType ?? raw.teraType } : {}),
           ...(hasMint ? { mint: mintLock ? { ...mintLock, keep: true } : raw.mint } : {}),
+          ...(raw.nature ? { nature: raw.nature } : {}),
         };
         // In Spanish, game names the model left in English inside its sentences are put in the game's own Spanish.
         const say = (text: string) => localizeNames(text, lang);
@@ -235,6 +241,7 @@ export async function auditBuild(
         parts.recommendedMoves = await Promise.all(parts.recommendedMoves.map(async (m) => ({ ...m, reason: await say(m.reason) })));
         if ('teraType' in parts && parts.teraType) parts.teraType = { ...parts.teraType, reason: await say(parts.teraType.reason) };
         if ('mint' in parts && parts.mint) parts.mint = { ...parts.mint, reason: await say(parts.mint.reason) };
+        if ('nature' in parts && parts.nature) parts.nature = { ...parts.nature, reason: await say(parts.nature.reason) };
         if (!hasEvs) return parts;
         // The spread is the model's proposal (or the player's fixed plan); what it means for this Pokémon is worked out here.
         // A fixed plan is kept, only made legal again (amounts in fours, 252 and 508 caps).
@@ -268,6 +275,8 @@ export async function auditBuild(
       prompt: [
         'Give exactly what the player needs for this Pokémon as it is right now, and nothing else. ' +
           'Work with what it already has: its nature, ability, potential, current EVs, held item and known moves are the starting point. Do not propose rebuilding it. ' +
+          'When ability is not null it is part of the build, so every part below must work with it: choose the item, moves, nature, EVs and Tera type that make use of it, ' +
+          'avoid ones it makes pointless or works against, and name the ability in a reason when it is why you chose something. When it is null, do not assume one. ' +
           'Answer only the parts asked for below.',
         JSON.stringify({ pokemon: build, legalMovePool }, null, 2),
         p.finalSpecies
@@ -302,11 +311,17 @@ export async function auditBuild(
             'and no physical attacks when its Attack gets none. Status and setup moves are fine. ' +
             'Use the type, category and power given; do not invent move effects. Keep each reason to one short sentence.'
           : '',
+        ask.nature
+          ? 'nature: it has no nature on record, so say which nature to aim for (to catch or breed one with); do not suggest a Mint. ' +
+            'Work it out from the Pokémon itself: compare its Attack against its Sp. Atk, and its Speed, using baseStats and the moves it can use (legalMovePool and its moves). ' +
+            'Raise the stat it attacks with, or its Speed when it is a fast attacker that wants to outspeed; lower a stat it never uses. ' +
+            'Do not fall back on a common nature: the answer must follow from this Pokémon. Give the nature in English and a one-sentence reason.'
+          : '',
         ask.mint
           ? 'mint: a Mint changes which stats a nature raises and lowers without changing the nature. The effect the game applies is mintNature when it is given, otherwise currentNature (or targetNature when currentNature is unknown). ' +
             'Judge that effect against its role, base stats and the moves it will have: the raised stat should be the one it attacks or speeds with, and the lowered one a stat it never uses (Attack for a special attacker, Sp. Atk for a physical one). ' +
             'If the effect it has is already the best one, set keep to true and nature to that nature. Otherwise set keep to false and nature to the better one, in English. ' +
-            (p.mintNature
+            (mintInForce(p)
               ? 'It holds a Mint now, so keep true means to leave it as it is. '
               : 'It has NO Mint: never tell the player to keep a Mint. If its own nature already has the best effect, set keep to true and say in the reason that no Mint is needed; ' +
                 'otherwise set keep to false and suggest using that nature’s Mint. ') +

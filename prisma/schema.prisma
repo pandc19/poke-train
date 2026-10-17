@@ -344,6 +344,8 @@ model RosterPokemon {
   natureStatus    TaskStatus @default(PENDING) @map("nature_status")
   /// The nature of the Mint it was given: the game then uses this one's stat effect (the real nature stays).
   mintNatureId    Int?       @map("mint_nature_id")
+  /// DONE once the Mint has been given. Until then it is only the one chosen, and the stats do not feel it.
+  mintStatus      TaskStatus @default(PENDING) @map("mint_status")
   /// The nature effect the recorded stats were read under. The EVs are worked out with it, so a Mint given
   /// afterwards does not change them until the stats are read again.
   statsNatureId   Int?       @map("stats_nature_id")

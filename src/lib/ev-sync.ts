@@ -24,6 +24,7 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
       formId: true,
       currentNatureId: true,
       mintNatureId: true,
+      mintStatus: true,
       statsNatureId: true,
       evs: true,
       targetNatureId: true,
@@ -40,8 +41,9 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
   if (!form) return;
 
   // The nature effect the stats were read under (a Mint given since does not change the numbers recorded);
-  // when that is not known, the one in force now: a Mint's, else the nature it has, else the one planned.
-  const natureId = row.statsNatureId ?? row.mintNatureId ?? row.currentNatureId ?? row.targetNatureId;
+  // when that is not known, the one in force now: a Mint's (once given), else the nature it has, else the one planned.
+  const natureId =
+    row.statsNatureId ?? (row.mintStatus === 'DONE' ? row.mintNatureId : null) ?? row.currentNatureId ?? row.targetNatureId;
   const nature = natureId
     ? await db.nature.findUnique({ where: { id: natureId }, select: { increased: true, decreased: true } })
     : null;

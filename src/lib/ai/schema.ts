@@ -37,11 +37,17 @@ export const BuildAuditSchema = z.object({
     .describe('The best set of up to four moves for it, chosen only from the moves it can learn in this game'),
   mint: z
     .object({
-      nature: z.string().describe('The nature whose stat effect it should have, in English, e.g. "Adamant"'),
+      nature: z.string().describe('The nature whose stat effect it should have, in English (one of the 25 natures)'),
       keep: z.boolean().describe('True when the effect it has now is already that one, so nothing needs to change'),
       reason: z.string(),
     })
     .describe('Which Mint to use: keep the effect it has, or change it to a better nature'),
+  nature: z
+    .object({
+      nature: z.string().describe('The nature to aim for, in English (one of the 25 natures)'),
+      reason: z.string(),
+    })
+    .describe('The best nature for it, to catch or breed one with. Only asked when it has no nature on record'),
   teraType: z
     .object({ type: z.enum(TYPE_SLUGS as [string, ...string[]]), reason: z.string() })
     .describe('The best Tera type for it. If the one it has is already the best, name it'),
@@ -75,7 +81,7 @@ export const BuildAuditRawSchema = BuildAuditSchema.omit({ evPlan: true }).exten
 export type BuildAuditRaw = z.infer<typeof BuildAuditRawSchema>;
 
 /** Which parts of the audit the model is asked for: the ones the player has not fixed, and the game has. */
-export type AuditAsk = { evPlan: boolean; heldItem: boolean; moves: boolean; tera: boolean; mint: boolean };
+export type AuditAsk = { evPlan: boolean; heldItem: boolean; moves: boolean; tera: boolean; mint: boolean; nature: boolean };
 
 /**
  * The answer to ask for. Only the parts in `ask` are in it, so a fixed part is never
@@ -89,6 +95,7 @@ export function buildAuditSchema(ask: AuditAsk, hasEvs: boolean) {
   if (!ask.moves) omit.recommendedMoves = true;
   if (!ask.tera) omit.teraType = true;
   if (!ask.mint) omit.mint = true;
+  if (!ask.nature) omit.nature = true;
   const keys = Object.keys(omit).filter((k) => k in base.shape);
   return base.omit(Object.fromEntries(keys.map((k) => [k, true])) as never) as unknown as z.ZodType<Partial<BuildAuditRaw>>;
 }

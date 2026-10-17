@@ -8,6 +8,7 @@ import { RosterDetail } from './roster/RosterDetail';
 import { PAGE_SIZE, RosterList } from './roster/RosterList';
 import { TeamView } from './roster/TeamView';
 import { ComboInput, progressOf, withTask, type Gender } from './roster/parts';
+import { mintInForce } from '@/lib/mint';
 import type { EvEstimateInfo } from './StatsEvs';
 import type { EvSpread } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
@@ -38,6 +39,7 @@ export function RosterBoard({
   evs,
   evTarget,
   tera,
+  breeding,
   aiEnabled,
   accent,
 }: {
@@ -59,6 +61,8 @@ export function RosterBoard({
   evTarget: boolean;
   /** The game has Tera types. */
   tera: boolean;
+  /** The game has breeding, so a nature can start a breeding plan. */
+  breeding: boolean;
   aiEnabled: boolean;
   accent: string;
 }) {
@@ -195,13 +199,13 @@ export function RosterBoard({
       return found ? { increased: found.increased, decreased: found.decreased } : null;
     };
     // The nature effect in force now (a Mint's, else the nature it has), and the one the stats were read under.
-    const now = p.mintNature ?? p.currentNature ?? p.targetNature;
+    const now = mintInForce(p) ?? p.currentNature ?? p.targetNature;
     const read = p.currentStats && p.statsNature ? p.statsNature : now;
     return {
       baseStats: p.baseStats,
       nature: effectOf(read),
       natureName: read ? name(read) : null,
-      mint: p.mintNature != null,
+      mint: mintInForce(p) != null,
       live: { nature: effectOf(now), natureName: now ? name(now) : null },
     };
   };
@@ -704,6 +708,7 @@ export function RosterBoard({
               judge={judge}
               evs={evs}
               evTarget={evTarget}
+              breeding={breeding}
               estimate={estimateFor(selected)}
               numberLabel={numberLabel(selected)}
               aiEnabled={aiEnabled}

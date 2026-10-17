@@ -39,6 +39,8 @@ const Body = z.object({
       currentNatureId: id,
       /** The nature of the Mint it was given, whose stat effect the game uses. */
       mintNatureId: id,
+      /** DONE once the Mint has been given. */
+      mintStatus: z.enum(['PENDING', 'DONE']),
       abilityId: id,
       itemId: id,
       itemNote: z.string().max(200).nullable(),
@@ -170,6 +172,17 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
       // A plan is saved the way the game counts: in fours, 252 at most in a stat and 508 in all.
       if (evs) evs = legalPlan(evs, null, false);
     }
+    // A Mint is chosen first and given later: choosing another one starts it again as not given.
+    const mintChanged = set.mintNatureId !== undefined && set.mintNatureId !== current.mintNatureId;
+    const mintNatureAfter = mintChanged ? set.mintNatureId! ?? null : current.mintNatureId;
+    const mintStatusAfter = mintChanged
+      ? set.mintNatureId != null && set.mintStatus === 'DONE'
+        ? 'DONE'
+        : 'PENDING'
+      : mintNatureAfter != null && set.mintStatus !== undefined
+        ? set.mintStatus
+        : current.mintStatus;
+    const mintGivenAfter = mintNatureAfter != null && mintStatusAfter === 'DONE';
     await prisma.$transaction(async (tx) => {
       await tx.rosterPokemon.update({
         where: { id: rosterId },
@@ -204,7 +217,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
                   : {}),
               }
             : {}),
-          ...(set.mintNatureId !== undefined ? { mintNatureId: set.mintNatureId } : {}),
+          ...(mintChanged ? { mintNatureId: mintNatureAfter, mintStatus: mintStatusAfter } : set.mintStatus !== undefined && mintNatureAfter != null ? { mintStatus: mintStatusAfter } : {}),
           ...(set.abilityId !== undefined && set.abilityId !== current.abilityId
             ? { abilityId: set.abilityId }
             : {}),
@@ -219,7 +232,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
           ...((set.currentStats != null && current.statsNatureId == null) || set.statsRead === true
             ? {
                 statsNatureId:
-                  (set.mintNatureId !== undefined ? set.mintNatureId : current.mintNatureId) ??
+                  (mintGivenAfter ? mintNatureAfter : null) ??
                   (set.currentNatureId !== undefined ? set.currentNatureId : current.currentNatureId) ??
                   (set.targetNatureId !== undefined ? set.targetNatureId : current.targetNatureId),
               }
@@ -269,6 +282,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
         set.level !== undefined ||
         set.targetNatureId !== undefined ||
         set.mintNatureId !== undefined ||
+        set.mintStatus !== undefined ||
         set.statsRead !== undefined ||
         set.evs !== undefined ||
         set.ivRatings !== undefined)

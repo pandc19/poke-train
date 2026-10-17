@@ -76,3 +76,11 @@ export const TrashIcon = (p: IconProps) => (
     <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
   </Svg>
 );
+
+/** An egg with a crack: start a breeding plan. */
+export const EggIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3c3.5 0 6.5 5.5 6.5 10a6.5 6.5 0 0 1-13 0C5.5 8.5 8.5 3 12 3Z" />
+    <path d="m8.5 13 2 1.5 1.5-2 1.5 2 2-1.5" />
+  </Svg>
+);

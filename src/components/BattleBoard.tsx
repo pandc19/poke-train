@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { ArchiveIcon, CheckIcon, CloneIcon, EditIcon, RestoreIcon, TrashIcon } from './ActionIcons';
+import { ArchiveIcon, CheckIcon, CloneIcon, EditIcon, EggIcon, RestoreIcon, TrashIcon } from './ActionIcons';
 import { ConfirmDialog } from './Dialog';
 import { Sprite } from './Sprite';
 import { TeraBadge, TypeBadge } from './TypeBadge';
@@ -371,10 +371,11 @@ export function BattleBoard({
               move: String(c.move.id),
               ...(c.ability ? { ability: String(c.ability.id) } : {}),
             })}`}
-            className="mt-1 inline-block rounded border border-line px-1.5 py-0.5 text-[11px] hover:bg-surface-2"
+            className="mt-1 inline-flex rounded border border-line p-1 text-muted hover:bg-surface-2 hover:text-ink"
             title={t('Start a breeding plan for this Pokémon, with 31 in every IV')}
+            aria-label={t('Plan a breed')}
           >
-            {t('Plan a breed')}
+            <EggIcon size={14} />
           </Link>
         )}
         {c.teraType && c.incomingBase != null && c.incomingBase >= 2 && c.incoming < 2 && (

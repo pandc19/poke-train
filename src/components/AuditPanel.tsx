@@ -233,7 +233,7 @@ export function AuditPanel({
     );
   const toggleMint = () => {
     if (mintFixed || !mintShown) return setLocks(without('mint'));
-    // A Mint that is to change is recorded as given when it is fixed (the same as marking it by hand).
+    // A Mint that is to change is chosen when it is fixed; it counts as given only once the player marks it.
     if (!mintShown.keep) onMint?.(mintShown.nature, true);
     setLocks({ ...locks, mint: { nature: mintShown.nature, reason: mintShown.reason } });
   };
@@ -378,6 +378,17 @@ export function AuditPanel({
               {t('Current Tera type')}: <TypeBadge type={currentTera} lang={lang} />
             </p>
           )}
+        </Box>
+      )}
+
+      {audit.nature && (
+        <Box title={t('Nature')} fixed={false}>
+          <p>
+            <span className="font-medium">
+              {t('Aim for a {nature} Pokémon', { nature: localize ? localize('nature', audit.nature.nature) : audit.nature.nature })}
+            </span>
+            <span className="text-muted"> · {audit.nature.reason}</span>
+          </p>
         </Box>
       )}
 

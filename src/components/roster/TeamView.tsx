@@ -17,6 +17,7 @@ import { evTotal, type EvSpread } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
 import type { IvRatings } from '@/lib/iv-ratings';
 import { ivAssumption } from '@/lib/potential';
+import { mintInForce } from '@/lib/mint';
 import { TYPE_NAMES_ES } from '@/lib/pokemon-types';
 import type { RosterView } from '@/lib/roster';
 import { useT } from '@/lib/translate-client';
@@ -595,7 +596,7 @@ function TeamDetail({
   // The stats alone could allow more than a Pokémon can hold; what it can have is 510 at most.
   const highRaw = range ? evTotal(range.high) : 0;
   const total = evs ? evTotal(evs) : 0;
-  const natureShown = p.mintNature ?? p.currentNature ?? p.targetNature;
+  const natureShown = mintInForce(p) ?? p.currentNature ?? p.targetNature;
   const nowNature = natureShown;
   const moves = p.moves.flatMap((m) => (m.move ? [m.move] : m.rawName ? [{ nameEn: m.rawName, nameEs: m.rawName, type: '' }] : []));
   // The stats the nature (or the Mint) in force raises and lowers, marked on both graphs like the game does.
@@ -658,7 +659,7 @@ function TeamDetail({
             <dt className="text-muted">{t('Nature')}</dt>
             <dd>
               {label(p.currentNature ?? p.targetNature) || '—'}
-              {p.mintNature && <span className="text-muted"> · {t('Mint')}: {label(p.mintNature)}</span>}
+              {mintInForce(p) && <span className="text-muted"> · {t('Mint')}: {label(p.mintNature)}</span>}
             </dd>
             <dt className="text-muted">{t('Ability')}</dt>
             <dd>{label(p.ability) || '—'}</dd>
