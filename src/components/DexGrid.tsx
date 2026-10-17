@@ -100,13 +100,17 @@ export function DexGrid({
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    // A search also brings the rest of the evolution line of what it finds.
-    const matches = (c: DexCell) =>
-      c.nameEn.toLowerCase().includes(q) ||
-      c.nameEs.toLowerCase().includes(q) ||
-      String(c.entryNumber) === q ||
-      String(c.speciesId) === q;
-    const lines = q ? new Set(cells.filter(matches).map((c) => c.lineRoot)) : null;
+    // A search also brings the rest of the evolution line of what it finds. Names are looked up in
+    // every tab, so searching Wyrdeer still shows Stantler in the tab that has it; each tab only
+    // ever shows its own cards. A number only means something in the tab being shown.
+    const byName = (c: DexCell) =>
+      c.nameEn.toLowerCase().includes(q) || c.nameEs.toLowerCase().includes(q) || String(c.speciesId) === q;
+    const lines = q
+      ? new Set([
+          ...(stateCells ?? cells).filter(byName).map((c) => c.lineRoot),
+          ...cells.filter((c) => String(c.entryNumber) === q).map((c) => c.lineRoot),
+        ])
+      : null;
     return cells.filter((c) => {
       if (hasUnavailable && onlyInGame && !c.inGame) return false;
       if (filter === 'missing' && caught.has(c.key)) return false;
@@ -120,7 +124,7 @@ export function DexGrid({
     // `caught` and `notOwned` are deliberately left out: a cell should not vanish
     // from a filtered view the instant it is toggled, only on the next filter change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cells, query, filter, onlyInGame, hasUnavailable]);
+  }, [cells, stateCells, query, filter, onlyInGame, hasUnavailable]);
 
   const apply = useCallback((ids: number[], mode: boolean) => {
     setCaught((prev) => {
