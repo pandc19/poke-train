@@ -151,7 +151,10 @@ export function estimateEvRange(args: {
     const most = estimateMaxEvs({ ...rest, ivs: worst });
     for (const key of keys) {
       const want = plan[key];
-      if (want != null && want > estimate[key] && want <= most[key]) estimate[key] = want;
+      // A stat EVs cannot move at this level (level 1) says nothing, so the plan is not a reading of it.
+      const moves = statValue(key, rest.baseStats[key], best[key] ?? 31, 0, rest.level, rest.nature) !==
+        statValue(key, rest.baseStats[key], best[key] ?? 31, 252, rest.level, rest.nature);
+      if (moves && want != null && want > estimate[key] && want <= most[key]) estimate[key] = want;
     }
   }
   return {

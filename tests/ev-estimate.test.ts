@@ -220,3 +220,14 @@ describe('very low levels', () => {
     expect(levelHints({ stats, level: 1, baseStats: FRIGIBAX, nature: null, estimate })).toEqual({ overTotal: null, atMax: [] });
   });
 });
+
+describe('very low levels with an EV plan', () => {
+  const FRIGIBAX = { hp: 65, attack: 75, defense: 45, specialAttack: 35, specialDefense: 45, speed: 55 };
+  const stats = { hp: 12, attack: 6, defense: 6, specialAttack: 5, specialDefense: 6, speed: 6 };
+
+  it('does not take the plan as what the Pokémon has when the stats cannot show it', () => {
+    const plan = { hp: 0, attack: 252, defense: 0, specialAttack: 0, specialDefense: 4, speed: 252 };
+    const { estimate } = estimateEvRange({ stats, level: 1, baseStats: FRIGIBAX, nature: null, ivsLow: 31, plan });
+    expect(estimate).toEqual({ hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 });
+  });
+});
