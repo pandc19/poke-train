@@ -204,3 +204,19 @@ describe('hints that the level may be behind the game', () => {
     expect(levelHints({ stats, level: 100, baseStats: base, nature, estimate })).toEqual({ overTotal: null, atMax: [] });
   });
 });
+
+describe('very low levels', () => {
+  // Frigibax at level 1: every stat reads 5 or 6 whatever its EVs are.
+  const FRIGIBAX = { hp: 65, attack: 75, defense: 45, specialAttack: 35, specialDefense: 45, speed: 55 };
+  const stats = { hp: 12, attack: 6, defense: 6, specialAttack: 5, specialDefense: 6, speed: 6 };
+
+  it('reads no EVs from stats that EVs cannot move, instead of calling them full', () => {
+    const evs = estimateEvs({ stats, level: 1, baseStats: FRIGIBAX, nature: null });
+    expect(evs).toEqual({ hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 });
+  });
+
+  it('does not warn that the stats are at their most', () => {
+    const { estimate } = estimateEvRange({ stats, level: 1, baseStats: FRIGIBAX, nature: null, ivsLow: 31 });
+    expect(levelHints({ stats, level: 1, baseStats: FRIGIBAX, nature: null, estimate })).toEqual({ overTotal: null, atMax: [] });
+  });
+});

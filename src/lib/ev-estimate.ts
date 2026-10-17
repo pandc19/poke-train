@@ -57,6 +57,12 @@ export function estimateEvs(args: {
     const target = stats[key];
     if (!target) return;
     const iv = typeof ivs === 'number' ? ivs : (ivs[key] ?? 31);
+    // At a very low level the stat does not move with EVs at all (level 1 shows 6 whether the Pokémon
+    // has none or 252), so it says nothing about them: read it as none, not as full.
+    if (statValue(key, baseStats[key], iv, 0, level, nature) === statValue(key, baseStats[key], iv, 252, level, nature)) {
+      out[key] = 0;
+      return;
+    }
     // A stat at its maximum for this level has 252 EVs: below level 100 a few
     // fewer give the same number, but the stat could not tell them apart and
     // the game shows it as full.
@@ -198,8 +204,10 @@ export function levelHints(args: {
   const atMax: (keyof EvSpread)[] = [];
   for (const key of Object.keys(stats) as (keyof EvSpread)[]) {
     if (!stats[key] || key in above) continue;
-    const max = statValue(key, baseStats[key], ivBoundsFor(ratings, key).high, 252, level, nature);
-    if (stats[key] === max) atMax.push(key);
+    const best = ivBoundsFor(ratings, key).high;
+    const max = statValue(key, baseStats[key], best, 252, level, nature);
+    // A stat that EVs cannot move at this level is not "full".
+    if (stats[key] === max && statValue(key, baseStats[key], best, 0, level, nature) !== max) atMax.push(key);
   }
   // 508 is what can be spent in fours; a little over is just how the stats round.
   return { overTotal: total > MAX_EV_TOTAL ? total : null, atMax };
