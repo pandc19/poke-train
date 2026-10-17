@@ -24,44 +24,6 @@ type LocationState = { busy: boolean; result?: LocationResult; error?: string };
 const heading = 'section-title mb-2 border-b border-line pb-1.5';
 const labelClass = 'mb-1 block text-xs font-medium text-muted';
 const inputClass = 'w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm placeholder:text-muted';
-/** One green per stage, from a quiet one for planned to a bright one for done. */
-const STAGE_COLOR: Record<BreedingGoalView['status'], string> = {
-  PLANNED: '#5b8f7b',
-  IN_PROGRESS: '#34d399',
-  DONE: '#4ade80',
-};
-
-/** The egg that says where a plan is: still, rocking about to hatch, or hatched. */
-function StageBadge({ status, label, size = 'md' }: { status: BreedingGoalView['status']; label?: string; size?: 'sm' | 'md' }) {
-  const color = STAGE_COLOR[status];
-  const icon =
-    status === 'DONE' ? (
-      <span className="egg-hatch">🐣</span>
-    ) : status === 'IN_PROGRESS' ? (
-      <span className="egg-wobble">🥚</span>
-    ) : (
-      <span className="opacity-50 grayscale">🥚</span>
-    );
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full border font-medium ${
-        size === 'sm' ? 'px-1.5 py-0 text-[10px]' : 'px-2.5 py-0.5 text-xs'
-      }`}
-      style={{
-        color,
-        borderColor: `${color}80`,
-        backgroundColor: `${color}1a`,
-        boxShadow: status === 'DONE' ? `0 0 10px ${color}55` : undefined,
-      }}
-    >
-      <span aria-hidden="true" className={size === 'sm' ? 'text-xs' : 'text-base leading-none'}>
-        {icon}
-      </span>
-      {label}
-    </span>
-  );
-}
-
 const symbol = (g?: 'male' | 'female') => (g === 'male' ? '♂ ' : g === 'female' ? '♀ ' : '');
 
 export function BreedingBoard({
@@ -92,11 +54,6 @@ export function BreedingBoard({
     'mirror-herb': t('Mirror Herb picnic (no egg needed)'),
     breed: t('Breed with a father that knows it'),
     chain: t('Chain breeding (several generations)'),
-  };
-  const statusLabels: Record<BreedingGoalView['status'], string> = {
-    PLANNED: t('Planned'),
-    IN_PROGRESS: t('In progress'),
-    DONE: t('Done'),
   };
   const [goals, setGoals] = useState(initial);
   /** The plan whose details are shown; the newest one to begin with. */
@@ -305,16 +262,6 @@ export function BreedingBoard({
       setError(err instanceof Error ? err.message : t('Could not create the plan.'));
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function setStatus(id: string, status: BreedingGoalView['status']) {
-    setError(null);
-    try {
-      const data = await api<{ goal: BreedingGoalView }>(`/api/breeding/${id}`, 'PATCH', { status });
-      setGoals((prev) => prev.map((g) => (g.id === id ? data.goal : g)));
-    } catch {
-      setError(t('Could not update that plan. Try again.'));
     }
   }
 
@@ -734,10 +681,7 @@ export function BreedingBoard({
       .sort((a, b) => Number(a.have === 'ready') - Number(b.have === 'ready'));
     const natural = plan?.moves.filter((m) => m.kind === 'natural') ?? [];
     return (
-      <div
-        className="rounded-xl border bg-surface"
-        style={{ borderColor: `${STAGE_COLOR[goal.status]}${goal.status === 'PLANNED' ? '55' : 'aa'}` }}
-      >
+      <div className="rounded-xl border border-line bg-surface">
         {/* Who it is, what it needs and whether you are ready stay in view while the plan scrolls underneath. */}
         <div className="sticky top-[var(--nav-h)] z-10 md:top-[calc(var(--nav-h)+3.25rem)] max-h-[40dvh] overflow-y-auto rounded-t-xl border-b border-line bg-surface p-4 shadow-sm lg:max-h-[60dvh]">
         <div className="flex flex-wrap items-center gap-3">
@@ -745,24 +689,13 @@ export function BreedingBoard({
           <div className="min-w-0 flex-1">
             <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold">
               {name(goal.species)}
-              <StageBadge status={goal.status} label={statusLabels[goal.status]} />
             </h3>
             {goal.moves.length > 0 && <p className="text-xs text-muted">{goal.moves.map(name).join(' · ')}</p>}
           </div>
           <div className="flex items-center gap-2 text-xs">
-            <select
-              value={goal.status}
-              onChange={(e) => setStatus(goal.id, e.target.value as BreedingGoalView['status'])}
-              aria-label={t('Plan status')}
-              className="rounded-md border border-line bg-surface px-2 py-1"
-            >
-              {Object.entries(statusLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
             <button
+              // startEdit sets a ref, in the click handler only; the lint rule cannot tell it is not read while rendering.
+              // eslint-disable-next-line react-hooks/refs
               onClick={() => startEdit(goal)}
               title={t('Edit')}
               aria-label={t('Edit')}
@@ -793,20 +726,13 @@ export function BreedingBoard({
           </p>
         )}
 
-        {goal.locked && (
-          <p className="mt-3 rounded-md bg-surface-2 px-2 py-1 text-xs text-muted">
-            {t('Locked while done: the plan stays as it was, whatever you change in your roster or Pokédex. Change its status to update it.')}
-          </p>
-        )}
-
         {plan && !plan.parents.canBreed && (
           <p className="mt-3 text-sm text-danger">
             {t('{name} cannot breed (it is in the "no eggs" group), so it has to be caught.', { name: name(goal.species) })}
           </p>
         )}
 
-        {/* Once the plan is done there is nothing left to get ready for. */}
-        {plan && plan.parents.canBreed && goal.status !== 'DONE' && (
+        {plan && plan.parents.canBreed && (
           <div
             className={`mt-3 rounded-lg px-3 py-2 text-sm font-medium ${
               state.need.length === 0 ? 'bg-done/10 text-done' : 'bg-pending/10 text-pending'
@@ -1116,7 +1042,6 @@ export function BreedingBoard({
                       className={`flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left ${
                         on ? 'border-done bg-surface-2' : 'border-line bg-surface hover:bg-surface-2'
                       }`}
-                      style={{ borderLeftColor: STAGE_COLOR[goal.status], borderLeftWidth: 4 }}
                     >
                       {pic(goal.species, 40)}
                       <span className="min-w-0 flex-1">
@@ -1125,8 +1050,7 @@ export function BreedingBoard({
                           <span className="block truncate text-[11px] text-muted">{goal.moves.map(name).join(' · ')}</span>
                         )}
                         <span className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                          {goal.status !== 'DONE' && <span className={state.tone}>{state.label}</span>}
-                          <StageBadge status={goal.status} label={statusLabels[goal.status]} size="sm" />
+                          <span className={state.tone}>{state.label}</span>
                         </span>
                       </span>
                     </button>

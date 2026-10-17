@@ -3,13 +3,11 @@ import { apiError } from '@/lib/api-error';
 import { IV_STATS } from '@/lib/breeding/engine';
 import { loadGoals } from '@/lib/breeding/goals';
 import { LOCAL_USER_ID } from '@/lib/constants';
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getGame } from '@/lib/games';
 
-/** Anything of a plan can change: its status, or what it is a plan for. */
+/** Anything of a plan can change: what it is a plan for. */
 const Body = z.object({
-  status: z.enum(['PLANNED', 'IN_PROGRESS', 'DONE']).optional(),
   speciesId: z.number().int().positive().optional(),
   moveIds: z.array(z.number().int().positive()).max(4).optional(),
   ivTargets: z.array(z.enum(IV_STATS)).max(6).optional(),
@@ -33,16 +31,13 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/breeding/[
   const game = goal && getGame(goal.profile.gameId);
   if (!goal || !game) return apiError('Not found', 404);
 
-  const { status, speciesId, moveIds, ivTargets, natureId, hiddenAbility } = parsed.data;
+  const { speciesId, moveIds, ivTargets, natureId, hiddenAbility } = parsed.data;
   if (speciesId != null && !(await prisma.species.findUnique({ where: { id: speciesId }, select: { id: true } }))) {
     return apiError('Unknown Pokémon', 404);
   }
   await prisma.breedingGoal.update({
     where: { id },
     data: {
-      // Re-worked from what you have now; a plan that is still done is locked again when loaded.
-      frozen: Prisma.DbNull,
-      status,
       speciesId,
       moveIds: moveIds ? [...new Set(moveIds)] : undefined,
       ivTargets: ivTargets ? [...new Set(ivTargets)] : undefined,

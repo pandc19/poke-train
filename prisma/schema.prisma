@@ -438,12 +438,6 @@ model RosterMove {
   @@map("roster_moves")
 }
 
-enum BreedingStatus {
-  PLANNED
-  IN_PROGRESS
-  DONE
-}
-
 model BreedingGoal {
   id            String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
   profileId     String         @map("profile_id") @db.Uuid
@@ -455,11 +449,6 @@ model BreedingGoal {
   ivTargets     String[]       @default([]) @map("iv_targets")
   /// The offspring should have the hidden ability.
   hiddenAbility Boolean        @default(false) @map("hidden_ability")
-  status        BreedingStatus @default(PLANNED)
-  /// Last computed plan (see src/lib/breeding).
-  plan          Json?
-  /// The plan as it was when marked done: shown as is while it stays done.
-  frozen        Json?
   notes         String?
   createdAt     DateTime       @default(now()) @map("created_at")
 
