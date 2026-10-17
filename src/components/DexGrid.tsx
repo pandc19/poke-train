@@ -1,7 +1,9 @@
 'use client';
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { motion } from 'motion/react';
+import { EggIcon } from './ActionIcons';
 import { useRouter } from 'next/navigation';
 import { PokemonInfoDialog } from './PokemonInfoDialog';
 import { ScrollTopButton } from './ScrollTopButton';
@@ -432,8 +434,23 @@ export function DexGrid({
                     </button>
                   )}
                   <span className="readout text-xs font-semibold text-muted">{c.entryNumber != null ? `#${String(c.entryNumber).padStart(3, '0')}` : '—'}</span>
-                  {c.keeper || c.training || c.ready ? (
+                  {c.keeper || c.training || c.ready || c.planId ? (
                     <span className="flex items-center gap-1">
+                      {c.planId &&
+                        (gameId ? (
+                          <Link
+                            href={`/${gameId}/breeding?plan=${c.planId}`}
+                            className="text-done"
+                            title={t('Has a breeding plan. Open it')}
+                            aria-label={t('Has a breeding plan. Open it')}
+                          >
+                            <EggIcon size={18} />
+                          </Link>
+                        ) : (
+                          <span className="text-done" title={t('Has a breeding plan')} aria-label={t('Has a breeding plan')}>
+                            <EggIcon size={18} />
+                          </span>
+                        ))}
                       {c.ready && (
                         <span className="text-done" title={t('Ready')} aria-label={t('Ready')}>
                           <ReadyIcon size={18} />

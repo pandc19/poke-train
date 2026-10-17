@@ -621,6 +621,15 @@ export function RosterDetail({
                 label={p.roles.includes('BREEDER') ? t('Is a breeder') : t('Not a breeder')}
                 title={t('A breeder is kept on the Breeders page with its IVs, and used as a parent by the breeding planner.')}
               />
+              {breeding && p.planId && (
+                <Link
+                  href={`/${gameId}/breeding?plan=${p.planId}`}
+                  className="inline-flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-done hover:bg-surface-2"
+                  title={t('Open its breeding plan')}
+                >
+                  <EggIcon size={14} /> {t('Has a breeding plan')}
+                </Link>
+              )}
             </div>
             <Field label={t('Gender')} hint={t('Used by the breeding planner to know which parents you have.')}>
               <GenderControl p={p} onChange={onGender} />

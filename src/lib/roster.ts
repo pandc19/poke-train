@@ -27,6 +27,8 @@ export type RosterView = {
   /** Sort key that follows the game's Pokédex order: base game first, then expansions. */
   dexOrder: number | null;
   baseSpecies: Named | null;
+  /** The breeding plan for this Pokémon, if there is one. */
+  planId: string | null;
   /**
    * The stage it is meant to end as, when that is a different one from the stage it is at now (a Slakoth
    * that will be a Slaking). Null when the stage it is at is the final one. The audit judges this one.
@@ -171,6 +173,12 @@ export async function loadRoster(
     if (!known || dexOrder < known.dexOrder) position.set(slot.speciesId, { dexOrder, entryNumber: slot.entryNumber });
   }
 
+  // A breeding plan for the same Pokémon, if there is one (the newest).
+  const planBySpecies = new Map<number, string>();
+  for (const g of await prisma.breedingGoal.findMany({ where: { profileId }, orderBy: { createdAt: 'desc' }, select: { id: true, speciesId: true } })) {
+    if (!planBySpecies.has(g.speciesId)) planBySpecies.set(g.speciesId, g.id);
+  }
+
   return rows.map((r) => {
     const form = r.species.forms.find((f) => f.id === r.formId) ?? r.species.forms.find((f) => f.isDefault);
     const abilityOptions = (form?.abilities ?? []).map((a) => ({ ...a.ability, isHidden: a.isHidden }));
@@ -179,6 +187,7 @@ export async function loadRoster(
       id: r.id,
       species: { id: r.species.id, nameEn: r.species.nameEn, nameEs: r.species.nameEs },
       nationalNumber: r.species.id,
+      planId: planBySpecies.get(r.speciesId) ?? null,
       entryNumber: position.get(r.speciesId)?.entryNumber ?? null,
       dexOrder: position.get(r.speciesId)?.dexOrder ?? null,
       baseSpecies: r.baseSpecies,

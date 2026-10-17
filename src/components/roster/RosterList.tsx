@@ -6,6 +6,7 @@ import { PokemonSprite, genderMark, progressOf } from './parts';
 import type { Lang } from '@/lib/i18n';
 import type { RosterView } from '@/lib/roster';
 import { useT } from '@/lib/translate-client';
+import { EggIcon } from '../ActionIcons';
 import { KeeperIcon, ReadyIcon, TrainingIcon } from '../KeeperIcon';
 
 export const PAGE_SIZE = 12;
@@ -105,6 +106,11 @@ export function RosterList({
                   <span className="flex w-full items-center justify-between text-[10px] text-muted">
                     <span className="readout">{numberOf(p)}</span>
                     <span className="flex items-center gap-1">
+                      {p.planId && (
+                        <span className="text-done" title={t('Has a breeding plan')} aria-label={t('Has a breeding plan')}>
+                          <EggIcon size={16} />
+                        </span>
+                      )}
                       {p.keeper && (
                         <span className="text-violet-500" title={t('Keeper')} aria-label={t('Keeper')}>
                           <KeeperIcon size={20} />

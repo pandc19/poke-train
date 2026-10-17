@@ -39,6 +39,8 @@ export type DexCell = {
   caughtIn: string[];
   /** The first species of its evolution line, so a search can bring the whole line. */
   lineRoot: number;
+  /** The breeding plan for this Pokémon, if there is one. */
+  planId: string | null;
   /** A roster Pokémon of this species is marked as a keeper. */
   keeper: boolean;
   /** A roster Pokémon of this species is marked as being trained now. */
@@ -252,6 +254,14 @@ export async function loadDex(
     return ownedHere.has(key) || rosterOwned.has(key);
   };
 
+  // A breeding plan for the same Pokémon, if there is one (the newest).
+  const planBySpecies = new Map<number, string>();
+  if (profileId) {
+    for (const g of await prisma.breedingGoal.findMany({ where: { profileId }, orderBy: { createdAt: 'desc' }, select: { id: true, speciesId: true } })) {
+      if (!planBySpecies.has(g.speciesId)) planBySpecies.set(g.speciesId, g.id);
+    }
+  }
+
   const versions = opts.gameId ? getGame(opts.gameId)?.versionExclusives : undefined;
   const exclusives = versions ? exclusiveBySpecies(versions) : null;
 
@@ -276,6 +286,7 @@ export async function loadDex(
       hasFemale: gendersHere.get(key)?.hasFemale ?? false,
       genderRate: s.species.genderRate,
       caughtIn: [...(caughtIn.get(s.species.id) ?? [])],
+      planId: planBySpecies.get(s.species.id) ?? null,
       keeper: rosterKeeper.has(key),
       training: rosterTraining.has(key),
       ready: rosterReady.has(key),

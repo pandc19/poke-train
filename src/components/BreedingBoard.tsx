@@ -21,6 +21,12 @@ type Named = { id: number; nameEn: string; nameEs: string };
 type RosterBuild = { speciesId: number; species: Named; moves: Named[] };
 type LocationState = { busy: boolean; result?: LocationResult; error?: string };
 
+/** How far a plan is from being ready: 0 = everything is at hand; a Pokémon that cannot breed comes last. */
+const missingCount = (goal: BreedingGoalView) =>
+  !goal.plan ? 500 : !goal.plan.parents.canBreed ? 1000 : goal.plan.shopping.filter((s) => s.have !== 'ready').length;
+/** Closest to ready first; plans just as far keep the order they came in (newest first). */
+const byCloseness = (goals: BreedingGoalView[]) => [...goals].sort((a, b) => missingCount(a) - missingCount(b));
+
 const heading = 'section-title mb-2 border-b border-line pb-1.5';
 const labelClass = 'mb-1 block text-xs font-medium text-muted';
 const inputClass = 'w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm placeholder:text-muted';
@@ -56,9 +62,9 @@ export function BreedingBoard({
     chain: t('Chain breeding (several generations)'),
   };
   const [goals, setGoals] = useState(initial);
-  /** The plan whose details are shown; the newest one to begin with. */
-  const [selectedId, setSelectedId] = useState<string | null>(initial[0]?.id ?? null);
-  const selected = goals.find((g) => g.id === selectedId) ?? goals[0] ?? null;
+  /** The plan whose details are shown; the one closest to ready to begin with. */
+  const [selectedId, setSelectedId] = useState<string | null>(byCloseness(initial)[0]?.id ?? null);
+  const selected = goals.find((g) => g.id === selectedId) ?? byCloseness(goals)[0] ?? null;
   const detailRef = useRef<HTMLDivElement>(null);
   const select = (id: string) => {
     setSelectedId(id);
@@ -140,6 +146,13 @@ export function BreedingBoard({
     // Read after mount on purpose: the address is not known to the server render.
     /* eslint-disable react-hooks/set-state-in-effect */
     const q = new URLSearchParams(window.location.search);
+    // A link from the roster or Pokédex to a plan that exists.
+    const planId = q.get('plan');
+    if (planId && initial.some((g) => g.id === planId)) {
+      setSelectedId(planId);
+      window.history.replaceState(null, '', window.location.pathname);
+      return;
+    }
     const s = species.find((x) => x.id === Number(q.get('species')));
     if (!s) return;
     prefill.current = {
@@ -663,6 +676,30 @@ export function BreedingBoard({
       : { label: t('Missing {n}', { n: need.length }), tone: 'text-pending', need };
   };
 
+  /** Everything the plan needs from you, ticked off as your Pokédex, roster and breeders come to have it. */
+  const checklist = (goal: BreedingGoalView) => {
+    const plan = goal.plan;
+    if (!plan?.parents.canBreed) return [];
+    const rows = plan.shopping.map((item, i) => ({
+      key: `p${i}`,
+      done: item.have === 'ready',
+      label: `${symbol(item.gender)}${name(item.species)} · ${roleLabel(goal, item)}`,
+      note: item.have === 'ready' ? null : describe(goal, item),
+    }));
+    if (goal.hiddenAbility && goal.ivs?.base && goal.ivs.hiddenOk != null) {
+      rows.push({
+        key: 'hidden',
+        done: goal.ivs.hiddenOk === true,
+        label: goal.hiddenAbilityName
+          ? t('Mother with {ability} (hidden ability)', { ability: name(goal.hiddenAbilityName) })
+          : t('Mother with the hidden ability'),
+        note: goal.ivs.hiddenOk ? null : t('Record it in Breeders, or use an Ability Patch afterwards.'),
+      });
+    }
+    // What is still to do comes first.
+    return rows.sort((a, b) => Number(a.done) - Number(b.done));
+  };
+
   const renderGoal = (goal: BreedingGoalView) => {
     const plan = goal.plan;
     const state = readiness(goal);
@@ -722,7 +759,11 @@ export function BreedingBoard({
               </span>
             ))}
             {goal.nature && <span className="rounded border border-line px-1.5 py-0.5">{name(goal.nature)}</span>}
-            {goal.hiddenAbility && <span className="rounded border border-line px-1.5 py-0.5">{t('Hidden ability')}</span>}
+            {goal.hiddenAbility && (
+              <span className="rounded border border-line px-1.5 py-0.5">
+                {goal.hiddenAbilityName ? `${name(goal.hiddenAbilityName)} (${t('hidden')})` : t('Hidden ability')}
+              </span>
+            )}
           </p>
         )}
 
@@ -732,7 +773,40 @@ export function BreedingBoard({
           </p>
         )}
 
-        {plan && plan.parents.canBreed && (
+        {goal.match && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-done/10 px-3 py-2 text-sm text-done">
+            <span className="min-w-0 flex-1 font-medium">
+              {t('You already have one that matches this plan: {name}.', {
+                name: goal.match.label ? `${goal.match.label} (${name(goal.species)})` : name(goal.species),
+              })}
+            </span>
+            <button
+              type="button"
+              onClick={() => setDeleting(goal)}
+              className="rounded-md border border-done/50 px-3 py-1 text-xs font-semibold hover:bg-done/10"
+            >
+              {t('Delete the plan')}
+            </button>
+          </div>
+        )}
+
+        {plan && plan.parents.canBreed && !goal.match && checklist(goal).length > 0 && (
+          <ul className="mt-3 space-y-1 text-xs">
+            {checklist(goal).map((c) => (
+              <li key={c.key} className="flex items-start gap-2">
+                <span aria-hidden className={c.done ? 'text-done' : 'text-pending'}>
+                  {c.done ? '✓' : '○'}
+                </span>
+                <span className={c.done ? 'text-muted line-through decoration-muted/40' : undefined}>
+                  <span className={c.done ? undefined : 'font-medium'}>{c.label}</span>
+                  {c.note && <span className="text-muted"> · {c.note}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {plan && plan.parents.canBreed && !goal.match && (
           <div
             className={`mt-3 rounded-lg px-3 py-2 text-sm font-medium ${
               state.need.length === 0 ? 'bg-done/10 text-done' : 'bg-pending/10 text-pending'
@@ -1030,7 +1104,7 @@ export function BreedingBoard({
               } lg:static lg:mt-0 lg:block lg:max-h-none lg:overflow-visible lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none`}
             >
             <ul className="space-y-1.5">
-              {goals.map((goal) => {
+              {byCloseness(goals).map((goal) => {
                 const on = goal.id === selected?.id;
                 const state = readiness(goal);
                 return (
