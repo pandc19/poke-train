@@ -101,16 +101,16 @@ export const GAMES: GameConfig[] = [
         name: { en: 'Blueberry', es: 'Arándano' },
         note: { en: 'DLC: The Indigo Disk', es: 'DLC: El Disco Índigo' },
         // Alolan Sandshrew/Sandslash, Vulpix/Ninetales, Diglett/Dugtrio, Geodude line, Grimer/Muk, Exeggutor;
-        // Galarian Slowpoke/Slowbro/Slowking.
-        regionalSpecies: [27, 28, 37, 38, 50, 51, 74, 75, 76, 88, 89, 103, 79, 80, 199],
+        // Galarian Slowpoke/Slowbro/Slowking; Hisuian Qwilfish.
+        regionalSpecies: [27, 28, 37, 38, 50, 51, 74, 75, 76, 88, 89, 103, 79, 80, 199, 211],
         lastEntry: 240,
       },
     ],
     nationalDex: false,
     extraForms: {
-      // Hisuian Growlithe, Arcanine, Voltorb, Electrode, Typhlosion, Qwilfish, Sneasel, Samurott,
+      // Hisuian Growlithe, Arcanine, Voltorb, Electrode, Typhlosion, Sneasel, Samurott,
       // Lilligant, Zorua, Zoroark, Braviary, Sliggoo, Goodra, Avalugg, Decidueye.
-      speciesIds: [58, 59, 100, 101, 157, 211, 215, 503, 549, 570, 571, 628, 705, 706, 713, 724],
+      speciesIds: [58, 59, 100, 101, 157, 215, 503, 549, 570, 571, 628, 705, 706, 713, 724],
       name: { en: 'Hisui forms', es: 'Formas de Hisui' },
       note: { en: 'Not in any Pokédex of the game, but accepted from Pokémon HOME', es: 'No están en ningún Pokédex del juego, pero se aceptan desde Pokémon HOME' },
     },
